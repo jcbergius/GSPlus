@@ -12,6 +12,7 @@ BetterGearScore.Tooltip = BetterGearScore.Tooltip or {}
 BetterGearScore.TalentDetector = BetterGearScore.TalentDetector or {}
 BetterGearScore.Profiles = BetterGearScore.Profiles or {}
 BetterGearScore.CharacterPaneUI = BetterGearScore.CharacterPaneUI or {}
+BetterGearScore.SetBonuses = BetterGearScore.SetBonuses or {}
 
 function BetterGearScore:Initialize()
     BetterGearScoreSavedVars = BetterGearScoreSavedVars or {}

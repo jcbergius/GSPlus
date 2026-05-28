@@ -45,7 +45,7 @@ function UI:CreateWindow()
 
     local infoText = totalScoreFrame:CreateFontString(nil, "ARTWORK", "GameFontNormal")
     infoText:SetPoint("TOPLEFT", totalScoreText, "BOTTOMLEFT", 0, -10)
-    infoText:SetText("Raw: 0  |  Weighted: 0")
+    infoText:SetText("Budget: 0")
     self.infoText = infoText
 
     local scrollFrame = CreateFrame("ScrollFrame", "BetterGearScoreScrollFrame", frame, "UIPanelScrollFrameTemplate")
@@ -69,14 +69,17 @@ function UI:Update()
     end
 
     local data = BetterGearScore.Calculator:GetPlayerBetterGearScore()
+    local coloredTotalScore = BetterGearScore.Calculator:ColorizeScore(
+        data.totalWeightedScore or 0,
+        data.totalMaxBudgetScore or 0
+    )
 
-    self.totalScoreText:SetText("Total Gear Score: " .. math.floor(data.totalWeightedScore or 0))
+    self.totalScoreText:SetText("Total Gear Score: " .. coloredTotalScore)
+
     self.infoText:SetText(
-    "Profile: " .. (data.profileName or "Unknown")
-    .. "  |  Raw: " .. math.floor(data.totalRawScore or 0)
-    .. "  |  Weighted: "
-    .. math.floor(data.totalWeightedScore or 0)
-)
+        "Profile: " .. (data.profileName or "Unknown")
+        .. "  |  Budget: " .. math.floor(data.totalRawScore or 0)
+    )
 
     self.itemEntries = self.itemEntries or {}
 
@@ -98,6 +101,7 @@ function UI:Update()
             slotName,
             itemScore.rawScore or 0,
             itemScore.weightedScore or 0,
+            itemScore.maxBudgetScore or 0,
             itemScore.link
         )
 
@@ -109,7 +113,7 @@ function UI:Update()
     end
 
     if itemCount == 0 then
-        local emptyRow = self:CreateItemEntry("No equipped items found", "Info", 0, 0, nil)
+        local emptyRow = self:CreateItemEntry("No equipped items found", "Info", 0, 0, 0, nil)
         emptyRow:SetPoint("TOPLEFT", self.listFrame, "TOPLEFT", 0, yOffset)
         self.itemEntries[#self.itemEntries + 1] = emptyRow
         itemCount = 1
@@ -118,7 +122,7 @@ function UI:Update()
     self.listFrame:SetHeight(itemCount * 40 + 20)
 end
 
-function UI:CreateItemEntry(itemName, slotName, rawScore, weightedScore, itemLink)
+function UI:CreateItemEntry(itemName, slotName, rawScore, weightedScore, maxBudgetScore, itemLink)
     local frame = CreateFrame("Button", nil, self.listFrame, "BackdropTemplate")
     frame:SetSize(self.WINDOW_WIDTH - 65, 35)
     frame:SetBackdrop({
@@ -139,7 +143,7 @@ function UI:CreateItemEntry(itemName, slotName, rawScore, weightedScore, itemLin
 
     local scoreText = frame:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
     scoreText:SetPoint("RIGHT", frame, "RIGHT", -8, 0)
-    scoreText:SetText(math.floor(weightedScore or 0))
+    scoreText:SetText(BetterGearScore.Calculator:ColorizeScore(weightedScore or 0, maxBudgetScore or 0))
 
     frame:SetScript("OnEnter", function()
         frame:SetBackdropColor(0.2, 0.2, 0.3, 0.9)

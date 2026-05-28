@@ -10,6 +10,7 @@ StatWeights.lua
 Profiles.lua
 TalentDetector.lua
 ItemParser.lua
+SetBonuses.lua
 BetterGearScoreCalculator.lua
 CharacterPaneUI.lua
 UI.lua

@@ -8,7 +8,6 @@ local CharacterPaneUI = BetterGearScore.CharacterPaneUI
 CharacterPaneUI.frame = CharacterPaneUI.frame or nil
 CharacterPaneUI.labelText = CharacterPaneUI.labelText or nil
 CharacterPaneUI.scoreText = CharacterPaneUI.scoreText or nil
-CharacterPaneUI.profileText = CharacterPaneUI.profileText or nil
 CharacterPaneUI.eventFrame = CharacterPaneUI.eventFrame or nil
 CharacterPaneUI.hooked = CharacterPaneUI.hooked or false
 
@@ -35,64 +34,43 @@ function CharacterPaneUI:Create()
         return nil
     end
 
-    local frame = CreateFrame("Frame", "BetterGearScoreCharacterPaneFrame", parent, "BackdropTemplate")
-    frame:SetSize(165, 44)
+    local frame = CreateFrame("Frame", "BetterGearScoreCharacterPaneFrame", parent)
+    frame:SetSize(135, 22)
     frame:SetFrameStrata("DIALOG")
     frame:SetFrameLevel(999)
     frame:EnableMouse(true)
 
-    frame:SetBackdrop({
-        bgFile = "Interface/Tooltips/UI-Tooltip-Background",
-        edgeFile = "Interface/Tooltips/UI-Tooltip-Border",
-        tile = true,
-        tileSize = 16,
-        edgeSize = 10,
-        insets = {
-            left = 3,
-            right = 3,
-            top = 3,
-            bottom = 3,
-        },
-    })
-
-    frame:SetBackdropColor(0, 0, 0, 0.85)
-    frame:SetBackdropBorderColor(0, 1, 0, 0.9)
-
     frame:ClearAllPoints()
 
     if PaperDollFrame then
-        frame:SetPoint("BOTTOMLEFT", PaperDollFrame, "BOTTOMLEFT", 78, 42)
+        frame:SetPoint("BOTTOMLEFT", PaperDollFrame, "BOTTOMLEFT", 73, 254)
     elseif CharacterFrame then
-        frame:SetPoint("BOTTOMLEFT", CharacterFrame, "BOTTOMLEFT", 78, 48)
+        frame:SetPoint("BOTTOMLEFT", CharacterFrame, "BOTTOMLEFT", 73, 254)
     else
         frame:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
     end
 
     local labelText = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    labelText:SetPoint("TOPLEFT", frame, "TOPLEFT", 8, -6)
-    labelText:SetText("|cff00ff00BetterGearScore|r")
+    labelText:SetPoint("LEFT", frame, "LEFT", 0, 0)
+    labelText:SetText("|cffffffffBGS|r")
 
     local scoreText = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlightLarge")
-    scoreText:SetPoint("TOPLEFT", labelText, "BOTTOMLEFT", 0, -2)
+    scoreText:SetPoint("LEFT", labelText, "RIGHT", 8, 0)
     scoreText:SetText("|cffffffff0|r")
-
-    local profileText = frame:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-    profileText:SetPoint("LEFT", scoreText, "RIGHT", 8, 0)
-    profileText:SetWidth(90)
-    profileText:SetJustifyH("LEFT")
-    profileText:SetText("")
 
     frame:SetScript("OnEnter", function()
         GameTooltip:SetOwner(frame, "ANCHOR_RIGHT")
 
         local data = BetterGearScore.Calculator:GetPlayerBetterGearScore()
+        local coloredScore = BetterGearScore.Calculator:ColorizeScore(
+            data.totalWeightedScore or 0,
+            data.totalMaxBudgetScore or 0
+        )
 
         GameTooltip:AddLine("|cff00ff00BetterGearScore|r")
         GameTooltip:AddLine("Profile: " .. (data.profileName or "Unknown"), 1, 1, 1)
-        GameTooltip:AddLine("Weighted Score: " .. math.floor(data.totalWeightedScore or 0), 0, 1, 0)
+        GameTooltip:AddDoubleLine("Weighted Score", coloredScore, 1, 1, 1, 1, 1, 1)
         GameTooltip:AddLine("Budget Score: " .. math.floor(data.totalRawScore or 0), 0.8, 0.8, 0.8)
-        GameTooltip:AddLine(" ")
-        GameTooltip:AddLine("Use /bgs show for item details.", 0.7, 0.7, 0.7)
 
         GameTooltip:Show()
     end)
@@ -104,7 +82,6 @@ function CharacterPaneUI:Create()
     self.frame = frame
     self.labelText = labelText
     self.scoreText = scoreText
-    self.profileText = profileText
 
     self:Update()
 
@@ -133,9 +110,9 @@ function CharacterPaneUI:Reanchor()
     self.frame:SetFrameLevel(999)
 
     if PaperDollFrame then
-        self.frame:SetPoint("BOTTOMLEFT", PaperDollFrame, "BOTTOMLEFT", 78, 42)
+        self.frame:SetPoint("BOTTOMLEFT", PaperDollFrame, "BOTTOMLEFT", 73, 254)
     elseif CharacterFrame then
-        self.frame:SetPoint("BOTTOMLEFT", CharacterFrame, "BOTTOMLEFT", 78, 48)
+        self.frame:SetPoint("BOTTOMLEFT", CharacterFrame, "BOTTOMLEFT", 73, 254)
     else
         self.frame:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
     end
@@ -151,13 +128,12 @@ function CharacterPaneUI:Update()
     end
 
     local data = BetterGearScore.Calculator:GetPlayerBetterGearScore()
-    local weightedScore = math.floor(data.totalWeightedScore or 0)
+    local coloredScore = BetterGearScore.Calculator:ColorizeScore(
+        data.totalWeightedScore or 0,
+        data.totalMaxBudgetScore or 0
+    )
 
-    self.scoreText:SetText("|cffffffff" .. weightedScore .. "|r")
-
-    if self.profileText then
-        self.profileText:SetText(data.profileName or "")
-    end
+    self.scoreText:SetText(coloredScore)
 end
 
 function CharacterPaneUI:Show()
