@@ -4,3 +4,5 @@ enable-nolib-creation: no
 ignore:
   - .github
   - tests
+  - TESTING.md
+  - CURSEFORGE.md

@@ -1,0 +1,29 @@
+# Runs on every push and pull request: Lua syntax check on all addon files
+# plus the WoW-API-stub test harness (46 functional tests).
+
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Lua 5.1
+        run: sudo apt-get update && sudo apt-get install -y lua5.1
+
+      - name: Syntax check all addon files
+        run: |
+          set -e
+          for f in *.lua; do
+            luac5.1 -p "$f"
+            echo "OK: $f"
+          done
+
+      - name: Run test harness
+        run: lua5.1 tests/harness.lua .

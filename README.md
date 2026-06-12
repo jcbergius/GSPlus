@@ -396,6 +396,20 @@ Your `.toc` should contain:
 
 ## Development Notes
 
+### Automated Tests
+
+`tests/harness.lua` stubs the WoW API and runs ~46 functional tests across
+parsing, scoring, caps, comms, inspect, and the UI entry points. CI runs it
+(plus a Lua syntax check) on every push and pull request.
+
+```bash
+lua5.1 tests/harness.lua .
+```
+
+Before tagging a release, also run the in-game pass in `TESTING.md` - it
+covers everything the stubs can't (frame positions, real client API
+signatures, comms between two clients).
+
 ### Reloading
 
 After making code changes, reload the UI with:
