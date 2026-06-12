@@ -1,6 +1,6 @@
 # gs+
 
-gs+ (formerly BetterGearScore; this repository keeps the old name) is a World of Warcraft Classic / Anniversary addon that calculates a role-aware gear score for the player’s equipped items.
+gs+ (formerly BetterGearScore) is a World of Warcraft Classic / Anniversary addon that calculates a role-aware gear score for the player’s equipped items.
 
 Unlike simple item-level or raw-stat scoring, gs+ attempts to value gear based on what your character is actually built to do. It detects your class and talent specialization, chooses an appropriate role profile, scans equipped items, and calculates both raw and weighted gear scores.
 

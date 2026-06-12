@@ -65,6 +65,6 @@ only command - everything else is automatic.
   localization is planned).
 - Gear scoring is an approximation - it doesn't replace class knowledge
   or encounter context.
-- Open source under MIT: [GitHub](https://github.com/jcbergius/BetterGearScore).
+- Open source under MIT: [GitHub](https://github.com/jcbergius/GSPlus).
   Bug reports and contributions welcome - every change runs against an
   automated test suite.

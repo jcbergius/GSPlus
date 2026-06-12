@@ -5,7 +5,7 @@
 ## Notes: Role-aware gear scores for you, your group, and everyone you mouse over - zero configuration
 ## SavedVariables: GSPlusSavedVars
 ## X-Category: Inventory
-## X-Website: https://github.com/jcbergius/BetterGearScore
+## X-Website: https://github.com/jcbergius/GSPlus
 ## X-License: MIT
 
 Core.lua
