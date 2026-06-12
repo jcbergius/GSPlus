@@ -80,11 +80,23 @@ function CharacterPaneUI:Create()
             end
         end
 
+        GameTooltip:AddLine(" ")
+        GameTooltip:AddLine("Click: item-by-item details", 0.65, 0.65, 0.65)
+        GameTooltip:AddLine("Right-click: group gear scores", 0.65, 0.65, 0.65)
+
         GameTooltip:Show()
     end)
 
     frame:SetScript("OnLeave", function()
         GameTooltip:Hide()
+    end)
+
+    frame:SetScript("OnMouseUp", function(_, button)
+        if button == "RightButton" then
+            BetterGearScore.GroupFrame:Toggle()
+        else
+            BetterGearScore.UI:Toggle()
+        end
     end)
 
     self.frame = frame

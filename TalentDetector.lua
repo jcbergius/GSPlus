@@ -182,17 +182,3 @@ function TalentDetector:GetDetectedProfile()
     return profileKey, points, totalPoints
 end
 
-function TalentDetector:PrintDetectedProfile()
-    local profileKey, points = self:GetDetectedProfile()
-
-    print("|cff00ff00BetterGearScore detected profile:|r "
-        .. BetterGearScore.Profiles:GetProfileDisplayName(profileKey)
-        .. " |cff888888("
-        .. string.lower(profileKey)
-        .. ")|r")
-
-    for tabIndex = 1, #points do
-        local data = points[tabIndex]
-        print(tabIndex .. ". " .. (data.name or ("Tree " .. tabIndex)) .. ": " .. (data.points or 0))
-    end
-end

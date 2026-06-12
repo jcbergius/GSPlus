@@ -260,7 +260,7 @@ function GroupFrame:RequestMissingScores()
         if not UnitIsUnit(unit, "player")
             and not BetterGearScore.PlayerCache:GetByUnit(unit)
             and (not CanInspect or CanInspect(unit)) then
-            BetterGearScore.Inspect:QueueUnitInspect(unit, false)
+            BetterGearScore.Inspect:QueueUnitInspect(unit)
         end
     end
 
@@ -275,7 +275,9 @@ end
 
 function GroupFrame:Show()
     self:CreateWindow()
-    self:Update()
+    -- Zero-config: opening the window automatically asks the group over
+    -- comms and inspects anyone in range (also updates the rows).
+    self:RequestMissingScores()
     self.frame:Show()
 end
 

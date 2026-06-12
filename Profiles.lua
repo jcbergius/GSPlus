@@ -149,14 +149,3 @@ function Profiles:IsUsingManualProfile()
     return BetterGearScoreSavedVars.useManualProfile == true
 end
 
-function Profiles:PrintAvailableProfiles()
-    print("|cff00ff00Available BetterGearScore profiles:|r")
-
-    for _, profileKey in ipairs(self.SORTED_PROFILE_KEYS) do
-        local displayName = self.PROFILE_NAMES[profileKey]
-
-        if displayName and BetterGearScore.Weights.PROFILE_WEIGHTS[profileKey] then
-            print("|cffffff00" .. string.lower(profileKey) .. "|r - " .. displayName)
-        end
-    end
-end

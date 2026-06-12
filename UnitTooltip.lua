@@ -67,7 +67,7 @@ function UnitTooltip:AddScoreToTooltip(tooltip)
     else
         -- Queue a silent inspect; if it completes while the tooltip is still
         -- up, OnScoreUpdated appends the result live.
-        local queued = BetterGearScore.Inspect:QueueUnitInspect(unit, false)
+        local queued = BetterGearScore.Inspect:QueueUnitInspect(unit)
 
         if queued then
             self.waitingGuid = UnitGUID and UnitGUID(unit) or nil

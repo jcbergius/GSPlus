@@ -2,7 +2,7 @@
 
 BetterGearScore = BetterGearScore or {}
 
-BetterGearScore.VERSION = "1.2.0"
+BetterGearScore.VERSION = "1.3.0"
 BetterGearScore.ItemParser = BetterGearScore.ItemParser or {}
 BetterGearScore.Calculator = BetterGearScore.Calculator or {}
 BetterGearScore.Weights = BetterGearScore.Weights or {}
@@ -20,14 +20,28 @@ BetterGearScore.PlayerCache = BetterGearScore.PlayerCache or {}
 BetterGearScore.Comms = BetterGearScore.Comms or {}
 BetterGearScore.UnitTooltip = BetterGearScore.UnitTooltip or {}
 BetterGearScore.GroupFrame = BetterGearScore.GroupFrame or {}
+BetterGearScore.InspectPaneUI = BetterGearScore.InspectPaneUI or {}
+BetterGearScore.StatCaps = BetterGearScore.StatCaps or {}
 
 function BetterGearScore:Initialize()
     BetterGearScoreSavedVars = BetterGearScoreSavedVars or {}
 
-    print("|cff00ff00BetterGearScore|r v" .. self.VERSION .. " loaded. Use |cff00ff00/bgs|r or |cff00ff00/gs|r for help.")
+    -- Zero-config philosophy: silent on login, one short orientation message
+    -- on first install only.
+    if not BetterGearScoreSavedVars.welcomed then
+        BetterGearScoreSavedVars.welcomed = true
+        print("|cff00ff00BetterGearScore|r is ready. Your score is on your character pane"
+            .. " (click it for details, right-click for group scores)."
+            .. " Display settings: Interface Options or |cff00ff00/bgs|r.")
+    end
 
     if self.CharacterPaneUI and self.CharacterPaneUI.Initialize then
         self.CharacterPaneUI:Initialize()
+    end
+
+    if IsAddOnLoaded and IsAddOnLoaded("Blizzard_InspectUI")
+        and self.InspectPaneUI and self.InspectPaneUI.Initialize then
+        self.InspectPaneUI:Initialize()
     end
 
     if self.Options and self.Options.Initialize then
@@ -50,6 +64,10 @@ function BetterGearScore:InvalidateCaches()
 
     if self.TalentDetector then
         self.TalentDetector.feralRoleCache = nil
+    end
+
+    if self.StatCaps and self.StatCaps.InvalidateCache then
+        self.StatCaps:InvalidateCache()
     end
 end
 
@@ -78,6 +96,11 @@ function BetterGearScore:OnEvent(event, ...)
 
         if addonName == "BetterGearScore" then
             self:Initialize()
+        elseif addonName == "Blizzard_InspectUI" then
+            -- The inspect UI is load-on-demand; hook it as soon as it exists.
+            if self.InspectPaneUI and self.InspectPaneUI.Initialize then
+                self.InspectPaneUI:Initialize()
+            end
         end
     elseif event == "PLAYER_LOGIN" or event == "PLAYER_ENTERING_WORLD" then
         self:InvalidateCaches()

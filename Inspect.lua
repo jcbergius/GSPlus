@@ -153,52 +153,36 @@ function Inspect:BuildUnitEntry(unit, source)
     }
 end
 
--- Public entry point used by /bgs target (verbose) and by tooltips and the
--- group window (silent).
-function Inspect:QueueUnitInspect(unit, verbose)
+-- Public entry point used by unit tooltips, the group window, and the
+-- inspect pane. Always silent; results land in the player cache.
+function Inspect:QueueUnitInspect(unit)
     unit = unit or "target"
 
-    if not UnitExists(unit) or not UnitIsPlayer(unit) then
-        if verbose then
-            print("|cffff0000BetterGearScore:|r Target a player to inspect their gear score.")
-        end
+    if not UnitExists(unit) or not UnitIsPlayer(unit) or UnitIsUnit(unit, "player") then
         return false
     end
 
-    if UnitIsUnit(unit, "player") then
-        if verbose then
-            BetterGearScore.Commands:PrintScore()
-        end
-        return true
-    end
-
     if CanInspect and not CanInspect(unit) then
-        if verbose then
-            print("|cffff0000BetterGearScore:|r That player cannot be inspected right now (out of range?).")
-        end
         return false
     end
 
     local guid = UnitGUID and UnitGUID(unit) or nil
 
     if guid then
-        -- Silent requests respect a per-player cooldown so tooltip spam
-        -- doesn't hammer the inspect API; explicit /bgs target bypasses it.
+        -- Per-player cooldown so tooltip spam doesn't hammer the inspect API.
         local last = self.lastAttempt[guid]
 
-        if not verbose and last and (time() - last) < self.RETRY_COOLDOWN then
+        if last and (time() - last) < self.RETRY_COOLDOWN then
             return false
         end
 
         for _, request in ipairs(self.queue) do
             if request.guid == guid then
-                request.verbose = request.verbose or verbose
                 return true
             end
         end
 
         if self.current and self.current.guid == guid then
-            self.current.verbose = self.current.verbose or verbose
             return true
         end
     end
@@ -209,16 +193,11 @@ function Inspect:QueueUnitInspect(unit, verbose)
         unit = unit,
         guid = guid,
         name = UnitName(unit),
-        verbose = verbose,
     }
 
     self:ProcessQueue()
 
     return true
-end
-
-function Inspect:RequestInspect(unit)
-    return self:QueueUnitInspect(unit, true)
 end
 
 function Inspect:ProcessQueue()
@@ -246,9 +225,6 @@ function Inspect:ProcessQueue()
     end
 
     if CanInspect and not CanInspect(request.unit) then
-        if request.verbose then
-            print("|cffff0000BetterGearScore:|r " .. (request.name or "Player") .. " is no longer inspectable.")
-        end
         self:ProcessQueue()
         return
     end
@@ -273,10 +249,6 @@ end
 function Inspect:OnInspectTimeout(token)
     if self.current ~= token then
         return
-    end
-
-    if token.verbose then
-        print("|cffff0000BetterGearScore:|r Inspect timed out for " .. (token.name or "player") .. ". Try again in range.")
     end
 
     self.current = nil
@@ -351,13 +323,6 @@ function Inspect:OnInspectReady(guid)
         if entry then
             BetterGearScore.PlayerCache:SetForUnit(unit, entry)
             self:NotifyScoreUpdated(request.guid, UnitName(unit), entry)
-
-            if request.verbose then
-                self:PrintEntry(UnitName(unit), entry)
-            end
-        elseif request.verbose then
-            print("|cffff0000BetterGearScore:|r No inspectable items found on "
-                .. (request.name or "player") .. ". Try again in range.")
         end
     end
 
@@ -383,32 +348,8 @@ function Inspect:NotifyScoreUpdated(guid, name, entry)
     if BetterGearScore.GroupFrame and BetterGearScore.GroupFrame.OnScoreUpdated then
         BetterGearScore.GroupFrame:OnScoreUpdated(guid, name, entry)
     end
-end
 
-function Inspect:PrintEntry(unitName, entry)
-    unitName = unitName or "Unknown"
-
-    local coloredScore = BetterGearScore.Calculator:ColorizeScore(entry.weighted, entry.max)
-
-    print("|cff00ff00BetterGearScore for|r " .. unitName
-        .. " |cff888888(" .. BetterGearScore.Profiles:GetProfileDisplayName(entry.profileKey) .. ")|r")
-
-    local line = "Weighted Score: " .. coloredScore
-        .. "  |cff888888|||r  Budget Score: " .. math.floor(entry.raw)
-        .. "  |cff888888|||r  Items: " .. (entry.itemCount or 0)
-
-    if BetterGearScore.Options:Get("showLegacyGearScore") and entry.legacy and entry.legacy > 0 then
-        line = line .. "  |cff888888|||r  Legacy GS: " .. math.floor(entry.legacy)
-    end
-
-    print(line)
-
-    if (entry.missingEnchants or 0) > 0 or (entry.emptySockets or 0) > 0 then
-        print("|cff888888Missing enchants: " .. (entry.missingEnchants or 0)
-            .. "  |  Empty sockets: " .. (entry.emptySockets or 0) .. "|r")
-    end
-
-    if (entry.missingItems or 0) > 0 then
-        print("|cff888888" .. entry.missingItems .. " item(s) had no cached data yet; score may rise on a second inspect.|r")
+    if BetterGearScore.InspectPaneUI and BetterGearScore.InspectPaneUI.OnScoreUpdated then
+        BetterGearScore.InspectPaneUI:OnScoreUpdated(guid, name, entry)
     end
 end

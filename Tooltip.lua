@@ -112,7 +112,8 @@ function Tooltip:BuildStatContributionRows(stats, profileKey)
     for statType, value in pairs(stats or {}) do
         if BetterGearScore.Calculator:IsScoringStat(statType) then
             local budgetCost = BetterGearScore.Calculator:GetStatBudgetCost(statType)
-            local roleWeight = BetterGearScore.Weights:GetWeight(profileKey, statType)
+            local baseWeight = BetterGearScore.Weights:GetWeight(profileKey, statType)
+            local roleWeight = BetterGearScore.Calculator:GetEffectiveWeight(profileKey, statType, true)
             local budgetValue = BetterGearScore.Calculator:CalculateBudgetAdjustedStatValue(statType, value)
             local weightedBudgetValue = budgetValue * roleWeight
 
@@ -127,6 +128,7 @@ function Tooltip:BuildStatContributionRows(stats, profileKey)
                     rawValue = value,
                     budgetCost = budgetCost,
                     roleWeight = roleWeight,
+                    capped = roleWeight < baseWeight,
                     budgetValue = budgetValue,
                     weightedBudgetValue = weightedBudgetValue,
                     powerValue = powerValue,
@@ -232,7 +234,7 @@ Tooltip.EQUIPLOC_TO_SLOTS = {
 function Tooltip:GetItemOnlyWeightedScore(itemLink, profileKey, slotKey)
     local stats = BetterGearScore.ItemParser:ParseItemStats(itemLink)
 
-    return BetterGearScore.Calculator:CalculateWeightedScore(stats, profileKey, slotKey, itemLink)
+    return BetterGearScore.Calculator:CalculateWeightedScore(stats, profileKey, slotKey, itemLink, true)
 end
 
 -- Compares the hovered item against what the player has equipped in the
@@ -382,6 +384,11 @@ function Tooltip:AddDetailedBreakdown(tooltip, stats, profileKey, slotKey, itemL
         anyRows = true
 
         local leftText = row.statName .. " +" .. FormatNumber(row.rawValue, 0)
+
+        if row.capped then
+            leftText = leftText .. " |cffff8800(capped)|r"
+        end
+
         local rightText =
             FormatNumber(row.budgetCost, 2)
             .. " × "
@@ -434,7 +441,7 @@ function Tooltip:AddGearScoreToTooltip(tooltip)
     local statBudgetScore = BetterGearScore.Calculator:CalculateRawStatBudget(stats)
     local weaponBudgetScore = BetterGearScore.Calculator:CalculateWeaponBudgetScore(stats)
     local rawScore = statBudgetScore + weaponBudgetScore
-    local weightedScore = BetterGearScore.Calculator:CalculateWeightedScore(stats, profileKey, nil, itemLink)
+    local weightedScore = BetterGearScore.Calculator:CalculateWeightedScore(stats, profileKey, nil, itemLink, true)
     local maxBudgetScore = BetterGearScore.Calculator:GetWeightedColorReferenceForItem(profileKey, nil, itemLink)
 
     if not rawScore or rawScore <= 0 then

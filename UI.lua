@@ -45,6 +45,14 @@ function UI:CreateWindow()
     totalScoreText:SetText("Total Gear Score: 0")
     self.totalScoreText = totalScoreText
 
+    local groupButton = CreateFrame("Button", nil, totalScoreFrame, "UIPanelButtonTemplate")
+    groupButton:SetSize(110, 22)
+    groupButton:SetPoint("TOPRIGHT", totalScoreFrame, "TOPRIGHT", -10, -8)
+    groupButton:SetText("Group Scores")
+    groupButton:SetScript("OnClick", function()
+        BetterGearScore.GroupFrame:Toggle()
+    end)
+
     local infoText = totalScoreFrame:CreateFontString(nil, "ARTWORK", "GameFontNormal")
     infoText:SetPoint("TOPLEFT", totalScoreText, "BOTTOMLEFT", 0, -10)
     infoText:SetText("Budget: 0")

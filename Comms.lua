@@ -11,8 +11,10 @@ Comms.PREFIX = "BGScore"
 Comms.PROTOCOL_VERSION = 1
 Comms.BROADCAST_DEBOUNCE = 5
 Comms.REQUEST_REPLY_THROTTLE = 3
+Comms.REQUEST_THROTTLE = 10
 
 Comms.lastRequestReply = 0
+Comms.lastRequest = 0
 
 function Comms:Initialize()
     if self.initialized then
@@ -150,10 +152,19 @@ function Comms:ScheduleBroadcast()
     end)
 end
 
+-- Throttled because the group window fires this automatically on open.
 function Comms:RequestScores()
     if not self:IsEnabled() then
         return false
     end
+
+    local now = time()
+
+    if (now - (self.lastRequest or 0)) < self.REQUEST_THROTTLE then
+        return false
+    end
+
+    self.lastRequest = now
 
     return self:Send("R:" .. self.PROTOCOL_VERSION)
 end

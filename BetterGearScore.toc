@@ -1,8 +1,8 @@
 ## Interface: 20504
 ## Title: Better Gear Score
 ## Author: Jonathan Bergius
-## Version: 1.2.0
-## Notes: Role-aware gear scores for you, your group, and everyone you mouse over
+## Version: 1.3.0
+## Notes: Role-aware gear scores for you, your group, and everyone you mouse over - zero configuration
 ## SavedVariables: BetterGearScoreSavedVars
 ## X-Category: Inventory
 ## X-Website: https://github.com/jcbergius/BetterGearScore
@@ -10,6 +10,7 @@
 
 Core.lua
 StatWeights.lua
+StatCaps.lua
 Profiles.lua
 TalentDetector.lua
 ItemParser.lua
@@ -19,6 +20,7 @@ LegacyGearScore.lua
 Options.lua
 PlayerCache.lua
 CharacterPaneUI.lua
+InspectPaneUI.lua
 UI.lua
 GroupFrame.lua
 Tooltip.lua
