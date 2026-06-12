@@ -8,7 +8,8 @@ GSPlus.Comms = GSPlus.Comms or {}
 local Comms = GSPlus.Comms
 
 Comms.PREFIX = "GSPlus"
-Comms.PROTOCOL_VERSION = 1
+-- v2: weighted scores became linear sums (different scale than v1).
+Comms.PROTOCOL_VERSION = 2
 Comms.BROADCAST_DEBOUNCE = 5
 Comms.REQUEST_REPLY_THROTTLE = 3
 Comms.REQUEST_THROTTLE = 10
@@ -100,7 +101,9 @@ function Comms:ParseScoreMessage(message, sender)
         "^S:(%d+):([%d%.]+):([%d%.]+):([%d%.]+):(%d+):(%S+)$"
     )
 
-    if not version then
+    -- Only accept matching protocol versions: score scales differ between
+    -- versions, and mixing them would corrupt comparisons.
+    if not version or tonumber(version) ~= self.PROTOCOL_VERSION then
         return nil
     end
 

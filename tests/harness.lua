@@ -250,7 +250,7 @@ equipped.MainHandSlot = swordLink
 
 -- Load addon files in toc order ----------------------------------------------
 local tocOrder = {
-    "Core.lua", "GameVersion.lua", "StatWeights.lua", "StatCaps.lua", "Profiles.lua", "TalentDetector.lua",
+    "Core.lua", "GameVersion.lua", "StatWeights.lua", "ReferenceGear.lua", "StatCaps.lua", "Profiles.lua", "TalentDetector.lua",
     "ItemParser.lua", "SetBonuses.lua", "Calculator.lua",
     "LegacyGearScore.lua", "Options.lua", "PlayerCache.lua",
     "CharacterPaneUI.lua", "InspectPaneUI.lua", "UI.lua", "GroupFrame.lua",
@@ -455,7 +455,7 @@ check(GSPlus.Profiles:GetSelectedProfile() == "WARRIOR_TANK", "auto detection re
 
 -- 7. Comms roundtrip
 local message = GSPlus.Comms:BuildScoreMessage()
-check(string.match(message, "^S:1:") ~= nil, "score message built")
+check(string.match(message, "^S:2:") ~= nil, "score message built (protocol v2)")
 GSPlus.Comms:OnChatMsgAddon("GSPlus", message, "PARTY", "Alice-Realm")
 local aliceEntry = GSPlus.PlayerCache:Get("Alice")
 check(aliceEntry ~= nil and aliceEntry.source == "comms", "comms score cached")
@@ -518,7 +518,7 @@ sentMessages = {}
 GSPlus.GroupFrame:Show()
 local sawRequest = false
 for _, sent in ipairs(sentMessages) do
-    if sent.message == "R:1" then sawRequest = true end
+    if sent.message == "R:2" then sawRequest = true end
 end
 check(sawRequest, "group window open requests scores automatically")
 GSPlus.GroupFrame:Hide()
@@ -738,6 +738,25 @@ local fswMax = GSPlus.Calculator:GetWeightedColorReferenceForItem("WARLOCK_DPS",
 local fswRatio = GSPlus.Calculator:GetScoreRatio(fswWeighted, fswMax)
 check(fswRatio < 0.90,
     string.format("crafted dual-school boots no longer color red (ratio %.2f)", fswRatio))
+
+-- 21. Color references derived from reference gear through the live pipeline
+local refStats = GSPlus.ReferenceGear:GetStats("CASTER_DPS", "INVTYPE_FEET")
+check(refStats ~= nil, "reference gear data exists for caster feet")
+local refSelfScore = GSPlus.Calculator:CalculateWeightedScore(refStats, "WARLOCK_DPS", "FeetSlot", fswBootsLink)
+check(math.abs(GSPlus.Calculator:GetScoreRatio(refSelfScore, fswMax) - 1.0) < 0.001,
+    "reference item scores exactly red against its own reference (ratio 1.0)")
+
+local tankRef = GSPlus.Calculator:GetWeightedColorReferenceForItem("WARRIOR_TANK", "ChestSlot", betterChestLink)
+check(tankRef > 0, "tank reference derived from reference gear (" .. string.format("%.0f", tankRef) .. ")")
+
+-- 22. Linear weighted score: breakdown rows add up to the total exactly
+local chestStats = GSPlus.ItemParser:ParseItemStats(chestLink)
+local rows2, rowTotal = GSPlus.Tooltip:BuildStatContributionRows(chestStats, "SHAMAN_HEALER")
+local rowSum = 0
+for _, row in ipairs(rows2) do rowSum = rowSum + row.finalContribution end
+check(math.abs(rowSum - rowTotal) < 0.001
+    and math.abs(rowTotal - GSPlus.Calculator:CalculateWeightedStatScore(chestStats, "SHAMAN_HEALER")) < 0.001,
+    "breakdown contributions sum exactly to the weighted score (linear)")
 
 realPrint(failures == 0 and "ALL TESTS PASSED" or (failures .. " TEST(S) FAILED"))
 os.exit(failures == 0 and 0 or 1)

@@ -318,8 +318,11 @@ function Calculator:GetEffectiveWeight(profileKey, statType, applyCaps)
     return roleWeight
 end
 
+-- The weighted score is a LINEAR sum: stat value contributes to throughput
+-- roughly independently per point, so concentration must not be rewarded.
+-- The budget exponent belongs only to the budget score, where it models
+-- Blizzard's itemization cost curve (concentrated stats cost more budget).
 function Calculator:CalculateWeightedStatScore(stats, profileKey, applyCaps)
-    local exponent = self.ITEM_BUDGET_EXPONENT or 1.7095
     local total = 0
 
     for statType, value in pairs(stats or {}) do
@@ -329,16 +332,12 @@ function Calculator:CalculateWeightedStatScore(stats, profileKey, applyCaps)
             local weightedBudgetValue = budgetValue * roleWeight
 
             if weightedBudgetValue > 0 then
-                total = total + math.pow(weightedBudgetValue, exponent)
+                total = total + weightedBudgetValue
             end
         end
     end
 
-    if total <= 0 then
-        return 0
-    end
-
-    return math.pow(total, 1 / exponent)
+    return total
 end
 
 function Calculator:GetWeaponWeightKeys(slotKey, itemLink)
@@ -455,6 +454,35 @@ end
 function Calculator:GetWeightedColorReferenceForItem(profileKey, slotKey, itemLink)
     local equipLoc = self:GetEquipLoc(itemLink) or self:GetFallbackEquipLocFromSlot(slotKey)
     local groupName = self:GetProfileColorCapGroup(profileKey)
+
+    -- Preferred path: derive the reference by scoring an actual endgame
+    -- reference item (ReferenceGear.lua) under THIS profile's own weights,
+    -- through the same pipeline as real items. Red then means "scores like
+    -- endgame BiS" by construction and can never drift from the weights.
+    if equipLoc and GSPlus.ReferenceGear and GSPlus.ReferenceGear.GetStats then
+        local refStats = GSPlus.ReferenceGear:GetStats(groupName, equipLoc)
+
+        if refStats then
+            self.referenceCache = self.referenceCache or {}
+
+            local cacheKey = tostring(profileKey) .. ":" .. equipLoc .. ":" .. tostring(slotKey or "auto")
+            local cached = self.referenceCache[cacheKey]
+
+            if cached then
+                return cached
+            end
+
+            local reference = self:CalculateWeightedScore(refStats, profileKey, slotKey, itemLink)
+
+            if reference > 0 then
+                self.referenceCache[cacheKey] = reference
+                return reference
+            end
+        end
+    end
+
+    -- Fallback for flavors without reference gear data yet: static caps
+    -- scaled by the flavor's item budget growth.
     local groupCaps = self.WEIGHTED_COLOR_CAPS[groupName] or self.WEIGHTED_COLOR_CAPS.FALLBACK
     local scale = self:GetColorReferenceScale()
 
@@ -558,6 +586,7 @@ end
 -- so frequent callers like the character pane tooltip stay cheap.
 function Calculator:InvalidateCache()
     self.scoreCache = nil
+    self.referenceCache = nil
 end
 
 function Calculator:CalculateTotalGSPlus(profileKey)

@@ -2,7 +2,7 @@
 
 GSPlus = GSPlus or {}
 
-GSPlus.VERSION = "2.1.1"
+GSPlus.VERSION = "2.2.0"
 GSPlus.ItemParser = GSPlus.ItemParser or {}
 GSPlus.Calculator = GSPlus.Calculator or {}
 GSPlus.Weights = GSPlus.Weights or {}
@@ -23,6 +23,7 @@ GSPlus.GroupFrame = GSPlus.GroupFrame or {}
 GSPlus.InspectPaneUI = GSPlus.InspectPaneUI or {}
 GSPlus.StatCaps = GSPlus.StatCaps or {}
 GSPlus.GameVersion = GSPlus.GameVersion or {}
+GSPlus.ReferenceGear = GSPlus.ReferenceGear or {}
 
 function GSPlus:Initialize()
     GSPlusSavedVars = GSPlusSavedVars or {}

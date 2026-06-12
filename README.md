@@ -214,7 +214,11 @@ Raw stat budget:
 
 ### Weighted Gear Score
 
-The weighted score multiplies each stat by the currently selected role profile.
+The weighted score is a linear sum: each stat is converted to its item
+budget equivalent, multiplied by the role profile's weight, and added up.
+Linear on purpose - stats contribute to throughput roughly independently
+per point, so stat concentration is not rewarded (the budget score keeps
+the itemization-cost exponent instead).
 
 Example for a Shaman Healer:
 
@@ -240,8 +244,11 @@ Displayed score:
 ## Score Colors
 
 Score colors compare the weighted score against a per-slot, per-role
-reference representing the best realistically obtainable item for that
-slot at the expansion's endgame:
+reference. The reference is not a hand-tuned number: it is an actual
+endgame reference item (`ReferenceGear.lua`, Sunwell-tier in TBC) scored
+through the same pipeline under the viewing profile's own weights - so
+"red" means "scores like endgame BiS" by construction, and the references
+can never drift when weights or parsing change. The scale:
 
 ```text
 white -> green (25%) -> blue (50%) -> purple (75%) -> orange (90%) -> red (100%)

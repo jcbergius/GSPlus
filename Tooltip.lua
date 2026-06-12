@@ -80,11 +80,11 @@ end
 
 function Tooltip:BuildStatContributionRows(stats, profileKey)
     local rows = {}
-    local exponent = GSPlus.Calculator.ITEM_BUDGET_EXPONENT or 1.7095
-    local totalPower = 0
+    local weightedStatScore = 0
 
     -- Cap-neutral on purpose: this breakdown explains the displayed score,
-    -- which must be identical for everyone with the same gear.
+    -- which must be identical for everyone with the same gear. Since the
+    -- weighted score is a linear sum, the rows add up to it exactly.
     for statType, value in pairs(stats or {}) do
         if GSPlus.Calculator:IsScoringStat(statType) then
             local budgetCost = GSPlus.Calculator:GetStatBudgetCost(statType)
@@ -93,9 +93,7 @@ function Tooltip:BuildStatContributionRows(stats, profileKey)
             local weightedBudgetValue = budgetValue * roleWeight
 
             if weightedBudgetValue > 0 then
-                local powerValue = math.pow(weightedBudgetValue, exponent)
-
-                totalPower = totalPower + powerValue
+                weightedStatScore = weightedStatScore + weightedBudgetValue
 
                 rows[#rows + 1] = {
                     statType = statType,
@@ -105,20 +103,9 @@ function Tooltip:BuildStatContributionRows(stats, profileKey)
                     roleWeight = roleWeight,
                     budgetValue = budgetValue,
                     weightedBudgetValue = weightedBudgetValue,
-                    powerValue = powerValue,
-                    finalContribution = 0,
+                    finalContribution = weightedBudgetValue,
                 }
             end
-        end
-    end
-
-    local weightedStatScore = 0
-
-    if totalPower > 0 then
-        weightedStatScore = math.pow(totalPower, 1 / exponent)
-
-        for _, row in ipairs(rows) do
-            row.finalContribution = weightedStatScore * (row.powerValue / totalPower)
         end
     end
 
