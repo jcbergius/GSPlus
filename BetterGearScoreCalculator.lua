@@ -59,6 +59,14 @@ Calculator.WEAPON_STAT_KEYS = {
     WEAPON_DPS = true,
 }
 
+-- Bookkeeping markers stored alongside stats; they must never contribute to
+-- budget or weighted scores.
+Calculator.NON_SCORING_STAT_KEYS = {
+    UNSCORED_USE_EFFECT = true,
+    UNSCORED_SET_BONUS_EFFECT = true,
+    EMPTY_SOCKETS = true,
+}
+
 Calculator.WEIGHTED_COLOR_CAPS = {
     HEALER = {
         INVTYPE_HEAD = 105,
@@ -222,6 +230,10 @@ function Calculator:IsWeaponStat(statType)
     return self.WEAPON_STAT_KEYS[statType] == true
 end
 
+function Calculator:IsScoringStat(statType)
+    return not self.WEAPON_STAT_KEYS[statType] and not self.NON_SCORING_STAT_KEYS[statType]
+end
+
 function Calculator:GetStatBudgetCost(statType)
     return self.STAT_BUDGET_COST[statType] or 1.0
 end
@@ -235,7 +247,7 @@ function Calculator:CalculateRawStatBudget(stats)
     local total = 0
 
     for statType, value in pairs(stats or {}) do
-        if not self:IsWeaponStat(statType) then
+        if self:IsScoringStat(statType) then
             local budgetValue = self:CalculateBudgetAdjustedStatValue(statType, value)
 
             if budgetValue > 0 then
@@ -256,7 +268,7 @@ function Calculator:CalculateWeightedStatScore(stats, profileKey)
     local total = 0
 
     for statType, value in pairs(stats or {}) do
-        if not self:IsWeaponStat(statType) then
+        if self:IsScoringStat(statType) then
             local budgetValue = self:CalculateBudgetAdjustedStatValue(statType, value)
             local roleWeight = BetterGearScore.Weights:GetWeight(profileKey, statType)
             local weightedBudgetValue = budgetValue * roleWeight

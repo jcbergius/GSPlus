@@ -38,10 +38,32 @@ function Commands:HandleCommand(msg)
         self:HandleProfileCommand(rest)
     elseif command == "target" or command == "inspect" then
         BetterGearScore.Inspect:RequestInspect("target")
+    elseif command == "group" then
+        BetterGearScore.GroupFrame:Toggle()
+    elseif command == "config" or command == "options" then
+        BetterGearScore.Options:OpenPanel()
+    elseif command == "sync" then
+        self:HandleSyncCommand()
     elseif command == "scan" then
         self:HandleScanCommand(rest)
     else
         self:PrintHelp()
+    end
+end
+
+function Commands:HandleSyncCommand()
+    if not BetterGearScore.Comms:GetChannel() then
+        print("|cffff0000BetterGearScore:|r You are not in a group.")
+        return
+    end
+
+    local sent = BetterGearScore.Comms:BroadcastScore(true)
+    BetterGearScore.Comms:RequestScores()
+
+    if sent then
+        print("|cff00ff00BetterGearScore:|r Score broadcast to your group; requested theirs in return.")
+    else
+        print("|cffff0000BetterGearScore:|r Score sharing is disabled in the options (/bgs config).")
     end
 end
 
@@ -52,9 +74,19 @@ function Commands:PrintScore()
         data.totalMaxBudgetScore or 0
     )
 
-    print("|cff00ff00BetterGearScore:|r " .. coloredScore
+    local line = "|cff00ff00BetterGearScore:|r " .. coloredScore
         .. "  |cff888888|||r  Budget: " .. math.floor(data.totalRawScore or 0)
-        .. "  |cff888888|||r  Profile: " .. (data.profileName or "Unknown"))
+        .. "  |cff888888|||r  Profile: " .. (data.profileName or "Unknown")
+
+    if BetterGearScore.Options:Get("showLegacyGearScore") then
+        local legacyScore = BetterGearScore.LegacyGearScore:GetPlayerScore()
+
+        if legacyScore > 0 then
+            line = line .. "  |cff888888|||r  Legacy GS: " .. legacyScore
+        end
+    end
+
+    print(line)
 end
 
 function Commands:HandleProfileCommand(profileKey)
@@ -142,7 +174,10 @@ function Commands:PrintHelp()
     print("|cff00ff00BetterGearScore Commands:|r")
     print("/bgs score - Print your current gear score")
     print("/bgs show | hide | toggle - Open or close the gear score window")
+    print("/bgs group - Open the party/raid gear score overview")
     print("/bgs target - Score your currently targeted player (inspect range)")
+    print("/bgs sync - Broadcast your score to the group and request theirs")
+    print("/bgs config - Open the options panel")
     print("/bgs detect - Show the talent-detected role profile")
     print("/bgs profiles - List all available scoring profiles")
     print("/bgs profile - Show current role profile")
@@ -150,7 +185,7 @@ function Commands:PrintHelp()
     print("/bgs profile auto - Use automatic talent detection")
     print("/bgs scan [item] - Print detected stats for a linked item")
     print("")
-    print("|cff00ff00Gear score is also displayed in your character pane automatically.|r")
+    print("|cff00ff00Gear score is also displayed in your character pane and on player tooltips.|r")
 end
 
 Commands:RegisterCommands()

@@ -120,21 +120,66 @@ function TalentDetector:GetDominantTreeIndex()
     return bestIndex, points, totalPoints
 end
 
+-- Feral talents can't distinguish cat DPS from bear tank, so compare how the
+-- equipped gear performs under each profile (normalized against that
+-- profile's slot caps) and pick the better fit. Cached until gear changes.
+TalentDetector.FERAL_TANK_BIAS = 1.05
+
+function TalentDetector:ResolveFeralProfile()
+    if not BetterGearScore.Options:Get("autoDetectFeralRole") then
+        return "DRUID_FERAL"
+    end
+
+    if self.feralRoleCache then
+        return self.feralRoleCache
+    end
+
+    local Calculator = BetterGearScore.Calculator
+
+    local feral = Calculator:CalculateTotalBetterGearScore("DRUID_FERAL")
+    local tank = Calculator:CalculateTotalBetterGearScore("DRUID_TANK")
+
+    local feralRatio = 0
+    local tankRatio = 0
+
+    if feral.totalMaxBudgetScore and feral.totalMaxBudgetScore > 0 then
+        feralRatio = feral.totalWeightedScore / feral.totalMaxBudgetScore
+    end
+
+    if tank.totalMaxBudgetScore and tank.totalMaxBudgetScore > 0 then
+        tankRatio = tank.totalWeightedScore / tank.totalMaxBudgetScore
+    end
+
+    -- Comparing two profiles poisons the calculator's single-entry score
+    -- cache with the last explicit key; clear it so the real profile's
+    -- result is recomputed cleanly.
+    Calculator:InvalidateCache()
+
+    if tankRatio > feralRatio * self.FERAL_TANK_BIAS then
+        self.feralRoleCache = "DRUID_TANK"
+    else
+        self.feralRoleCache = "DRUID_FERAL"
+    end
+
+    return self.feralRoleCache
+end
+
 function TalentDetector:GetDetectedProfile()
     local className = BetterGearScore.Calculator:GetPlayerClass()
     local bestTreeIndex, points, totalPoints = self:GetDominantTreeIndex()
+    local defaultProfile = BetterGearScore.Profiles:GetDefaultProfileForClass(className)
+    local profileKey = defaultProfile
 
-    if not bestTreeIndex then
-        return BetterGearScore.Profiles:GetDefaultProfileForClass(className), points, totalPoints
+    if bestTreeIndex then
+        local classProfiles = self.CLASS_TREE_PROFILES[className]
+        profileKey = (classProfiles and classProfiles[bestTreeIndex]) or defaultProfile
     end
 
-    local classProfiles = self.CLASS_TREE_PROFILES[className]
-
-    if not classProfiles then
-        return BetterGearScore.Profiles:GetDefaultProfileForClass(className), points, totalPoints
+    if profileKey == "DRUID_FERAL" then
+        profileKey = self:ResolveFeralProfile()
     end
 
-    return classProfiles[bestTreeIndex] or BetterGearScore.Profiles:GetDefaultProfileForClass(className), points, totalPoints
+    return profileKey, points, totalPoints
 end
 
 function TalentDetector:PrintDetectedProfile()

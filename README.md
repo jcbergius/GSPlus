@@ -35,6 +35,32 @@ Unlike simple item-level or raw-stat scoring, Better Gear Score attempts to valu
     - `Equip: Restores X mana per 5 sec.`
     - `Equip: Improves your chance to hit by X%`
 
+- **Scores On Player Mouseover**
+  - Mouse over any player and their gear score appears on the tooltip.
+  - Backed by a throttled inspect queue and a persistent player cache, so
+    previously seen players show instantly.
+
+- **Group Score Sharing (Addon Channel)**
+  - BetterGearScore users in the same party or raid exchange exact scores
+    automatically - no inspect range needed.
+  - `/bgs sync` broadcasts your score and requests everyone else's.
+
+- **Group Overview Window**
+  - `/bgs group` lists every party/raid member with their score, role
+    profile, and missing enchant / empty socket warnings.
+  - The Refresh button asks group members over comms and inspects players
+    in range.
+
+- **Upgrade Comparison**
+  - Item tooltips show a green/red delta against what you have equipped in
+    that slot, using your role weights - "is this an upgrade for *my* spec"
+    at a glance. Two-handers are compared against main hand + off hand.
+
+- **Legacy GearScore Number**
+  - Shows the familiar classic GearScore value (item level and rarity
+    based) alongside the weighted score, so you can talk to LFG in units
+    everyone knows.
+
 - **Equipped Gear Window**
   - Displays total weighted gear score.
   - Shows raw and weighted totals.
@@ -47,13 +73,24 @@ Unlike simple item-level or raw-stat scoring, Better Gear Score attempts to valu
 - **Inspect Scoring**
   - `/bgs target` scores the gear of the player you are targeting (inspect range required).
   - Uses their inspected talents to pick a role profile when available.
+  - Reports missing enchants and empty gem sockets.
+
+- **Feral Druid Tank vs DPS Detection**
+  - Feral talents are ambiguous, so the addon compares your equipped gear
+    under cat and bear weightings and picks the better fit automatically.
+
+- **Options Panel**
+  - `/bgs config` (or Interface Options) toggles every feature: tooltip
+    lines, breakdowns, upgrade deltas, legacy GearScore, mouseover scores,
+    character pane display, and score sharing.
 
 - **Performance Friendly**
   - Item stats, set bonuses, and totals are cached and only recalculated when your equipment or talents change.
   - Equipment-swap event bursts are debounced into a single refresh.
+  - Inspects are queued one at a time with per-player cooldowns.
 
 - **Chat Commands**
-  - Quick access to score, UI, detected role, available profiles, inspect scoring, and an item scan debugging command.
+  - Quick access to score, UI, group overview, detected role, available profiles, inspect scoring, and an item scan debugging command.
 
 ## Installation
 
@@ -161,6 +198,24 @@ Manually overrides the profile. This is mostly useful for testing or edge cases.
 ```
 
 Scores the gear of your current target (must be a player in inspect range).
+
+```text
+/bgs group
+```
+
+Opens the party/raid gear score overview window.
+
+```text
+/bgs sync
+```
+
+Broadcasts your score to the group over the addon channel and requests theirs.
+
+```text
+/bgs config
+```
+
+Opens the options panel.
 
 ```text
 /bgs scan [Item Link]
@@ -292,6 +347,7 @@ Examples:
 
 ```text
 BetterGearScore.toc
+BetterGearScore_TBC.toc
 Core.lua
 StatWeights.lua
 Profiles.lua
@@ -299,10 +355,16 @@ TalentDetector.lua
 ItemParser.lua
 SetBonuses.lua
 BetterGearScoreCalculator.lua
+LegacyGearScore.lua
+Options.lua
+PlayerCache.lua
 CharacterPaneUI.lua
 UI.lua
+GroupFrame.lua
 Tooltip.lua
+UnitTooltip.lua
 Inspect.lua
+Comms.lua
 Commands.lua
 README.md
 ```
@@ -342,8 +404,27 @@ README.md
 - **Tooltip.lua**
   - Adds Better Gear Score information to item tooltips, including comparison tooltips.
 
+- **LegacyGearScore.lua**
+  - Approximates the classic GearScore number from item level and rarity.
+
+- **Options.lua**
+  - Saved settings with an Interface Options panel (`/bgs config`).
+
+- **PlayerCache.lua**
+  - Persistent cache of other players' scores from inspect and comms.
+
+- **GroupFrame.lua**
+  - The party/raid gear score overview window (`/bgs group`).
+
+- **UnitTooltip.lua**
+  - Shows cached gear scores when mousing over players.
+
 - **Inspect.lua**
-  - Scores inspected players for `/bgs target`.
+  - Throttled inspect queue that scores other players for tooltips, the
+    group window, and `/bgs target`.
+
+- **Comms.lua**
+  - Exchanges scores between addon users over the addon message channel.
 
 - **Commands.lua**
   - Registers and handles slash commands.
@@ -416,17 +497,39 @@ The tooltip should show a higher raw stat budget than just the visible base stat
 - Tooltip parsing is currently designed for English clients.
 - Some Classic item effects have unusual wording and may not be detected yet.
 - Talent detection identifies specialization, not always exact gameplay intent.
-- Feral Druid cat vs bear is currently not perfectly distinguishable from talents alone.
+- The legacy GearScore value is an approximation of the original formula.
 - Gear scoring is an approximation and should not replace class knowledge, encounter context, or common sense.
+
+## Releasing (CurseForge / Wago)
+
+Releases are automated with the [BigWigs packager](https://github.com/BigWigsMods/packager):
+
+1. Create the project on CurseForge, then add its ID to both `.toc` files:
+
+   ```toc
+   ## X-Curse-Project-ID: <your-project-id>
+   ```
+
+2. Add repository secrets on GitHub:
+   - `CF_API_KEY` - CurseForge API token.
+   - `WAGO_API_TOKEN` - optional, for Wago Addons.
+
+3. Tag a release:
+
+   ```bash
+   git tag v1.2.0 && git push origin v1.2.0
+   ```
+
+   The workflow in `.github/workflows/release.yml` packages the addon and
+   uploads it to GitHub Releases, CurseForge, and Wago.
 
 ## Planned Improvements
 
-- Better tooltip parsing coverage for more Classic item effects.
 - Localization support for non-English clients.
-- Smarter Feral Druid tank vs DPS detection based on equipped gear.
+- Better tooltip parsing coverage for more Classic item effects.
+- Show inspected players' scores directly on the Blizzard inspect frame.
+- Minimap / LDB (DataBroker) button.
 - Better support for weapon DPS and weapon-specific scoring.
-- More detailed item breakdowns in the UI.
-- Show inspected players' scores directly on the inspect frame.
 
 ## License
 

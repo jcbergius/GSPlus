@@ -2,7 +2,7 @@
 
 BetterGearScore = BetterGearScore or {}
 
-BetterGearScore.VERSION = "1.1.0"
+BetterGearScore.VERSION = "1.2.0"
 BetterGearScore.ItemParser = BetterGearScore.ItemParser or {}
 BetterGearScore.Calculator = BetterGearScore.Calculator or {}
 BetterGearScore.Weights = BetterGearScore.Weights or {}
@@ -14,6 +14,12 @@ BetterGearScore.Profiles = BetterGearScore.Profiles or {}
 BetterGearScore.CharacterPaneUI = BetterGearScore.CharacterPaneUI or {}
 BetterGearScore.SetBonuses = BetterGearScore.SetBonuses or {}
 BetterGearScore.Inspect = BetterGearScore.Inspect or {}
+BetterGearScore.Options = BetterGearScore.Options or {}
+BetterGearScore.LegacyGearScore = BetterGearScore.LegacyGearScore or {}
+BetterGearScore.PlayerCache = BetterGearScore.PlayerCache or {}
+BetterGearScore.Comms = BetterGearScore.Comms or {}
+BetterGearScore.UnitTooltip = BetterGearScore.UnitTooltip or {}
+BetterGearScore.GroupFrame = BetterGearScore.GroupFrame or {}
 
 function BetterGearScore:Initialize()
     BetterGearScoreSavedVars = BetterGearScoreSavedVars or {}
@@ -22,6 +28,14 @@ function BetterGearScore:Initialize()
 
     if self.CharacterPaneUI and self.CharacterPaneUI.Initialize then
         self.CharacterPaneUI:Initialize()
+    end
+
+    if self.Options and self.Options.Initialize then
+        self.Options:Initialize()
+    end
+
+    if self.Comms and self.Comms.Initialize then
+        self.Comms:Initialize()
     end
 end
 
@@ -32,6 +46,10 @@ function BetterGearScore:InvalidateCaches()
 
     if self.Calculator and self.Calculator.InvalidateCache then
         self.Calculator:InvalidateCache()
+    end
+
+    if self.TalentDetector then
+        self.TalentDetector.feralRoleCache = nil
     end
 end
 
