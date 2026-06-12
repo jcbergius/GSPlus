@@ -309,7 +309,7 @@ function Tooltip:AddCompactGearScore(tooltip, profileKey, rawScore, weightedScor
 
     tooltip:AddLine(" ")
     tooltip:AddLine("|cff00ff00gs+|r - " .. GSPlus.Profiles:GetProfileDisplayName(profileKey))
-    tooltip:AddDoubleLine("gs+ Score", coloredWeightedScore, 1, 1, 1, 1, 1, 1)
+    tooltip:AddDoubleLine("gs+", coloredWeightedScore, 1, 1, 1, 1, 1, 1)
     if GSPlus.Options:Get("showBudgetScore") then
         tooltip:AddDoubleLine("Budget Score", math.floor(rawScore or 0), 1, 1, 1, 0.8, 0.8, 0.8)
     end

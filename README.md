@@ -212,7 +212,7 @@ Raw stat budget:
 18 + 42 + 14 + 7 = 81
 ```
 
-### The gs+ Score
+### The gs+ Value
 
 The weighted score is a linear sum: each stat is converted to its item
 budget equivalent, multiplied by the role profile's weight, and added up.

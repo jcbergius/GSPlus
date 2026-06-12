@@ -72,7 +72,7 @@ function InspectPaneUI:ShowTooltip(owner)
         local coloredScore = GSPlus.Calculator:ColorizeScore(entry.weighted or 0, entry.max or 0)
 
         GameTooltip:AddLine("Profile: " .. GSPlus.Profiles:GetProfileDisplayName(entry.profileKey), 1, 1, 1)
-        GameTooltip:AddDoubleLine("gs+ Score", coloredScore, 1, 1, 1, 1, 1, 1)
+        GameTooltip:AddDoubleLine("gs+", coloredScore, 1, 1, 1, 1, 1, 1)
 
         if GSPlus.Options:Get("showBudgetScore") then
             GameTooltip:AddLine("Budget Score: " .. math.floor(entry.raw or 0), 0.8, 0.8, 0.8)

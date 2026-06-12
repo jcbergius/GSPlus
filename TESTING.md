@@ -29,7 +29,7 @@ Leave script errors on for the whole pass - any Lua error popup is a failure.
 - [ ] Open the character pane (`C`). The **gs+** score shows, positioned
       sensibly (not overlapping stats or buttons). *If misplaced, note the
       offset - it's set in `CharacterPaneUI.lua` (`73, 254`).*
-- [ ] Hover it: tooltip shows profile, the gs+ Score, and the
+- [ ] Hover it: tooltip shows profile, the gs+ value, and the
       click/right-click hints (budget/legacy lines only if enabled).
 - [ ] **The profile shown matches your actual spec** - the single most
       important check. Test specifically on a HEALER (e.g. Resto Shaman):
@@ -49,8 +49,8 @@ Item tooltip lines are OFF by default - enable "Show gear score on item
 tooltips", the upgrade comparison, breakdown, legacy GS, and budget score
 in `/gs` first for this section.
 
-- [ ] Hover an equipped item: gs+ section shows Weighted
-      Score, Budget Score, GearScore (legacy), and "For You vs Equipped:
+- [ ] Hover an equipped item: gs+ section shows the score,
+      Budget Score, GearScore (legacy), and "For You vs Equipped:
       currently equipped".
 - [ ] Hover a bag/bank/AH item for the same slot: the For You line shows
       a green/red delta.
@@ -63,7 +63,7 @@ in `/gs` first for this section.
 - [ ] Hover a recipe or container item repeatedly: no duplicate
       gs+ sections.
 - [ ] If your character is at/near hit cap: an orange note appears under
-      the For You line on hit items - but the gs+ Score itself must
+      the For You line on hit items - but the gs+ value itself must
       NOT change as you cross the cap.
 
 ## 4. Other players (2 min)

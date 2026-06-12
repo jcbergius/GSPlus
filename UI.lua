@@ -42,7 +42,7 @@ function UI:CreateWindow()
 
     local totalScoreText = totalScoreFrame:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
     totalScoreText:SetPoint("TOPLEFT", totalScoreFrame, "TOPLEFT", 10, -10)
-    totalScoreText:SetText("Total gs+: 0")
+    totalScoreText:SetText("gs+: 0")
     self.totalScoreText = totalScoreText
 
     local groupButton = CreateFrame("Button", nil, totalScoreFrame, "UIPanelButtonTemplate")
@@ -224,7 +224,7 @@ function UI:Update()
         data.totalMaxBudgetScore or 0
     )
 
-    self.totalScoreText:SetText("Total gs+: " .. coloredTotalScore)
+    self.totalScoreText:SetText("gs+: " .. coloredTotalScore)
 
     local infoLine = "Profile: " .. (data.profileName or "Unknown")
 
