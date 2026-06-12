@@ -693,7 +693,18 @@ function SetBonuses:MergeStats(target, source)
     end
 end
 
+-- Set bonus results depend on how many set pieces are equipped, so both
+-- caches are invalidated whenever equipment changes (see Core.lua).
+function SetBonuses:InvalidateCache()
+    self.equippedBonusCache = nil
+    self.itemBonusCache = nil
+end
+
 function SetBonuses:GetEquippedActiveSetBonusStats()
+    if self.equippedBonusCache then
+        return self.equippedBonusCache
+    end
+
     local totalStats = {}
     local processedBonuses = {}
 
@@ -711,20 +722,31 @@ function SetBonuses:GetEquippedActiveSetBonusStats()
         end
     end
 
+    self.equippedBonusCache = totalStats
+
     return totalStats
 end
 
 function SetBonuses:GetActiveSetBonusStatsForItem(itemLink)
-    local stats = {}
-
     if not itemLink then
-        return stats
+        return {}
     end
 
+    self.itemBonusCache = self.itemBonusCache or {}
+
+    local cached = self.itemBonusCache[itemLink]
+
+    if cached then
+        return cached
+    end
+
+    local stats = {}
     local processedBonuses = {}
     local setStats = self:ScanItemSetBonuses(itemLink, processedBonuses)
 
     self:MergeStats(stats, setStats)
+
+    self.itemBonusCache[itemLink] = stats
 
     return stats
 end

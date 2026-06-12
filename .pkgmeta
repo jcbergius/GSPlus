@@ -1,0 +1,6 @@
+package-as: BetterGearScore
+enable-nolib-creation: no
+
+ignore:
+  - .github
+  - tests

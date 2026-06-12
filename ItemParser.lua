@@ -151,14 +151,29 @@ ItemParser.WEAPON_SKILL_MAPPING = {
     ["Two-Handed Swords"] = "WEAPON_SKILL",
 }
 
+-- Parsed stats are cached by item link (links include enchants and gems, so
+-- the mapping is stable). Treat returned tables as read-only.
+ItemParser.statsCache = ItemParser.statsCache or {}
+ItemParser.statsCacheCount = ItemParser.statsCacheCount or 0
+ItemParser.STATS_CACHE_LIMIT = 500
+
 function ItemParser:ParseItemStats(itemLink)
     if not itemLink then
         return {}
     end
 
+    local cached = self.statsCache[itemLink]
+
+    if cached then
+        return cached
+    end
+
     local itemName = GetItemInfo(itemLink)
 
     if not itemName then
+        -- Item data not yet available from the server. Do not cache the empty
+        -- result; Core retries after GET_ITEM_INFO_RECEIVED.
+        self.sawUncachedItem = true
         return {}
     end
 
@@ -177,6 +192,14 @@ function ItemParser:ParseItemStats(itemLink)
             end
         end
     end
+
+    if self.statsCacheCount >= self.STATS_CACHE_LIMIT then
+        self.statsCache = {}
+        self.statsCacheCount = 0
+    end
+
+    self.statsCache[itemLink] = stats
+    self.statsCacheCount = self.statsCacheCount + 1
 
     return stats
 end
@@ -262,10 +285,87 @@ function ItemParser:ScanTooltipStats(itemLink, stats)
     scanner:Hide()
 end
 
+ItemParser.SOCKET_COLOR_NAMES = {
+    Red = true,
+    Yellow = true,
+    Blue = true,
+    Meta = true,
+}
+
+-- Slots with cheap, expected enchants in TBC. Rings (enchanter-only) and
+-- ranged (scopes) are intentionally excluded to avoid false warnings.
+ItemParser.ENCHANTABLE_SLOT_KEYS = {
+    "HeadSlot",
+    "ShoulderSlot",
+    "BackSlot",
+    "ChestSlot",
+    "WristSlot",
+    "HandsSlot",
+    "LegsSlot",
+    "FeetSlot",
+    "MainHandSlot",
+}
+
+function ItemParser:GetEnchantId(itemLink)
+    local enchantId = string.match(itemLink or "", "item:%-?%d+:(%-?%d*)")
+
+    enchantId = tonumber(enchantId)
+
+    if enchantId and enchantId ~= 0 then
+        return enchantId
+    end
+
+    return nil
+end
+
+function ItemParser:CountMissingEnchants(unit)
+    unit = unit or "player"
+
+    local missing = 0
+
+    for _, slotKey in ipairs(self.ENCHANTABLE_SLOT_KEYS) do
+        local slotId = GetInventorySlotInfo(slotKey)
+        local itemLink = slotId and GetInventoryItemLink(unit, slotId)
+
+        if itemLink and not self:GetEnchantId(itemLink) then
+            missing = missing + 1
+        end
+    end
+
+    return missing
+end
+
+function ItemParser:CountEmptySockets(unit)
+    unit = unit or "player"
+
+    local empty = 0
+
+    for _, slotInfo in ipairs(self.EQUIPMENT_SLOTS) do
+        local slotId = GetInventorySlotInfo(slotInfo.key)
+        local itemLink = slotId and GetInventoryItemLink(unit, slotId)
+
+        if itemLink then
+            local stats = self:ParseItemStats(itemLink)
+            empty = empty + (stats.EMPTY_SOCKETS or 0)
+        end
+    end
+
+    return empty
+end
+
 function ItemParser:ParseTooltipLine(text, stats)
     text = self:CleanTooltipText(text)
 
     if not text or text == "" then
+        return
+    end
+
+    -- Unfilled sockets render as e.g. "Red Socket"; filled ones show the gem
+    -- name instead, so this line only appears for empty sockets.
+    local socketColor = string.match(text, "^(%a+) Socket$")
+
+    if socketColor and self.SOCKET_COLOR_NAMES[socketColor] then
+        self:AddStackingStat(stats, "EMPTY_SOCKETS", 1)
         return
     end
 

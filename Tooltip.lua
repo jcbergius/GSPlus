@@ -109,8 +109,10 @@ function Tooltip:BuildStatContributionRows(stats, profileKey)
     local exponent = BetterGearScore.Calculator.ITEM_BUDGET_EXPONENT or 1.7095
     local totalPower = 0
 
+    -- Cap-neutral on purpose: this breakdown explains the displayed score,
+    -- which must be identical for everyone with the same gear.
     for statType, value in pairs(stats or {}) do
-        if not BetterGearScore.Calculator:IsWeaponStat(statType) then
+        if BetterGearScore.Calculator:IsScoringStat(statType) then
             local budgetCost = BetterGearScore.Calculator:GetStatBudgetCost(statType)
             local roleWeight = BetterGearScore.Weights:GetWeight(profileKey, statType)
             local budgetValue = BetterGearScore.Calculator:CalculateBudgetAdjustedStatValue(statType, value)
@@ -202,7 +204,146 @@ function Tooltip:BuildWeaponContributionRows(stats, profileKey, slotKey, itemLin
     return rows, dpsContribution + damageContribution
 end
 
-function Tooltip:AddCompactGearScore(tooltip, profileKey, rawScore, weightedScore, maxBudgetScore, hasActiveSetBonuses)
+-- Maps an item's equip location to the character slots it could replace.
+Tooltip.EQUIPLOC_TO_SLOTS = {
+    INVTYPE_HEAD = { "HeadSlot" },
+    INVTYPE_NECK = { "NeckSlot" },
+    INVTYPE_SHOULDER = { "ShoulderSlot" },
+    INVTYPE_CLOAK = { "BackSlot" },
+    INVTYPE_CHEST = { "ChestSlot" },
+    INVTYPE_ROBE = { "ChestSlot" },
+    INVTYPE_WRIST = { "WristSlot" },
+    INVTYPE_HAND = { "HandsSlot" },
+    INVTYPE_WAIST = { "WaistSlot" },
+    INVTYPE_LEGS = { "LegsSlot" },
+    INVTYPE_FEET = { "FeetSlot" },
+    INVTYPE_FINGER = { "Finger0Slot", "Finger1Slot" },
+    INVTYPE_TRINKET = { "Trinket0Slot", "Trinket1Slot" },
+    INVTYPE_WEAPON = { "MainHandSlot", "SecondaryHandSlot" },
+    INVTYPE_WEAPONMAINHAND = { "MainHandSlot" },
+    INVTYPE_2HWEAPON = { "MainHandSlot" },
+    INVTYPE_WEAPONOFFHAND = { "SecondaryHandSlot" },
+    INVTYPE_HOLDABLE = { "SecondaryHandSlot" },
+    INVTYPE_SHIELD = { "SecondaryHandSlot" },
+    INVTYPE_RANGED = { "RangedSlot" },
+    INVTYPE_RANGEDRIGHT = { "RangedSlot" },
+    INVTYPE_THROWN = { "RangedSlot" },
+    INVTYPE_RELIC = { "RangedSlot" },
+}
+
+-- Used only by the personal upgrade comparison, so it IS cap-adjusted (both
+-- sides of the comparison consistently). Displayed scores never are.
+function Tooltip:GetItemOnlyWeightedScore(itemLink, profileKey, slotKey)
+    local stats = BetterGearScore.ItemParser:ParseItemStats(itemLink)
+
+    return BetterGearScore.Calculator:CalculateWeightedScore(stats, profileKey, slotKey, itemLink, true)
+end
+
+-- Compares the hovered item against what the player has equipped in the
+-- slot(s) it would occupy. Set bonuses are excluded from both sides so the
+-- comparison is item vs item. Returns nil when no comparison makes sense.
+function Tooltip:GetUpgradeComparison(itemLink, profileKey)
+    local equipLoc = select(9, GetItemInfo(itemLink))
+    local slots = equipLoc and self.EQUIPLOC_TO_SLOTS[equipLoc]
+
+    if not slots then
+        return nil
+    end
+
+    local hoveredScore = self:GetItemOnlyWeightedScore(itemLink, profileKey, slots[1])
+
+    -- A two-hander displaces both hands, so it competes with their sum.
+    if equipLoc == "INVTYPE_2HWEAPON" then
+        local equippedScore = 0
+
+        for _, slotKey in ipairs({ "MainHandSlot", "SecondaryHandSlot" }) do
+            local slotId = GetInventorySlotInfo(slotKey)
+            local equippedLink = slotId and GetInventoryItemLink("player", slotId)
+
+            if equippedLink then
+                if equippedLink == itemLink then
+                    return { isEquipped = true }
+                end
+
+                equippedScore = equippedScore + self:GetItemOnlyWeightedScore(equippedLink, profileKey, slotKey)
+            end
+        end
+
+        return { delta = hoveredScore - equippedScore }
+    end
+
+    local worstScore = nil
+
+    for _, slotKey in ipairs(slots) do
+        local slotId = GetInventorySlotInfo(slotKey)
+        local equippedLink = slotId and GetInventoryItemLink("player", slotId)
+
+        if equippedLink == itemLink then
+            return { isEquipped = true }
+        end
+
+        local equippedScore = 0
+
+        if equippedLink then
+            equippedScore = self:GetItemOnlyWeightedScore(equippedLink, profileKey, slotKey)
+        end
+
+        if not worstScore or equippedScore < worstScore then
+            worstScore = equippedScore
+        end
+    end
+
+    if not worstScore then
+        return nil
+    end
+
+    return { delta = hoveredScore - worstScore }
+end
+
+function Tooltip:AddUpgradeComparison(tooltip, itemLink, profileKey)
+    if not BetterGearScore.Options:Get("showUpgradeDelta") then
+        return
+    end
+
+    local comparison = self:GetUpgradeComparison(itemLink, profileKey)
+
+    if not comparison then
+        return
+    end
+
+    if comparison.isEquipped then
+        tooltip:AddDoubleLine("For You vs Equipped", "|cff888888currently equipped|r", 1, 1, 1, 1, 1, 1)
+        return
+    end
+
+    local delta = comparison.delta or 0
+    local text
+
+    if delta >= 0.05 then
+        text = "|cff00ff00+" .. FormatNumber(delta, 1) .. "|r"
+    elseif delta <= -0.05 then
+        text = "|cffff4040" .. FormatNumber(delta, 1) .. "|r"
+    else
+        text = "|cff888888+0.0|r"
+    end
+
+    tooltip:AddDoubleLine("For You vs Equipped", text, 1, 1, 1, 1, 1, 1)
+
+    -- The comparison is personal: stats the player has capped count for
+    -- less in it (but never in the displayed scores). Say so when relevant.
+    local stats = BetterGearScore.ItemParser:ParseItemStats(itemLink)
+    local cappedNames = BetterGearScore.StatCaps:GetCappedStatNames(stats, profileKey)
+
+    if #cappedNames > 0 then
+        tooltip:AddLine(
+            "|cffff8800You are at/near your " .. table.concat(cappedNames, ", ")
+            .. " cap; it counts for less in this comparison.|r",
+            1, 0.53, 0, true
+        )
+    end
+end
+
+function Tooltip:AddCompactGearScore(tooltip, profileKey, rawScore, weightedScore, maxBudgetScore, hasActiveSetBonuses, itemLink)
     local coloredWeightedScore = BetterGearScore.Calculator:ColorizeScore(weightedScore or 0, maxBudgetScore or 0)
 
     tooltip:AddLine(" ")
@@ -210,16 +351,33 @@ function Tooltip:AddCompactGearScore(tooltip, profileKey, rawScore, weightedScor
     tooltip:AddDoubleLine("Weighted Score", coloredWeightedScore, 1, 1, 1, 1, 1, 1)
     tooltip:AddDoubleLine("Budget Score", math.floor(rawScore or 0), 1, 1, 1, 0.8, 0.8, 0.8)
 
+    if itemLink and BetterGearScore.Options:Get("showLegacyGearScore") then
+        local _, classFileName = UnitClass("player")
+        local legacyScore = BetterGearScore.LegacyGearScore:GetItemScore(itemLink, classFileName)
+
+        if legacyScore > 0 then
+            tooltip:AddDoubleLine("GearScore (legacy)", legacyScore, 1, 1, 1, 0.6, 0.6, 0.6)
+        end
+    end
+
+    if itemLink then
+        self:AddUpgradeComparison(tooltip, itemLink, profileKey)
+    end
+
     if hasActiveSetBonuses then
         tooltip:AddLine("Includes active set bonuses.", 0.65, 0.85, 1.0)
     end
 
-    if not IsShiftKeyDown() then
+    if BetterGearScore.Options:Get("showTooltipBreakdown") and not IsShiftKeyDown() then
         tooltip:AddLine("Hold Shift for stat breakdown.", 0.65, 0.65, 0.65)
     end
 end
 
 function Tooltip:AddDetailedBreakdown(tooltip, stats, profileKey, slotKey, itemLink, setBonusStats)
+    if not BetterGearScore.Options:Get("showTooltipBreakdown") then
+        return
+    end
+
     if not IsShiftKeyDown() then
         return
     end
@@ -271,6 +429,16 @@ function Tooltip:AddDetailedBreakdown(tooltip, stats, profileKey, slotKey, itemL
 end
 
 function Tooltip:AddGearScoreToTooltip(tooltip)
+    if not BetterGearScore.Options:Get("showItemTooltip") then
+        return
+    end
+
+    -- OnTooltipSetItem can fire more than once for the same tooltip (e.g.
+    -- recipes); the flag is cleared in OnTooltipCleared.
+    if tooltip.bgsScoreAdded then
+        return
+    end
+
     local itemLink = GetTooltipItemLink(tooltip)
 
     if not itemLink then
@@ -292,10 +460,26 @@ function Tooltip:AddGearScoreToTooltip(tooltip)
 
     local hasActiveSetBonuses = self:HasAnyStats(setBonusStats)
 
-    self:AddCompactGearScore(tooltip, profileKey, rawScore, weightedScore, maxBudgetScore, hasActiveSetBonuses)
+    tooltip.bgsScoreAdded = true
+
+    self:AddCompactGearScore(tooltip, profileKey, rawScore, weightedScore, maxBudgetScore, hasActiveSetBonuses, itemLink)
     self:AddDetailedBreakdown(tooltip, stats, profileKey, nil, itemLink, setBonusStats)
 
     tooltip:Show()
+end
+
+function Tooltip:HookTooltip(tooltipFrame)
+    if not tooltipFrame or not tooltipFrame.HookScript then
+        return
+    end
+
+    tooltipFrame:HookScript("OnTooltipSetItem", function(tooltip)
+        BetterGearScore.Tooltip:AddGearScoreToTooltip(tooltip)
+    end)
+
+    tooltipFrame:HookScript("OnTooltipCleared", function(tooltip)
+        tooltip.bgsScoreAdded = nil
+    end)
 end
 
 function Tooltip:HookTooltips()
@@ -303,17 +487,10 @@ function Tooltip:HookTooltips()
         return
     end
 
-    if GameTooltip then
-        GameTooltip:HookScript("OnTooltipSetItem", function(tooltip)
-            BetterGearScore.Tooltip:AddGearScoreToTooltip(tooltip)
-        end)
-    end
-
-    if ItemRefTooltip then
-        ItemRefTooltip:HookScript("OnTooltipSetItem", function(tooltip)
-            BetterGearScore.Tooltip:AddGearScoreToTooltip(tooltip)
-        end)
-    end
+    self:HookTooltip(GameTooltip)
+    self:HookTooltip(ItemRefTooltip)
+    self:HookTooltip(ShoppingTooltip1)
+    self:HookTooltip(ShoppingTooltip2)
 
     self.hooked = true
 end

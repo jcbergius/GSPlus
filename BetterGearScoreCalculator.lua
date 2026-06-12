@@ -59,6 +59,14 @@ Calculator.WEAPON_STAT_KEYS = {
     WEAPON_DPS = true,
 }
 
+-- Bookkeeping markers stored alongside stats; they must never contribute to
+-- budget or weighted scores.
+Calculator.NON_SCORING_STAT_KEYS = {
+    UNSCORED_USE_EFFECT = true,
+    UNSCORED_SET_BONUS_EFFECT = true,
+    EMPTY_SOCKETS = true,
+}
+
 Calculator.WEIGHTED_COLOR_CAPS = {
     HEALER = {
         INVTYPE_HEAD = 105,
@@ -222,6 +230,10 @@ function Calculator:IsWeaponStat(statType)
     return self.WEAPON_STAT_KEYS[statType] == true
 end
 
+function Calculator:IsScoringStat(statType)
+    return not self.WEAPON_STAT_KEYS[statType] and not self.NON_SCORING_STAT_KEYS[statType]
+end
+
 function Calculator:GetStatBudgetCost(statType)
     return self.STAT_BUDGET_COST[statType] or 1.0
 end
@@ -235,7 +247,7 @@ function Calculator:CalculateRawStatBudget(stats)
     local total = 0
 
     for statType, value in pairs(stats or {}) do
-        if not self:IsWeaponStat(statType) then
+        if self:IsScoringStat(statType) then
             local budgetValue = self:CalculateBudgetAdjustedStatValue(statType, value)
 
             if budgetValue > 0 then
@@ -251,14 +263,31 @@ function Calculator:CalculateRawStatBudget(stats)
     return math.pow(total, 1 / exponent)
 end
 
-function Calculator:CalculateWeightedStatScore(stats, profileKey)
+-- Role weight, optionally adjusted for the player's own stat caps (hit,
+-- expertise, defense).
+--
+-- IMPORTANT: gear scores are a shared currency - the same gear must produce
+-- the same number for everyone, so NO displayed or broadcast score may use
+-- cap adjustments. applyCaps exists solely for the personal "vs Equipped"
+-- upgrade comparison, which is advice for this player, not a score.
+function Calculator:GetEffectiveWeight(profileKey, statType, applyCaps)
+    local roleWeight = BetterGearScore.Weights:GetWeight(profileKey, statType)
+
+    if applyCaps and roleWeight > 0 and BetterGearScore.StatCaps then
+        roleWeight = roleWeight * BetterGearScore.StatCaps:GetWeightMultiplier(profileKey, statType)
+    end
+
+    return roleWeight
+end
+
+function Calculator:CalculateWeightedStatScore(stats, profileKey, applyCaps)
     local exponent = self.ITEM_BUDGET_EXPONENT or 1.7095
     local total = 0
 
     for statType, value in pairs(stats or {}) do
-        if not self:IsWeaponStat(statType) then
+        if self:IsScoringStat(statType) then
             local budgetValue = self:CalculateBudgetAdjustedStatValue(statType, value)
-            local roleWeight = BetterGearScore.Weights:GetWeight(profileKey, statType)
+            local roleWeight = self:GetEffectiveWeight(profileKey, statType, applyCaps)
             local weightedBudgetValue = budgetValue * roleWeight
 
             if weightedBudgetValue > 0 then
@@ -330,8 +359,8 @@ function Calculator:CalculateWeaponScore(stats, profileKey, slotKey, itemLink)
     return (weaponDps * dpsWeight) + (averageDamage * damageWeight)
 end
 
-function Calculator:CalculateWeightedScore(stats, profileKey, slotKey, itemLink)
-    local weightedStatScore = self:CalculateWeightedStatScore(stats, profileKey)
+function Calculator:CalculateWeightedScore(stats, profileKey, slotKey, itemLink, applyCaps)
+    local weightedStatScore = self:CalculateWeightedStatScore(stats, profileKey, applyCaps)
     local weaponScore = self:CalculateWeaponScore(stats, profileKey, slotKey, itemLink)
 
     return weightedStatScore + weaponScore
@@ -485,25 +514,18 @@ function Calculator:GetTotalWeightedColorReference(equippedItems, profileKey, ha
     return total
 end
 
-function Calculator:CalculateItemScore(itemLink, profileKey, slotKey)
-    if not itemLink then
-        return 0, 0, {}
-    end
-
-    profileKey = profileKey or BetterGearScore.Profiles:GetSelectedProfile()
-
-    local stats = BetterGearScore.ItemParser:ParseItemStats(itemLink)
-    local statBudgetScore = self:CalculateRawStatBudget(stats)
-    local weaponBudgetScore = self:CalculateWeaponBudgetScore(stats)
-    local budgetScore = statBudgetScore + weaponBudgetScore
-    local weightedScore = self:CalculateWeightedScore(stats, profileKey, slotKey, itemLink)
-    local maxWeightedScore = self:GetWeightedColorReferenceForItem(profileKey, slotKey, itemLink)
-
-    return budgetScore, weightedScore, stats, statBudgetScore, weaponBudgetScore, maxWeightedScore
+-- The total score is cached until equipment or talents change (see Core.lua)
+-- so frequent callers like the character pane tooltip stay cheap.
+function Calculator:InvalidateCache()
+    self.scoreCache = nil
 end
 
 function Calculator:CalculateTotalBetterGearScore(profileKey)
     profileKey = profileKey or BetterGearScore.Profiles:GetSelectedProfile()
+
+    if self.scoreCache and self.scoreCache.profileKey == profileKey then
+        return self.scoreCache
+    end
 
     local equippedItems = BetterGearScore.ItemParser:GetEquippedItems()
 
@@ -562,7 +584,7 @@ function Calculator:CalculateTotalBetterGearScore(profileKey)
         }
     end
 
-    return {
+    local result = {
         profileKey = profileKey,
         profileName = BetterGearScore.Profiles:GetProfileDisplayName(profileKey),
         totalRawScore = totalRawScore,
@@ -573,6 +595,10 @@ function Calculator:CalculateTotalBetterGearScore(profileKey)
         setBonusRawScore = setBonusRawScore,
         setBonusWeightedScore = setBonusWeightedScore,
     }
+
+    self.scoreCache = result
+
+    return result
 end
 
 function Calculator:GetPlayerClass()

@@ -1,0 +1,355 @@
+-- Inspect.lua
+-- Throttled inspect queue that scores other players' visible gear and feeds
+-- the player cache used by unit tooltips and the group window.
+
+BetterGearScore = BetterGearScore or {}
+BetterGearScore.Inspect = BetterGearScore.Inspect or {}
+
+local Inspect = BetterGearScore.Inspect
+
+Inspect.INSPECT_TIMEOUT = 2.5
+Inspect.RETRY_COOLDOWN = 10
+Inspect.QUEUE_STEP_DELAY = 0.3
+
+Inspect.queue = Inspect.queue or {}
+Inspect.lastAttempt = Inspect.lastAttempt or {}
+
+function Inspect:RegisterEvents()
+    if self.eventFrame then
+        return
+    end
+
+    local eventFrame = CreateFrame("Frame")
+    eventFrame:RegisterEvent("INSPECT_READY")
+
+    eventFrame:SetScript("OnEvent", function(_, _, guid)
+        BetterGearScore.Inspect:OnInspectReady(guid)
+    end)
+
+    self.eventFrame = eventFrame
+end
+
+-- Builds a cache entry for the player themselves (used by comms broadcasts
+-- and the player's own tooltip line).
+function Inspect:BuildPlayerEntry()
+    local data = BetterGearScore.Calculator:GetPlayerBetterGearScore()
+    local _, classFileName = UnitClass("player")
+
+    return {
+        weighted = data.totalWeightedScore or 0,
+        max = data.totalMaxBudgetScore or 0,
+        raw = data.totalRawScore or 0,
+        legacy = BetterGearScore.LegacyGearScore:GetPlayerScore(),
+        profileKey = data.profileKey,
+        class = classFileName,
+        source = "self",
+        time = time(),
+    }
+end
+
+-- Picks a profile for the inspected unit from their talents when the client
+-- exposes inspect talents, otherwise falls back to their class default.
+function Inspect:GetUnitProfile(unit)
+    local _, classFileName = UnitClass(unit)
+    local detector = BetterGearScore.TalentDetector
+
+    local bestIndex = nil
+    local bestPoints = -1
+    local totalPoints = 0
+
+    if GetNumTalentTabs and GetTalentTabInfo then
+        local numTabs = GetNumTalentTabs(true) or 0
+
+        for tabIndex = 1, numTabs do
+            local _, points = detector:GetTalentTabNameAndPoints(tabIndex, true)
+
+            totalPoints = totalPoints + (points or 0)
+
+            if points and points > bestPoints then
+                bestIndex = tabIndex
+                bestPoints = points
+            end
+        end
+    end
+
+    if bestIndex and totalPoints > 0 then
+        local classProfiles = detector.CLASS_TREE_PROFILES[classFileName]
+        local profileKey = classProfiles and classProfiles[bestIndex]
+
+        if profileKey and BetterGearScore.Weights.PROFILE_WEIGHTS[profileKey] then
+            return profileKey
+        end
+    end
+
+    return BetterGearScore.Profiles:GetDefaultProfileForClass(classFileName)
+end
+
+function Inspect:CalculateUnitScore(unit, profileKey)
+    local Calculator = BetterGearScore.Calculator
+    local ItemParser = BetterGearScore.ItemParser
+
+    local totalRawScore = 0
+    local totalWeightedScore = 0
+    local totalMaxScore = 0
+    local itemCount = 0
+    local missingItems = 0
+    local emptySockets = 0
+
+    for _, slotInfo in ipairs(ItemParser.EQUIPMENT_SLOTS) do
+        local slotId = GetInventorySlotInfo(slotInfo.key)
+        local itemLink = slotId and GetInventoryItemLink(unit, slotId)
+
+        if itemLink then
+            local stats = ItemParser:ParseItemStats(itemLink)
+            local statBudgetScore = Calculator:CalculateRawStatBudget(stats)
+            local weaponBudgetScore = Calculator:CalculateWeaponBudgetScore(stats)
+            local weightedScore = Calculator:CalculateWeightedScore(stats, profileKey, slotInfo.key, itemLink)
+
+            totalRawScore = totalRawScore + statBudgetScore + weaponBudgetScore
+            totalWeightedScore = totalWeightedScore + weightedScore
+            totalMaxScore = totalMaxScore + Calculator:GetWeightedColorReferenceForItem(profileKey, slotInfo.key, itemLink)
+            itemCount = itemCount + 1
+            emptySockets = emptySockets + (stats.EMPTY_SOCKETS or 0)
+
+            if statBudgetScore <= 0 and weaponBudgetScore <= 0 then
+                missingItems = missingItems + 1
+            end
+        end
+    end
+
+    return {
+        totalRawScore = totalRawScore,
+        totalWeightedScore = totalWeightedScore,
+        totalMaxScore = totalMaxScore,
+        itemCount = itemCount,
+        missingItems = missingItems,
+        emptySockets = emptySockets,
+    }
+end
+
+function Inspect:BuildUnitEntry(unit, source)
+    local profileKey = self:GetUnitProfile(unit)
+    local result = self:CalculateUnitScore(unit, profileKey)
+
+    if result.itemCount == 0 then
+        return nil
+    end
+
+    local _, classFileName = UnitClass(unit)
+
+    return {
+        weighted = result.totalWeightedScore,
+        max = result.totalMaxScore,
+        raw = result.totalRawScore,
+        legacy = BetterGearScore.LegacyGearScore:GetUnitScore(unit),
+        profileKey = profileKey,
+        class = classFileName,
+        source = source or "inspect",
+        time = time(),
+        itemCount = result.itemCount,
+        missingItems = result.missingItems,
+        missingEnchants = BetterGearScore.ItemParser:CountMissingEnchants(unit),
+        emptySockets = result.emptySockets,
+    }
+end
+
+-- Public entry point used by unit tooltips, the group window, and the
+-- inspect pane. Always silent; results land in the player cache.
+function Inspect:QueueUnitInspect(unit)
+    unit = unit or "target"
+
+    if not UnitExists(unit) or not UnitIsPlayer(unit) or UnitIsUnit(unit, "player") then
+        return false
+    end
+
+    if CanInspect and not CanInspect(unit) then
+        return false
+    end
+
+    local guid = UnitGUID and UnitGUID(unit) or nil
+
+    if guid then
+        -- Per-player cooldown so tooltip spam doesn't hammer the inspect API.
+        local last = self.lastAttempt[guid]
+
+        if last and (time() - last) < self.RETRY_COOLDOWN then
+            return false
+        end
+
+        for _, request in ipairs(self.queue) do
+            if request.guid == guid then
+                return true
+            end
+        end
+
+        if self.current and self.current.guid == guid then
+            return true
+        end
+    end
+
+    self:RegisterEvents()
+
+    self.queue[#self.queue + 1] = {
+        unit = unit,
+        guid = guid,
+        name = UnitName(unit),
+    }
+
+    self:ProcessQueue()
+
+    return true
+end
+
+function Inspect:ProcessQueue()
+    if self.current then
+        return
+    end
+
+    local request = table.remove(self.queue, 1)
+
+    if not request then
+        return
+    end
+
+    -- Unit tokens can change meaning (target switched, raid roster moved);
+    -- only proceed if the token still points at the same player.
+    if request.guid and UnitGUID and UnitGUID(request.unit) ~= request.guid then
+        local resolved = self:FindUnitByGuid(request.guid)
+
+        if not resolved then
+            self:ProcessQueue()
+            return
+        end
+
+        request.unit = resolved
+    end
+
+    if CanInspect and not CanInspect(request.unit) then
+        self:ProcessQueue()
+        return
+    end
+
+    self.current = request
+
+    if request.guid then
+        self.lastAttempt[request.guid] = time()
+    end
+
+    NotifyInspect(request.unit)
+
+    if C_Timer and C_Timer.After then
+        local token = request
+
+        C_Timer.After(self.INSPECT_TIMEOUT, function()
+            BetterGearScore.Inspect:OnInspectTimeout(token)
+        end)
+    end
+end
+
+function Inspect:OnInspectTimeout(token)
+    if self.current ~= token then
+        return
+    end
+
+    self.current = nil
+    self:ProcessQueue()
+end
+
+function Inspect:FindUnitByGuid(guid)
+    if not guid or not UnitGUID then
+        return nil
+    end
+
+    local candidates = { "mouseover", "target", "focus" }
+
+    for _, unit in ipairs(candidates) do
+        if UnitExists(unit) and UnitGUID(unit) == guid then
+            return unit
+        end
+    end
+
+    if IsInRaid and IsInRaid() then
+        for i = 1, (GetNumGroupMembers and GetNumGroupMembers() or 0) do
+            local unit = "raid" .. i
+
+            if UnitExists(unit) and UnitGUID(unit) == guid then
+                return unit
+            end
+        end
+    elseif IsInGroup and IsInGroup() then
+        for i = 1, 4 do
+            local unit = "party" .. i
+
+            if UnitExists(unit) and UnitGUID(unit) == guid then
+                return unit
+            end
+        end
+    end
+
+    return nil
+end
+
+function Inspect:OnInspectReady(guid)
+    local request = self.current
+
+    if not request or (guid and request.guid and guid ~= request.guid) then
+        -- Inspect initiated elsewhere (Blizzard frame, another addon):
+        -- opportunistically cache the data if we can resolve the unit.
+        local unit = self:FindUnitByGuid(guid)
+
+        if unit and UnitIsPlayer(unit) and not UnitIsUnit(unit, "player") then
+            local entry = self:BuildUnitEntry(unit, "inspect")
+
+            if entry then
+                BetterGearScore.PlayerCache:SetForUnit(unit, entry)
+                self:NotifyScoreUpdated(guid, UnitName(unit), entry)
+            end
+        end
+
+        return
+    end
+
+    self.current = nil
+
+    local unit = request.unit
+
+    if request.guid and UnitGUID and UnitGUID(unit) ~= request.guid then
+        unit = self:FindUnitByGuid(request.guid)
+    end
+
+    if unit and UnitExists(unit) and UnitIsPlayer(unit) then
+        local entry = self:BuildUnitEntry(unit, "inspect")
+
+        if entry then
+            BetterGearScore.PlayerCache:SetForUnit(unit, entry)
+            self:NotifyScoreUpdated(request.guid, UnitName(unit), entry)
+        end
+    end
+
+    -- Only release inspect data if the Blizzard inspect window isn't using it.
+    if ClearInspectPlayer and not (InspectFrame and InspectFrame:IsShown()) then
+        ClearInspectPlayer()
+    end
+
+    if C_Timer and C_Timer.After then
+        C_Timer.After(self.QUEUE_STEP_DELAY, function()
+            BetterGearScore.Inspect:ProcessQueue()
+        end)
+    else
+        self:ProcessQueue()
+    end
+end
+
+function Inspect:NotifyScoreUpdated(guid, name, entry)
+    if BetterGearScore.UnitTooltip and BetterGearScore.UnitTooltip.OnScoreUpdated then
+        BetterGearScore.UnitTooltip:OnScoreUpdated(guid, name, entry)
+    end
+
+    if BetterGearScore.GroupFrame and BetterGearScore.GroupFrame.OnScoreUpdated then
+        BetterGearScore.GroupFrame:OnScoreUpdated(guid, name, entry)
+    end
+
+    if BetterGearScore.InspectPaneUI and BetterGearScore.InspectPaneUI.OnScoreUpdated then
+        BetterGearScore.InspectPaneUI:OnScoreUpdated(guid, name, entry)
+    end
+end

@@ -1,0 +1,31 @@
+# Packages and publishes the addon when a version tag (v*) is pushed.
+#
+# Required repository secrets:
+#   CF_API_KEY      - CurseForge API token (curseforge.com/account/api-tokens).
+#                     Also add "## X-Curse-Project-ID: <id>" to the .toc files
+#                     once the CurseForge project exists.
+#   WAGO_API_TOKEN  - optional, for Wago Addons publishing.
+# GitHub releases are created automatically using the built-in token.
+
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Package and publish
+        uses: BigWigsMods/packager@v2
+        env:
+          CF_API_KEY: ${{ secrets.CF_API_KEY }}
+          WAGO_API_TOKEN: ${{ secrets.WAGO_API_TOKEN }}
+          GITHUB_OAUTH: ${{ secrets.GITHUB_TOKEN }}
