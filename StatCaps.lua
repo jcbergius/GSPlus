@@ -165,3 +165,22 @@ end
 function StatCaps:IsCapped(profileKey, statType)
     return self:GetWeightMultiplier(profileKey, statType) < 1
 end
+
+-- Display names of stats on this item that the player has (nearly) capped,
+-- for explaining why the personal upgrade comparison discounts them.
+function StatCaps:GetCappedStatNames(stats, profileKey)
+    local names = {}
+
+    for statType, value in pairs(stats or {}) do
+        if value and value > 0
+            and BetterGearScore.Weights:GetWeight(profileKey, statType) > 0
+            and self:IsCapped(profileKey, statType) then
+            local displayNames = BetterGearScore.Tooltip and BetterGearScore.Tooltip.STAT_DISPLAY_NAMES
+            names[#names + 1] = (displayNames and displayNames[statType]) or statType
+        end
+    end
+
+    table.sort(names)
+
+    return names
+end

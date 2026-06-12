@@ -56,12 +56,14 @@ Unlike simple item-level or raw-stat scoring, Better Gear Score attempts to valu
     that slot, using your role weights - "is this an upgrade for *my* spec"
     at a glance. Two-handers are compared against main hand + off hand.
 
-- **Stat Cap Awareness**
+- **Stat Cap Awareness (advice only, never the score)**
   - Hit is the best stat in the game until you reach the cap and nearly
     worthless after. The addon reads your current hit (spell/melee/ranged
-    per role), expertise, and defense, and automatically tapers those
-    weights as you approach the cap - capped stats are flagged in the
-    tooltip breakdown.
+    per role), expertise, and defense, and discounts capped stats in the
+    personal "For You vs Equipped" comparison - with a note explaining why.
+  - Gear scores themselves are never cap-adjusted: the score is a shared
+    currency, and the same gear always produces the same number for
+    everyone.
 
 - **Legacy GearScore Number**
   - Shows the familiar classic GearScore value (item level and rarity
@@ -320,7 +322,8 @@ README.md
 
 - **StatCaps.lua**
   - Tapers hit/expertise/defense weights as the player approaches the
-    relevant cap, based on current ratings.
+    relevant cap, based on current ratings. Used only by the personal
+    upgrade comparison, never by displayed or shared scores.
 
 - **Profiles.lua**
   - Handles profile names, defaults, manual overrides, and automatic profile selection.

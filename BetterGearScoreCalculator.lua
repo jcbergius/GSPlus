@@ -264,8 +264,12 @@ function Calculator:CalculateRawStatBudget(stats)
 end
 
 -- Role weight, optionally adjusted for the player's own stat caps (hit,
--- expertise, defense). Cap adjustments only make sense when scoring for the
--- player; other players' totals are unknown.
+-- expertise, defense).
+--
+-- IMPORTANT: gear scores are a shared currency - the same gear must produce
+-- the same number for everyone, so NO displayed or broadcast score may use
+-- cap adjustments. applyCaps exists solely for the personal "vs Equipped"
+-- upgrade comparison, which is advice for this player, not a score.
 function Calculator:GetEffectiveWeight(profileKey, statType, applyCaps)
     local roleWeight = BetterGearScore.Weights:GetWeight(profileKey, statType)
 
@@ -532,7 +536,7 @@ function Calculator:CalculateTotalBetterGearScore(profileKey)
     end
 
     local setBonusRawScore = self:CalculateRawStatBudget(setBonusStats)
-    local setBonusWeightedScore = self:CalculateWeightedStatScore(setBonusStats, profileKey, true)
+    local setBonusWeightedScore = self:CalculateWeightedStatScore(setBonusStats, profileKey)
     local hasSetBonuses = setBonusWeightedScore and setBonusWeightedScore > 0
 
     local totalRawScore = 0
@@ -544,7 +548,7 @@ function Calculator:CalculateTotalBetterGearScore(profileKey)
         local statBudgetScore = self:CalculateRawStatBudget(item.stats)
         local weaponBudgetScore = self:CalculateWeaponBudgetScore(item.stats)
         local rawScore = statBudgetScore + weaponBudgetScore
-        local weightedScore = self:CalculateWeightedScore(item.stats, profileKey, item.slotKey, item.link, true)
+        local weightedScore = self:CalculateWeightedScore(item.stats, profileKey, item.slotKey, item.link)
         local maxWeightedScore = self:GetWeightedColorReferenceForItem(profileKey, item.slotKey, item.link)
 
         totalRawScore = totalRawScore + rawScore

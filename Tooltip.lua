@@ -109,11 +109,12 @@ function Tooltip:BuildStatContributionRows(stats, profileKey)
     local exponent = BetterGearScore.Calculator.ITEM_BUDGET_EXPONENT or 1.7095
     local totalPower = 0
 
+    -- Cap-neutral on purpose: this breakdown explains the displayed score,
+    -- which must be identical for everyone with the same gear.
     for statType, value in pairs(stats or {}) do
         if BetterGearScore.Calculator:IsScoringStat(statType) then
             local budgetCost = BetterGearScore.Calculator:GetStatBudgetCost(statType)
-            local baseWeight = BetterGearScore.Weights:GetWeight(profileKey, statType)
-            local roleWeight = BetterGearScore.Calculator:GetEffectiveWeight(profileKey, statType, true)
+            local roleWeight = BetterGearScore.Weights:GetWeight(profileKey, statType)
             local budgetValue = BetterGearScore.Calculator:CalculateBudgetAdjustedStatValue(statType, value)
             local weightedBudgetValue = budgetValue * roleWeight
 
@@ -128,7 +129,6 @@ function Tooltip:BuildStatContributionRows(stats, profileKey)
                     rawValue = value,
                     budgetCost = budgetCost,
                     roleWeight = roleWeight,
-                    capped = roleWeight < baseWeight,
                     budgetValue = budgetValue,
                     weightedBudgetValue = weightedBudgetValue,
                     powerValue = powerValue,
@@ -231,6 +231,8 @@ Tooltip.EQUIPLOC_TO_SLOTS = {
     INVTYPE_RELIC = { "RangedSlot" },
 }
 
+-- Used only by the personal upgrade comparison, so it IS cap-adjusted (both
+-- sides of the comparison consistently). Displayed scores never are.
 function Tooltip:GetItemOnlyWeightedScore(itemLink, profileKey, slotKey)
     local stats = BetterGearScore.ItemParser:ParseItemStats(itemLink)
 
@@ -310,7 +312,7 @@ function Tooltip:AddUpgradeComparison(tooltip, itemLink, profileKey)
     end
 
     if comparison.isEquipped then
-        tooltip:AddDoubleLine("vs Equipped", "|cff888888currently equipped|r", 1, 1, 1, 1, 1, 1)
+        tooltip:AddDoubleLine("For You vs Equipped", "|cff888888currently equipped|r", 1, 1, 1, 1, 1, 1)
         return
     end
 
@@ -325,7 +327,20 @@ function Tooltip:AddUpgradeComparison(tooltip, itemLink, profileKey)
         text = "|cff888888+0.0|r"
     end
 
-    tooltip:AddDoubleLine("vs Equipped", text, 1, 1, 1, 1, 1, 1)
+    tooltip:AddDoubleLine("For You vs Equipped", text, 1, 1, 1, 1, 1, 1)
+
+    -- The comparison is personal: stats the player has capped count for
+    -- less in it (but never in the displayed scores). Say so when relevant.
+    local stats = BetterGearScore.ItemParser:ParseItemStats(itemLink)
+    local cappedNames = BetterGearScore.StatCaps:GetCappedStatNames(stats, profileKey)
+
+    if #cappedNames > 0 then
+        tooltip:AddLine(
+            "|cffff8800You are at/near your " .. table.concat(cappedNames, ", ")
+            .. " cap; it counts for less in this comparison.|r",
+            1, 0.53, 0, true
+        )
+    end
 end
 
 function Tooltip:AddCompactGearScore(tooltip, profileKey, rawScore, weightedScore, maxBudgetScore, hasActiveSetBonuses, itemLink)
@@ -384,11 +399,6 @@ function Tooltip:AddDetailedBreakdown(tooltip, stats, profileKey, slotKey, itemL
         anyRows = true
 
         local leftText = row.statName .. " +" .. FormatNumber(row.rawValue, 0)
-
-        if row.capped then
-            leftText = leftText .. " |cffff8800(capped)|r"
-        end
-
         local rightText =
             FormatNumber(row.budgetCost, 2)
             .. " × "
@@ -441,7 +451,7 @@ function Tooltip:AddGearScoreToTooltip(tooltip)
     local statBudgetScore = BetterGearScore.Calculator:CalculateRawStatBudget(stats)
     local weaponBudgetScore = BetterGearScore.Calculator:CalculateWeaponBudgetScore(stats)
     local rawScore = statBudgetScore + weaponBudgetScore
-    local weightedScore = BetterGearScore.Calculator:CalculateWeightedScore(stats, profileKey, nil, itemLink, true)
+    local weightedScore = BetterGearScore.Calculator:CalculateWeightedScore(stats, profileKey, nil, itemLink)
     local maxBudgetScore = BetterGearScore.Calculator:GetWeightedColorReferenceForItem(profileKey, nil, itemLink)
 
     if not rawScore or rawScore <= 0 then
