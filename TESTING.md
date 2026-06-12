@@ -111,5 +111,5 @@ in `/gs` first for this section.
 If something is misplaced rather than broken, these are the dials:
 
 - Character pane position: `CharacterPaneUI.lua` → `SetPoint(...73, 254)`
-- Inspect window position: `InspectPaneUI.lua` → `SetPoint(...73, 254)`
+- Inspect window position: `InspectPaneUI.lua` → `SetPoint("TOPLEFT"...73, -236)`
 - Gear window header layout: `UI.lua` → `HEADER_HEIGHT`, dropdown anchor

@@ -37,7 +37,11 @@ function InspectPaneUI:Create()
     frame:SetFrameStrata("DIALOG")
     frame:SetFrameLevel(999)
     frame:EnableMouse(true)
-    frame:SetPoint("BOTTOMLEFT", parent, "BOTTOMLEFT", 73, 254)
+    -- Anchored from the TOP so it visually matches the character pane spot
+    -- (73, 254 up from the bottom of the 512-tall character pane): the
+    -- inspect paper doll frame is shorter at the bottom, so bottom-relative
+    -- anchoring lands too high.
+    frame:SetPoint("TOPLEFT", parent, "TOPLEFT", 73, -236)
 
     local labelText = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     labelText:SetPoint("LEFT", frame, "LEFT", 0, 0)
