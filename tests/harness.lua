@@ -250,7 +250,7 @@ equipped.MainHandSlot = swordLink
 
 -- Load addon files in toc order ----------------------------------------------
 local tocOrder = {
-    "Core.lua", "GameVersion.lua", "StatWeights.lua", "ReferenceGear.lua", "StatCaps.lua", "Profiles.lua", "TalentDetector.lua",
+    "Core.lua", "GameVersion.lua", "StatWeights.lua", "ReferenceGear.lua", "KnownProcs.lua", "StatCaps.lua", "Profiles.lua", "TalentDetector.lua",
     "ItemParser.lua", "SetBonuses.lua", "Calculator.lua",
     "LegacyGearScore.lua", "Options.lua", "PlayerCache.lua",
     "CharacterPaneUI.lua", "InspectPaneUI.lua", "UI.lua", "GroupFrame.lua",
@@ -826,6 +826,32 @@ check(grantStats.HEALING and math.abs(grantStats.HEALING - 35.33) < 0.01,
 local procDmg = {}
 GSPlus.ItemParser:ParseTooltipLine("Equip: Your attacks have a 5% chance to deal 95 Shadow damage to the target.", procDmg)
 check(procDmg.UNSCORED_EQUIP_EFFECT == 1 and not procDmg.HASTE, "damage procs stay unscored")
+
+-- 22d. KnownProcs overrides: famous trinkets use exact community values
+local realQuagLink = "|cffa335ee|Hitem:27683::::::::70:::::|h[Quagmirran's Eye]|h|r"
+fakeItems[realQuagLink] = { name = "Quagmirran's Eye", equipLoc = "INVTYPE_TRINKET" }
+fakeTooltips[realQuagLink] = {
+    "Quagmirran's Eye", "Trinket",
+    "Equip: Your harmful spells have a 10% chance to increase your spell haste rating by 320 for 6 sec.",
+}
+local realQuagStats = GSPlus.ItemParser:ParseItemStats(realQuagLink)
+-- item ID 27683 has a KnownProcs entry (38 haste); the generic model (32)
+-- must be suppressed, not added on top
+check(realQuagStats.HASTE == 38,
+    "Quagmirran's Eye uses KnownProcs override, no double-add (got " .. tostring(realQuagStats.HASTE) .. ")")
+check(not realQuagStats.UNSCORED_EQUIP_EFFECT, "override item's proc line not flagged unscored")
+check(GSPlus.ItemParser.procOverrideActive == nil, "proc override flag cleared after parse")
+
+-- trinkets with stats besides the proc keep them alongside the override
+local dmcLink = "|cffa335ee|Hitem:31856::::::::70:::::|h[Darkmoon Card: Crusade]|h|r"
+fakeItems[dmcLink] = { name = "Darkmoon Card: Crusade", equipLoc = "INVTYPE_TRINKET" }
+fakeTooltips[dmcLink] = {
+    "Darkmoon Card: Crusade", "Trinket",
+    "Equip: Your damaging abilities have a chance to grant you 8 spell damage for 10 sec.",
+}
+local dmcStats = GSPlus.ItemParser:ParseItemStats(dmcLink)
+check(dmcStats.ATTACKPOWER == 100 and dmcStats.SPELLPOWER == 70,
+    "Darkmoon Card: Crusade override provides both AP and spell power")
 
 -- 22. Linear weighted score: breakdown rows add up to the total exactly
 local chestStats = GSPlus.ItemParser:ParseItemStats(chestLink)

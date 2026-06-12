@@ -300,6 +300,10 @@ Stat-buff proc trinkets (e.g. Quagmirran's Eye: "Your harmful spells have
 a 10% chance to increase your spell haste rating by 320 for 6 sec.") are
 valued at an estimated average uptime, modeled on the typical TBC trinket
 internal cooldown - documented in `ItemParser.lua` and tunable there.
+Famous proc trinkets (Quagmirran's Eye, Dragonspine Trophy, Tsunami
+Talisman, Darkmoon Card: Crusade, ...) carry exact community-derived
+average values in `KnownProcs.lua`, keyed by item ID; everything else
+falls back to the generic model.
 
 Equip effects the parser cannot value (damage procs, threat, utility) are
 flagged, and the tooltip breakdown discloses that the item has unscored

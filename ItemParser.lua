@@ -272,7 +272,20 @@ function ItemParser:ParseItemStats(itemLink)
 
     local stats = {}
 
+    -- Famous proc trinkets have exact community-derived average values in
+    -- KnownProcs.lua; while active, the generic proc model is suppressed
+    -- for this item's proc lines and the known values are added instead.
+    self.procOverrideActive = GSPlus.KnownProcs and GSPlus.KnownProcs:Get(self:GetItemId(itemLink)) or nil
+
     local scannedLines = self:ScanTooltipStats(itemLink, stats) or 0
+
+    if self.procOverrideActive then
+        for overrideStat, overrideValue in pairs(self.procOverrideActive) do
+            self:AddStackingStat(stats, overrideStat, overrideValue)
+        end
+
+        self.procOverrideActive = nil
+    end
 
     local itemStats = GetItemStats(itemLink)
 
@@ -429,6 +442,10 @@ ItemParser.ENCHANTABLE_SLOT_KEYS = {
     "FeetSlot",
     "MainHandSlot",
 }
+
+function ItemParser:GetItemId(itemLink)
+    return tonumber(string.match(itemLink or "", "item:(%d+)"))
+end
 
 function ItemParser:GetEnchantId(itemLink)
     local enchantId = string.match(itemLink or "", "item:%-?%d+:(%-?%d*)")
@@ -908,6 +925,12 @@ end
 function ItemParser:ParseProcEffect(text, stats)
     if not string.find(text, "chance to") then
         return false
+    end
+
+    -- Item has a KnownProcs override: consume the proc line so the generic
+    -- model doesn't double-add and the line isn't flagged unscored.
+    if self.procOverrideActive then
+        return true
     end
 
     local chance, statName, value, duration
