@@ -50,7 +50,7 @@ function Options:Set(key, value)
     self:GetStore()[key] = value and true or false
 
     if BetterGearScore.TalentDetector then
-        BetterGearScore.TalentDetector.feralRoleCache = nil
+        BetterGearScore.TalentDetector.roleCache = nil
     end
 
     if BetterGearScore.Calculator and BetterGearScore.Calculator.InvalidateCache then

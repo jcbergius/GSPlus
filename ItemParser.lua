@@ -15,17 +15,35 @@ ItemParser.CONDITIONAL_EFFECT_SCALE = 0.25
 -- MP5 equivalent per percent for a typical caster's spirit regen.
 ItemParser.REGEN_WHILE_CASTING_MP5_PER_PERCENT = 0.5
 
--- Level-70 rating-per-1% conversions for vanilla-style percent effects.
-ItemParser.RATING_PER_PERCENT = {
-    HIT = 15.77,
-    SPELL_HIT = 12.62,
-    CRIT = 22.08,
-    SPELL_CRIT = 22.08,
-    DODGE = 18.94,
-    PARRY = 23.65,
-    BLOCK = 7.88,
-    HASTE = 15.77,
+-- Rating-per-1% conversions for vanilla-style percent effects, per client
+-- flavor. Vanilla has no ratings at all, so percents are stored as TBC-scale
+-- pseudo-ratings to keep the weight tables uniform across flavors.
+-- WRATH values are level 80, CATA level 85 (verify when those clients ship).
+ItemParser.RATING_PER_PERCENT_BY_FLAVOR = {
+    VANILLA = {
+        HIT = 15.77, SPELL_HIT = 12.62, CRIT = 22.08, SPELL_CRIT = 22.08,
+        DODGE = 18.94, PARRY = 23.65, BLOCK = 7.88, HASTE = 15.77,
+    },
+    TBC = {
+        HIT = 15.77, SPELL_HIT = 12.62, CRIT = 22.08, SPELL_CRIT = 22.08,
+        DODGE = 18.94, PARRY = 23.65, BLOCK = 7.88, HASTE = 15.77,
+    },
+    WRATH = {
+        HIT = 32.79, SPELL_HIT = 26.23, CRIT = 45.91, SPELL_CRIT = 45.91,
+        DODGE = 39.35, PARRY = 49.18, BLOCK = 16.39, HASTE = 32.79,
+    },
+    CATA = {
+        HIT = 120.11, SPELL_HIT = 102.45, CRIT = 179.28, SPELL_CRIT = 179.28,
+        DODGE = 176.72, PARRY = 176.72, BLOCK = 88.36, HASTE = 128.06,
+    },
 }
+ItemParser.RATING_PER_PERCENT_BY_FLAVOR.DEFAULT = ItemParser.RATING_PER_PERCENT_BY_FLAVOR.TBC
+
+function ItemParser:GetRatingPerPercent(ratingKey)
+    local ratings = BetterGearScore.GameVersion:Select(self.RATING_PER_PERCENT_BY_FLAVOR)
+
+    return (ratings and ratings[ratingKey]) or 15.77
+end
 
 ItemParser.SPELL_SCHOOLS = {
     Arcane = true,
@@ -110,6 +128,11 @@ ItemParser.STAT_MAPPING = {
     ITEM_MOD_MANA_REGENERATION_SHORT = "MP5",
     ITEM_MOD_MP5_SHORT = "MP5",
     ITEM_MOD_HEALTH_REGEN_SHORT = "HP5",
+
+    -- Wrath/Cata stats; harmless on earlier clients where they never appear.
+    ITEM_MOD_MASTERY_RATING_SHORT = "MASTERY",
+    ITEM_MOD_ARMOR_PENETRATION_RATING_SHORT = "ARMOR_PENETRATION",
+    ITEM_MOD_SPELL_PENETRATION_SHORT = "SPELL_PENETRATION",
 }
 
 ItemParser.TEXT_STAT_MAPPING = {
@@ -161,6 +184,8 @@ ItemParser.TEXT_STAT_MAPPING = {
     ["mana"] = "MANA",
     ["Spell Penetration"] = "SPELL_PENETRATION",
     ["Armor Penetration"] = "ARMOR_PENETRATION",
+    ["Armor Penetration Rating"] = "ARMOR_PENETRATION",
+    ["Mastery Rating"] = "MASTERY",
 
     ["Mana per 5 sec"] = "MP5",
     ["mana per 5 sec"] = "MP5",
@@ -570,6 +595,10 @@ function ItemParser:NormalizeStatName(statName)
         return "HASTE"
     elseif lowerName == "expertise rating" then
         return "EXPERTISE"
+    elseif lowerName == "mastery rating" then
+        return "MASTERY"
+    elseif lowerName == "armor penetration rating" then
+        return "ARMOR_PENETRATION"
     elseif lowerName == "resilience rating" then
         return "RESILIENCE"
     elseif lowerName == "mana per 5 sec" or lowerName == "mana every 5 seconds" or lowerName == "mp5" then
@@ -1120,7 +1149,7 @@ function ItemParser:ParseRatingEffect(text, stats, stacking)
         local percent = string.match(text, percentInfo.pattern)
 
         if percent then
-            local rating = tonumber(percent) * self.RATING_PER_PERCENT[percentInfo.ratingKey]
+            local rating = tonumber(percent) * self:GetRatingPerPercent(percentInfo.ratingKey)
             self:AddStackingStat(stats, percentInfo.stat, rating)
             return true
         end

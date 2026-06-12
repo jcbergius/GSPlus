@@ -126,6 +126,15 @@ function GetExpertise() return expertiseValue end
 
 RAID_CLASS_COLORS = { WARRIOR = { r = 0.78, g = 0.61, b = 0.43 }, MAGE = { r = 0.41, g = 0.8, b = 0.94 } }
 
+WOW_PROJECT_MAINLINE = 1
+WOW_PROJECT_CLASSIC = 2
+WOW_PROJECT_BURNING_CRUSADE_CLASSIC = 5
+WOW_PROJECT_WRATH_CLASSIC = 11
+WOW_PROJECT_CATACLYSM_CLASSIC = 14
+WOW_PROJECT_ID = WOW_PROJECT_BURNING_CRUSADE_CLASSIC
+
+function GetBuildInfo() return "2.5.4", "44832", "Jan 1 2026", 20504 end
+
 C_Timer = {
     After = function(sec, fn) pendingTimers[#pendingTimers + 1] = fn end,
 }
@@ -241,7 +250,7 @@ equipped.MainHandSlot = swordLink
 
 -- Load addon files in toc order ----------------------------------------------
 local tocOrder = {
-    "Core.lua", "StatWeights.lua", "StatCaps.lua", "Profiles.lua", "TalentDetector.lua",
+    "Core.lua", "GameVersion.lua", "StatWeights.lua", "StatCaps.lua", "Profiles.lua", "TalentDetector.lua",
     "ItemParser.lua", "SetBonuses.lua", "BetterGearScoreCalculator.lua",
     "LegacyGearScore.lua", "Options.lua", "PlayerCache.lua",
     "CharacterPaneUI.lua", "InspectPaneUI.lua", "UI.lua", "GroupFrame.lua",
@@ -362,6 +371,40 @@ defenseBase, defenseMod = 350, 0
 expertiseValue = 0
 BetterGearScore.StatCaps:InvalidateCache()
 BetterGearScore:InvalidateCaches()
+
+-- 4b. Flavor portability: era data switches with the detected client
+check(BetterGearScore.GameVersion:GetFlavor() == "TBC", "TBC flavor detected from project id")
+
+WOW_PROJECT_ID = WOW_PROJECT_WRATH_CLASSIC
+BetterGearScore.GameVersion:Detect()
+BetterGearScore.StatCaps:InvalidateCache()
+check(BetterGearScore.GameVersion:GetFlavor() == "WRATH", "WRATH flavor detected")
+check(BetterGearScore.ItemParser:GetRatingPerPercent("HIT") == 32.79, "wrath level-80 hit rating conversion")
+check(BetterGearScore.Calculator:GetColorReferenceScale() == 2.10, "wrath color reference scale applied")
+
+combatRatingBonus[6] = 8.5  -- past the wrath 8% melee cap (below TBC's 9%)
+BetterGearScore.StatCaps:InvalidateCache()
+check(BetterGearScore.StatCaps:GetWeightMultiplier("WARRIOR_DPS", "HIT") == 0.15, "wrath melee hit cap is 8%")
+
+check(BetterGearScore.ItemParser:NormalizeStatName("Mastery Rating") == "MASTERY", "mastery rating recognized")
+check(BetterGearScore.Weights:GetWeight("WARRIOR_DPS", "MASTERY") == 0.85, "MASTERY aliases CRITICAL weight")
+
+WOW_PROJECT_ID = WOW_PROJECT_CLASSIC
+BetterGearScore.GameVersion:Detect()
+BetterGearScore.StatCaps:InvalidateCache()
+expertiseValue = 30
+check(BetterGearScore.GameVersion:GetFlavor() == "VANILLA", "VANILLA flavor detected")
+check(BetterGearScore.StatCaps:GetWeightMultiplier("ROGUE_DPS", "EXPERTISE") == 1, "vanilla has no expertise cap")
+check(BetterGearScore.Calculator:GetColorReferenceScale() == 0.60, "vanilla color reference scale applied")
+
+-- restore TBC for the rest of the suite
+WOW_PROJECT_ID = WOW_PROJECT_BURNING_CRUSADE_CLASSIC
+BetterGearScore.GameVersion:Detect()
+combatRatingBonus = {}
+expertiseValue = 0
+BetterGearScore.StatCaps:InvalidateCache()
+BetterGearScore:InvalidateCaches()
+check(BetterGearScore.GameVersion:GetFlavor() == "TBC", "flavor restored to TBC")
 
 -- 5. CONSISTENCY INVARIANT: displayed/shared scores are never cap-adjusted.
 -- The same gear must produce the same number for everyone, regardless of
@@ -490,6 +533,24 @@ BetterGearScore:InvalidateCaches()
 equipped.ChestSlot = betterChestLink
 BetterGearScore.ItemParser.statsCache = {}
 check(BetterGearScore.TalentDetector:GetDetectedProfile() == "DRUID_TANK", "tanky gear flips feral to DRUID_TANK")
+equipped.ChestSlot = chestLink
+BetterGearScore:InvalidateCaches()
+
+-- 15. Death Knight gear-based role detection (Wrath/Cata class, same logic)
+playerClass = "DEATHKNIGHT"
+talentTabs = {
+    { name = "Blood", points = 51 },
+    { name = "Frost", points = 10 },
+    { name = "Unholy", points = 0 },
+}
+equipped.ChestSlot = betterChestLink
+BetterGearScore:InvalidateCaches()
+check(BetterGearScore.TalentDetector:GetDetectedProfile() == "DEATHKNIGHT_TANK",
+    "Blood DK with tanky gear resolves to tank")
+talentTabs[1].points = 0
+talentTabs[2].points = 51
+BetterGearScore:InvalidateCaches()
+check(BetterGearScore.TalentDetector:GetDetectedProfile() == "DEATHKNIGHT_DPS", "Frost DK detected as DPS")
 equipped.ChestSlot = chestLink
 BetterGearScore:InvalidateCaches()
 

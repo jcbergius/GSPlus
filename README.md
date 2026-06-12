@@ -471,6 +471,38 @@ The tooltip should show a higher raw stat budget than just the visible base stat
 - The legacy GearScore value is an approximation of the original formula.
 - Gear scoring is an approximation and should not replace class knowledge, encounter context, or common sense.
 
+## Client Flavor Portability (Vanilla / TBC / Wrath / Cata)
+
+The addon is built to follow Anniversary realms through expansions:
+
+- **`GameVersion.lua`** detects the client at runtime (`WOW_PROJECT_ID`,
+  falling back to the build's interface number) and exposes
+  `GameVersion:Select(table)` for flavor-keyed data.
+- **All era-specific data lives in flavor-keyed tables**, never in code:
+  - `ItemParser.RATING_PER_PERCENT_BY_FLAVOR` - percent-to-rating
+    conversions per level cap (vanilla percents become TBC-scale
+    pseudo-ratings so the weight tables stay uniform)
+  - `StatCaps.CAPS_BY_FLAVOR` - hit/expertise/defense caps per era
+    (`nil` = the cap doesn't exist on that flavor, e.g. defense in Cata,
+    expertise in vanilla)
+  - `Calculator.COLOR_REFERENCE_SCALE_BY_FLAVOR` - item budget scaling so
+    score colors stay meaningful as budgets grow
+- **Parsing is inherently portable** - it reacts to whatever wording is on
+  the tooltip, and unknown effects are flagged rather than mis-scored.
+  Wrath/Cata stats (Mastery, armor penetration rating) are already mapped.
+- **Death Knights are supported** with DPS/Tank profiles; Blood is resolved
+  to tank or DPS from equipped gear, same as Feral Druids.
+- **Per-flavor TOC files** ship for Vanilla, TBC, Wrath, and Cata, so one
+  packaged zip serves every client.
+- API differences are guarded throughout (`GetTalentTabInfo` signatures,
+  `UnitDefense`/`GetExpertise` existence, `Settings` vs Interface Options).
+
+When a new flavor's client actually ships, the checklist is small: bump the
+Interface number in its TOC, verify the three flavor tables above against
+live values, and give Mastery real per-spec weights (it currently aliases
+crit as a placeholder). Wrath/Cata numbers in the tables today are
+first-pass estimates and marked as such in comments.
+
 ## Releasing (CurseForge / Wago)
 
 Releases are automated with the [BigWigs packager](https://github.com/BigWigsMods/packager):

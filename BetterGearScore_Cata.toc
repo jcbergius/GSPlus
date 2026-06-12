@@ -1,4 +1,5 @@
-## Interface: 20504
+## Interface: 40402
+# NOTE: verify/bump this Interface number when the Cata Classic client ships.
 ## Title: Better Gear Score
 ## Author: Jonathan Bergius
 ## Version: 1.5.0

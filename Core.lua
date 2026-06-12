@@ -2,7 +2,7 @@
 
 BetterGearScore = BetterGearScore or {}
 
-BetterGearScore.VERSION = "1.4.0"
+BetterGearScore.VERSION = "1.5.0"
 BetterGearScore.ItemParser = BetterGearScore.ItemParser or {}
 BetterGearScore.Calculator = BetterGearScore.Calculator or {}
 BetterGearScore.Weights = BetterGearScore.Weights or {}
@@ -22,6 +22,7 @@ BetterGearScore.UnitTooltip = BetterGearScore.UnitTooltip or {}
 BetterGearScore.GroupFrame = BetterGearScore.GroupFrame or {}
 BetterGearScore.InspectPaneUI = BetterGearScore.InspectPaneUI or {}
 BetterGearScore.StatCaps = BetterGearScore.StatCaps or {}
+BetterGearScore.GameVersion = BetterGearScore.GameVersion or {}
 
 function BetterGearScore:Initialize()
     BetterGearScoreSavedVars = BetterGearScoreSavedVars or {}
@@ -63,7 +64,7 @@ function BetterGearScore:InvalidateCaches()
     end
 
     if self.TalentDetector then
-        self.TalentDetector.feralRoleCache = nil
+        self.TalentDetector.roleCache = nil
     end
 
     if self.StatCaps and self.StatCaps.InvalidateCache then

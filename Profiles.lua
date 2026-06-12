@@ -12,6 +12,7 @@ Profiles.DEFAULT_PROFILE_BY_CLASS = {
     MAGE = "MAGE_DPS",
     WARLOCK = "WARLOCK_DPS",
     DRUID = "DRUID_FERAL",
+    DEATHKNIGHT = "DEATHKNIGHT_DPS",
 }
 
 Profiles.PROFILE_NAMES = {
@@ -39,6 +40,9 @@ Profiles.PROFILE_NAMES = {
     DRUID_BALANCE = "Druid Balance",
     DRUID_RESTO = "Druid Restoration",
     DRUID_TANK = "Druid Tank",
+
+    DEATHKNIGHT_DPS = "Death Knight DPS",
+    DEATHKNIGHT_TANK = "Death Knight Tank",
 }
 
 function Profiles:NormalizeProfileKey(profileKey)
@@ -141,6 +145,9 @@ Profiles.SORTED_PROFILE_KEYS = {
     "DRUID_TANK",
     "DRUID_BALANCE",
     "DRUID_RESTO",
+
+    "DEATHKNIGHT_DPS",
+    "DEATHKNIGHT_TANK",
 }
 
 function Profiles:IsUsingManualProfile()

@@ -39,6 +39,7 @@ Tooltip.STAT_DISPLAY_NAMES = {
     MANA = "Mana",
     SPELL_PENETRATION = "Spell Penetration",
     ARMOR_PENETRATION = "Armor Penetration",
+    MASTERY = "Mastery Rating",
 
     ARCANE_RESISTANCE = "Arcane Resistance",
     FIRE_RESISTANCE = "Fire Resistance",

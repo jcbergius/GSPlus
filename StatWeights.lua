@@ -47,6 +47,43 @@ Weights.OTHER_STATS = {
 }
 
 Weights.PROFILE_WEIGHTS = {
+    -- Death Knight (Wrath/Cata clients only). Sparse on purpose: stats not
+    -- listed default to 0 via GetWeight.
+    DEATHKNIGHT_DPS = {
+        STRENGTH = 1.0,
+        AGILITY = 0.45,
+        STAMINA = 0.35,
+        ARMOR = 0.05,
+        ATTACKPOWER = 0.90,
+        CRITICAL = 0.85,
+        HIT = 1.0,
+        HASTE = 0.85,
+        EXPERTISE = 1.0,
+        RESILIENCE = 0.35,
+        WEAPON_SKILL = 0.50,
+        MELEE_WEAPON_DPS = 1.0,
+        MELEE_WEAPON_DAMAGE = 0.45,
+    },
+
+    DEATHKNIGHT_TANK = {
+        STRENGTH = 0.50,
+        AGILITY = 0.50,
+        STAMINA = 1.0,
+        ARMOR = 0.90,
+        ATTACKPOWER = 0.30,
+        DEFENSE = 1.0,
+        DODGE = 0.90,
+        PARRY = 0.90,
+        CRITICAL = 0.15,
+        HIT = 0.45,
+        HASTE = 0.15,
+        EXPERTISE = 0.70,
+        RESILIENCE = 0.65,
+        HP5 = 0.15,
+        MELEE_WEAPON_DPS = 0.35,
+        MELEE_WEAPON_DAMAGE = 0.15,
+    },
+
     WARRIOR_DPS = {
         STRENGTH = 1.0,
         AGILITY = 0.55,
@@ -812,6 +849,9 @@ Weights.STAT_WEIGHT_ALIASES = {
     MANA = "INTELLECT",
     ARMOR_PENETRATION = "ATTACKPOWER",
     SPELL_PENETRATION = "SPELLPOWER",
+    -- Placeholder until proper per-spec values exist (Cata): mastery is a
+    -- throughput secondary, so crit is the closest stand-in.
+    MASTERY = "CRITICAL",
 }
 
 function Weights:ClampWeight(weight)

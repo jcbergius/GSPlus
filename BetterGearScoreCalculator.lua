@@ -49,6 +49,7 @@ Calculator.STAT_BUDGET_COST = {
     MANA = 0.067,
     SPELL_PENETRATION = 0.20,
     ARMOR_PENETRATION = 0.10,
+    MASTERY = 1.00,
 
     ARCANE_RESISTANCE = 2.50,
     FIRE_RESISTANCE = 2.50,
@@ -204,6 +205,22 @@ Calculator.WEIGHTED_COLOR_CAPS = {
     },
 }
 
+-- The slot caps above are tuned for TBC endgame item budgets. Other flavors
+-- scale them so score colors stay meaningful. VANILLA is calibrated against
+-- level-60 epics; WRATH/CATA are first-pass estimates to revisit when those
+-- clients ship.
+Calculator.COLOR_REFERENCE_SCALE_BY_FLAVOR = {
+    VANILLA = 0.60,
+    TBC = 1.00,
+    WRATH = 2.10,
+    CATA = 4.20,
+    DEFAULT = 1.00,
+}
+
+function Calculator:GetColorReferenceScale()
+    return BetterGearScore.GameVersion:Select(self.COLOR_REFERENCE_SCALE_BY_FLAVOR) or 1.0
+end
+
 Calculator.PROFILE_COLOR_CAP_GROUP = {
     WARRIOR_DPS = "PHYSICAL_DPS",
     WARRIOR_TANK = "TANK",
@@ -231,6 +248,9 @@ Calculator.PROFILE_COLOR_CAP_GROUP = {
     DRUID_TANK = "TANK",
     DRUID_BALANCE = "CASTER_DPS",
     DRUID_RESTO = "HEALER",
+
+    DEATHKNIGHT_DPS = "PHYSICAL_DPS",
+    DEATHKNIGHT_TANK = "TANK",
 }
 
 function Calculator:IsWeaponStat(statType)
@@ -425,22 +445,24 @@ function Calculator:GetWeightedColorReferenceForItem(profileKey, slotKey, itemLi
     local equipLoc = self:GetEquipLoc(itemLink) or self:GetFallbackEquipLocFromSlot(slotKey)
     local groupName = self:GetProfileColorCapGroup(profileKey)
     local groupCaps = self.WEIGHTED_COLOR_CAPS[groupName] or self.WEIGHTED_COLOR_CAPS.FALLBACK
+    local scale = self:GetColorReferenceScale()
 
     if equipLoc and groupCaps[equipLoc] then
-        return groupCaps[equipLoc]
+        return groupCaps[equipLoc] * scale
     end
 
     if equipLoc and self.WEIGHTED_COLOR_CAPS.FALLBACK[equipLoc] then
-        return self.WEIGHTED_COLOR_CAPS.FALLBACK[equipLoc]
+        return self.WEIGHTED_COLOR_CAPS.FALLBACK[equipLoc] * scale
     end
 
-    return 100
+    return 100 * scale
 end
 
 function Calculator:GetSetBonusColorReference(profileKey)
     local groupName = self:GetProfileColorCapGroup(profileKey)
+    local reference = self.SET_BONUS_COLOR_REFERENCE[groupName] or self.SET_BONUS_COLOR_REFERENCE.FALLBACK or 45
 
-    return self.SET_BONUS_COLOR_REFERENCE[groupName] or self.SET_BONUS_COLOR_REFERENCE.FALLBACK or 45
+    return reference * self:GetColorReferenceScale()
 end
 
 function Calculator:GetScoreRatio(score, maxScore)

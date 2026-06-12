@@ -10,14 +10,34 @@ BetterGearScore.StatCaps = BetterGearScore.StatCaps or {}
 
 local StatCaps = BetterGearScore.StatCaps
 
--- Caps against a level 73 (boss) target at level 70. The rating APIs only
--- report bonuses from gear, not talents (e.g. Precision), so these are
+-- Caps against a boss-level (+3) target, per client flavor. The rating APIs
+-- only report bonuses from gear, not talents (e.g. Precision), so these are
 -- slightly conservative - gear keeps a little value near the true cap.
-StatCaps.MELEE_HIT_CAP_PERCENT = 9.0
-StatCaps.RANGED_HIT_CAP_PERCENT = 9.0
-StatCaps.SPELL_HIT_CAP_PERCENT = 16.0
-StatCaps.EXPERTISE_DODGE_CAP = 26
-StatCaps.DEFENSE_CRIT_IMMUNITY_SKILL = 490
+-- A nil entry means the cap doesn't exist on that flavor (no taper).
+-- WRATH/CATA values should be verified when those clients ship.
+StatCaps.CAPS_BY_FLAVOR = {
+    VANILLA = {
+        MELEE_HIT = 9.0, RANGED_HIT = 9.0, SPELL_HIT = 16.0,
+        EXPERTISE_DODGE = nil, DEFENSE = 440,
+    },
+    TBC = {
+        MELEE_HIT = 9.0, RANGED_HIT = 9.0, SPELL_HIT = 16.0,
+        EXPERTISE_DODGE = 26, DEFENSE = 490,
+    },
+    WRATH = {
+        MELEE_HIT = 8.0, RANGED_HIT = 8.0, SPELL_HIT = 17.0,
+        EXPERTISE_DODGE = 26, DEFENSE = 540,
+    },
+    CATA = {
+        MELEE_HIT = 8.0, RANGED_HIT = 8.0, SPELL_HIT = 17.0,
+        EXPERTISE_DODGE = 26, DEFENSE = nil,
+    },
+}
+StatCaps.CAPS_BY_FLAVOR.DEFAULT = StatCaps.CAPS_BY_FLAVOR.TBC
+
+function StatCaps:GetCaps()
+    return BetterGearScore.GameVersion:Select(self.CAPS_BY_FLAVOR) or self.CAPS_BY_FLAVOR.DEFAULT
+end
 
 -- Taper windows: full value until (cap - window), then linear down to the
 -- floor at the cap. The floor is non-zero because swapping gear around can
@@ -61,16 +81,17 @@ end
 
 function StatCaps:GetHitCapForProfile(profileKey)
     local group = BetterGearScore.Calculator:GetProfileColorCapGroup(profileKey)
+    local caps = self:GetCaps()
 
     if group == "CASTER_DPS" or group == "HEALER" then
-        return self.SPELL_HIT_CAP_PERCENT, self.CR_HIT_SPELL_INDEX
+        return caps.SPELL_HIT, self.CR_HIT_SPELL_INDEX
     end
 
     if profileKey == "HUNTER_DPS" then
-        return self.RANGED_HIT_CAP_PERCENT, self.CR_HIT_RANGED_INDEX
+        return caps.RANGED_HIT, self.CR_HIT_RANGED_INDEX
     end
 
-    return self.MELEE_HIT_CAP_PERCENT, self.CR_HIT_MELEE_INDEX
+    return caps.MELEE_HIT, self.CR_HIT_MELEE_INDEX
 end
 
 function StatCaps:GetHitMultiplier(profileKey)
@@ -85,6 +106,12 @@ function StatCaps:GetHitMultiplier(profileKey)
 end
 
 function StatCaps:GetExpertiseMultiplier(profileKey)
+    local expertiseCap = self:GetCaps().EXPERTISE_DODGE
+
+    if not expertiseCap then
+        return 1
+    end
+
     local group = BetterGearScore.Calculator:GetProfileColorCapGroup(profileKey)
 
     if group ~= "PHYSICAL_DPS" and group ~= "TANK" then
@@ -105,10 +132,16 @@ function StatCaps:GetExpertiseMultiplier(profileKey)
         return 1
     end
 
-    return self:GetTaperMultiplier(currentExpertise, self.EXPERTISE_DODGE_CAP, self.EXPERTISE_TAPER_WINDOW)
+    return self:GetTaperMultiplier(currentExpertise, expertiseCap, self.EXPERTISE_TAPER_WINDOW)
 end
 
 function StatCaps:GetDefenseMultiplier(profileKey)
+    local defenseCap = self:GetCaps().DEFENSE
+
+    if not defenseCap then
+        return 1
+    end
+
     local group = BetterGearScore.Calculator:GetProfileColorCapGroup(profileKey)
 
     if group ~= "TANK" then
@@ -122,9 +155,9 @@ function StatCaps:GetDefenseMultiplier(profileKey)
     local base, modifier = UnitDefense("player")
     local defenseSkill = (base or 0) + (modifier or 0)
 
-    -- Defense past 490 still grants avoidance, just not the crit-immunity
-    -- premium, so the post-cap floor is higher than for hit.
-    local multiplier = self:GetTaperMultiplier(defenseSkill, self.DEFENSE_CRIT_IMMUNITY_SKILL, self.DEFENSE_TAPER_WINDOW)
+    -- Defense past the crit-immunity point still grants avoidance, so the
+    -- post-cap floor is higher than for hit.
+    local multiplier = self:GetTaperMultiplier(defenseSkill, defenseCap, self.DEFENSE_TAPER_WINDOW)
 
     if multiplier < 0.5 then
         return 0.5

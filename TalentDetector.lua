@@ -58,6 +58,15 @@ TalentDetector.CLASS_TREE_PROFILES = {
         [2] = "DRUID_FERAL",   -- Feral Combat
         [3] = "DRUID_RESTO",   -- Restoration
     },
+
+    -- Wrath/Cata only; the class simply never appears on earlier clients.
+    -- Blood is gear-resolved because it tanked in Cata but DPSed for most
+    -- of Wrath.
+    DEATHKNIGHT = {
+        [1] = "DEATHKNIGHT_RESOLVE", -- Blood
+        [2] = "DEATHKNIGHT_DPS",     -- Frost
+        [3] = "DEATHKNIGHT_DPS",     -- Unholy
+    },
 }
 
 -- Classic/TBC clients return (name, texture, pointsSpent, fileName) while
@@ -120,30 +129,31 @@ function TalentDetector:GetDominantTreeIndex()
     return bestIndex, points, totalPoints
 end
 
--- Feral talents can't distinguish cat DPS from bear tank, so compare how the
--- equipped gear performs under each profile (normalized against that
--- profile's slot caps) and pick the better fit. Cached until gear changes.
-TalentDetector.FERAL_TANK_BIAS = 1.05
+-- Some talent trees can't distinguish DPS from tank (Feral Druid, Blood
+-- Death Knight), so compare how the equipped gear performs under each
+-- profile (normalized against that profile's slot caps) and pick the better
+-- fit. Cached until gear changes.
+TalentDetector.GEAR_ROLE_TANK_BIAS = 1.05
 
-function TalentDetector:ResolveFeralProfile()
-    if not BetterGearScore.Options:Get("autoDetectFeralRole") then
-        return "DRUID_FERAL"
-    end
+function TalentDetector:ResolveRoleByGear(dpsProfile, tankProfile)
+    self.roleCache = self.roleCache or {}
 
-    if self.feralRoleCache then
-        return self.feralRoleCache
+    local cacheKey = dpsProfile .. ":" .. tankProfile
+
+    if self.roleCache[cacheKey] then
+        return self.roleCache[cacheKey]
     end
 
     local Calculator = BetterGearScore.Calculator
 
-    local feral = Calculator:CalculateTotalBetterGearScore("DRUID_FERAL")
-    local tank = Calculator:CalculateTotalBetterGearScore("DRUID_TANK")
+    local dps = Calculator:CalculateTotalBetterGearScore(dpsProfile)
+    local tank = Calculator:CalculateTotalBetterGearScore(tankProfile)
 
-    local feralRatio = 0
+    local dpsRatio = 0
     local tankRatio = 0
 
-    if feral.totalMaxBudgetScore and feral.totalMaxBudgetScore > 0 then
-        feralRatio = feral.totalWeightedScore / feral.totalMaxBudgetScore
+    if dps.totalMaxBudgetScore and dps.totalMaxBudgetScore > 0 then
+        dpsRatio = dps.totalWeightedScore / dps.totalMaxBudgetScore
     end
 
     if tank.totalMaxBudgetScore and tank.totalMaxBudgetScore > 0 then
@@ -155,13 +165,23 @@ function TalentDetector:ResolveFeralProfile()
     -- result is recomputed cleanly.
     Calculator:InvalidateCache()
 
-    if tankRatio > feralRatio * self.FERAL_TANK_BIAS then
-        self.feralRoleCache = "DRUID_TANK"
-    else
-        self.feralRoleCache = "DRUID_FERAL"
+    local resolved = dpsProfile
+
+    if tankRatio > dpsRatio * self.GEAR_ROLE_TANK_BIAS then
+        resolved = tankProfile
     end
 
-    return self.feralRoleCache
+    self.roleCache[cacheKey] = resolved
+
+    return resolved
+end
+
+function TalentDetector:ResolveFeralProfile()
+    if not BetterGearScore.Options:Get("autoDetectFeralRole") then
+        return "DRUID_FERAL"
+    end
+
+    return self:ResolveRoleByGear("DRUID_FERAL", "DRUID_TANK")
 end
 
 function TalentDetector:GetDetectedProfile()
@@ -177,6 +197,8 @@ function TalentDetector:GetDetectedProfile()
 
     if profileKey == "DRUID_FERAL" then
         profileKey = self:ResolveFeralProfile()
+    elseif profileKey == "DEATHKNIGHT_RESOLVE" then
+        profileKey = self:ResolveRoleByGear("DEATHKNIGHT_DPS", "DEATHKNIGHT_TANK")
     end
 
     return profileKey, points, totalPoints
