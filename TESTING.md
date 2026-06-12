@@ -18,18 +18,24 @@ Leave script errors on for the whole pass - any Lua error popup is a failure.
 - [ ] On a character that has never used the addon, exactly one green
       orientation message appears in chat after login. `/reload` again -
       no message this time.
-- [ ] `/gs` opens the options panel; every checkbox reflects its default
-      (all on). The panel also appears under Interface Options → AddOns.
+- [ ] `/gs` opens the options panel; defaults are minimal: character pane,
+      mouseover scores, score sharing, and Feral detection ON; all extra
+      tooltip lines (item tooltips, breakdown, upgrade delta, legacy GS,
+      budget score) OFF. The panel also appears under Interface Options →
+      AddOns.
 
 ## 2. Character pane hub (2 min)
 
 - [ ] Open the character pane (`C`). The **gs+** score shows, positioned
       sensibly (not overlapping stats or buttons). *If misplaced, note the
       offset - it's set in `CharacterPaneUI.lua` (`73, 254`).*
-- [ ] Hover it: tooltip shows profile, weighted score, budget score,
-      legacy GS, and the click/right-click hints.
-- [ ] The profile shown matches your actual spec (core check - this
-      validates `GetTalentTabInfo` parsing on this client).
+- [ ] Hover it: tooltip shows profile, weighted score, and the
+      click/right-click hints (budget/legacy lines only if enabled).
+- [ ] **The profile shown matches your actual spec** - the single most
+      important check. Test specifically on a HEALER (e.g. Resto Shaman):
+      a wrong profile (e.g. "Shaman Elemental") craters healer scores.
+      Even with unreadable talents, the gear fallback should pick the
+      healer profile when wearing +Healing gear.
 - [ ] **Click** → gear window opens: items in slot order, scores colored,
       hovering a row shows the item tooltip.
 - [ ] Profile dropdown: pick a different profile - scores update; pick
@@ -38,6 +44,10 @@ Leave script errors on for the whole pass - any Lua error popup is a failure.
       just you with your score.
 
 ## 3. Item tooltips (2 min)
+
+Item tooltip lines are OFF by default - enable "Show gear score on item
+tooltips", the upgrade comparison, breakdown, legacy GS, and budget score
+in `/gs` first for this section.
 
 - [ ] Hover an equipped item: gs+ section shows Weighted
       Score, Budget Score, GearScore (legacy), and "For You vs Equipped:

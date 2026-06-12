@@ -73,7 +73,10 @@ function InspectPaneUI:ShowTooltip(owner)
 
         GameTooltip:AddLine("Profile: " .. GSPlus.Profiles:GetProfileDisplayName(entry.profileKey), 1, 1, 1)
         GameTooltip:AddDoubleLine("Weighted Score", coloredScore, 1, 1, 1, 1, 1, 1)
-        GameTooltip:AddLine("Budget Score: " .. math.floor(entry.raw or 0), 0.8, 0.8, 0.8)
+
+        if GSPlus.Options:Get("showBudgetScore") then
+            GameTooltip:AddLine("Budget Score: " .. math.floor(entry.raw or 0), 0.8, 0.8, 0.8)
+        end
 
         if GSPlus.Options:Get("showLegacyGearScore") and entry.legacy and entry.legacy > 0 then
             GameTooltip:AddLine("GearScore (legacy): " .. math.floor(entry.legacy), 0.6, 0.6, 0.6)

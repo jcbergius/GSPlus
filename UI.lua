@@ -226,10 +226,13 @@ function UI:Update()
 
     self.totalScoreText:SetText("Total Gear Score: " .. coloredTotalScore)
 
-    self.infoText:SetText(
-        "Profile: " .. (data.profileName or "Unknown")
-        .. "  |  Budget: " .. math.floor(data.totalRawScore or 0)
-    )
+    local infoLine = "Profile: " .. (data.profileName or "Unknown")
+
+    if GSPlus.Options:Get("showBudgetScore") then
+        infoLine = infoLine .. "  |  Budget: " .. math.floor(data.totalRawScore or 0)
+    end
+
+    self.infoText:SetText(infoLine)
 
     self:UpdateProfileDropdown()
 

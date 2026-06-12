@@ -6,11 +6,15 @@ GSPlus.Options = GSPlus.Options or {}
 
 local Options = GSPlus.Options
 
+-- Minimal-by-default: only the core surfaces (character pane, mouseover
+-- scores, score sharing) are on. Extra tooltip lines are opt-in so the
+-- addon doesn't flood every tooltip with text.
 Options.DEFAULTS = {
-    showItemTooltip = true,
-    showTooltipBreakdown = true,
-    showUpgradeDelta = true,
-    showLegacyGearScore = true,
+    showItemTooltip = false,
+    showTooltipBreakdown = false,
+    showUpgradeDelta = false,
+    showLegacyGearScore = false,
+    showBudgetScore = false,
     showCharacterPane = true,
     showUnitTooltip = true,
     enableComms = true,
@@ -19,13 +23,14 @@ Options.DEFAULTS = {
 
 -- Order and labels for the options panel.
 Options.PANEL_OPTIONS = {
-    { key = "showItemTooltip",     label = "Show gear score on item tooltips" },
-    { key = "showTooltipBreakdown", label = "Show stat breakdown on item tooltips (hold Shift)" },
-    { key = "showUpgradeDelta",    label = "Show upgrade comparison vs equipped items" },
-    { key = "showLegacyGearScore", label = "Show legacy GearScore value" },
-    { key = "showUnitTooltip",     label = "Show gear scores when mousing over players" },
     { key = "showCharacterPane",   label = "Show gear score on the character pane" },
+    { key = "showUnitTooltip",     label = "Show gear scores when mousing over players" },
     { key = "enableComms",         label = "Share scores with group members (addon channel)" },
+    { key = "showItemTooltip",     label = "Show gear score on item tooltips" },
+    { key = "showUpgradeDelta",    label = "Show upgrade comparison vs equipped items" },
+    { key = "showTooltipBreakdown", label = "Show stat breakdown on item tooltips (hold Shift)" },
+    { key = "showLegacyGearScore", label = "Show legacy GearScore value" },
+    { key = "showBudgetScore",     label = "Show unweighted budget score" },
     { key = "autoDetectFeralRole", label = "Detect Feral Druid tank vs DPS from equipped gear" },
 }
 

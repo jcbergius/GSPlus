@@ -69,21 +69,46 @@ TalentDetector.CLASS_TREE_PROFILES = {
     },
 }
 
--- Classic/TBC clients return (name, texture, pointsSpent, fileName) while
--- Wrath-style clients return (id, name, description, texture, pointsSpent).
--- Detect the signature by type so role detection works on both.
+-- GetTalentTabInfo's returns vary by client:
+--   A: (name, texture, pointsSpent, fileName)            - Classic-style
+--   B: (id, name, description, texture, pointsSpent)     - Wrath-style
+--   C: (id, name, texture, pointsSpent)                  - seen on some builds
+-- Detect by type, validate that the result is a plausible pointsSpent
+-- (texture fileIDs are huge numbers and must never be mistaken for points).
+TalentDetector.MAX_PLAUSIBLE_POINTS = 100
+
+function TalentDetector:IsPlausiblePoints(value)
+    return type(value) == "number"
+        and value >= 0
+        and value <= self.MAX_PLAUSIBLE_POINTS
+        and value == math.floor(value)
+end
+
 function TalentDetector:GetTalentTabNameAndPoints(tabIndex, isInspect)
     if not GetTalentTabInfo then
         return nil, 0
     end
 
     local r1, r2, r3, r4, r5 = GetTalentTabInfo(tabIndex, isInspect)
+    local name, points
 
     if type(r1) == "string" then
-        return r1, tonumber(r3) or 0
+        name = r1
+        points = tonumber(r3)
+    else
+        name = type(r2) == "string" and r2 or nil
+        points = tonumber(r5)
+
+        if points == nil then
+            points = tonumber(r4)
+        end
     end
 
-    return r2, tonumber(r5) or 0
+    if not self:IsPlausiblePoints(points) then
+        points = 0
+    end
+
+    return name, points
 end
 
 function TalentDetector:GetTalentPoints(isInspect)
@@ -184,21 +209,105 @@ function TalentDetector:ResolveFeralProfile()
     return self:ResolveRoleByGear("DRUID_FERAL", "DRUID_TANK")
 end
 
+-- All concrete profiles a class could be playing (ambiguous tree markers
+-- expanded into their possible resolutions).
+function TalentDetector:GetClassProfiles(className)
+    local classProfiles = self.CLASS_TREE_PROFILES[className]
+    local seen = {}
+    local list = {}
+
+    if not classProfiles then
+        return list
+    end
+
+    for _, key in pairs(classProfiles) do
+        local expanded
+
+        if key == "DEATHKNIGHT_RESOLVE" then
+            expanded = { "DEATHKNIGHT_DPS", "DEATHKNIGHT_TANK" }
+        elseif key == "DRUID_FERAL" then
+            expanded = { "DRUID_FERAL", "DRUID_TANK" }
+        else
+            expanded = { key }
+        end
+
+        for _, profileKey in ipairs(expanded) do
+            if not seen[profileKey] and GSPlus.Weights.PROFILE_WEIGHTS[profileKey] then
+                seen[profileKey] = true
+                list[#list + 1] = profileKey
+            end
+        end
+    end
+
+    return list
+end
+
+-- Safety net when talents are unreadable (unknown client API signature) or
+-- unspent: pick whichever of the class's profiles the equipped gear fits
+-- best, instead of silently falling back to a possibly-wrong class default.
+-- This is what keeps a Resto Shaman from being scored as Elemental.
+function TalentDetector:ResolveProfileByGear(profileKeys, cacheKey)
+    if not profileKeys or #profileKeys == 0 then
+        return nil
+    end
+
+    if #profileKeys == 1 then
+        return profileKeys[1]
+    end
+
+    self.roleCache = self.roleCache or {}
+    cacheKey = cacheKey or table.concat(profileKeys, ":")
+
+    if self.roleCache[cacheKey] then
+        return self.roleCache[cacheKey]
+    end
+
+    local Calculator = GSPlus.Calculator
+    local bestKey = profileKeys[1]
+    local bestRatio = -1
+
+    for _, profileKey in ipairs(profileKeys) do
+        local data = Calculator:CalculateTotalGSPlus(profileKey)
+        local ratio = 0
+
+        if data.totalMaxBudgetScore and data.totalMaxBudgetScore > 0 then
+            ratio = data.totalWeightedScore / data.totalMaxBudgetScore
+        end
+
+        if ratio > bestRatio then
+            bestRatio = ratio
+            bestKey = profileKey
+        end
+    end
+
+    Calculator:InvalidateCache()
+
+    self.roleCache[cacheKey] = bestKey
+
+    return bestKey
+end
+
 function TalentDetector:GetDetectedProfile()
     local className = GSPlus.Calculator:GetPlayerClass()
     local bestTreeIndex, points, totalPoints = self:GetDominantTreeIndex()
     local defaultProfile = GSPlus.Profiles:GetDefaultProfileForClass(className)
-    local profileKey = defaultProfile
+    local profileKey
 
-    if bestTreeIndex then
+    if bestTreeIndex and (totalPoints or 0) > 0 then
         local classProfiles = self.CLASS_TREE_PROFILES[className]
         profileKey = (classProfiles and classProfiles[bestTreeIndex]) or defaultProfile
-    end
 
-    if profileKey == "DRUID_FERAL" then
-        profileKey = self:ResolveFeralProfile()
-    elseif profileKey == "DEATHKNIGHT_RESOLVE" then
-        profileKey = self:ResolveRoleByGear("DEATHKNIGHT_DPS", "DEATHKNIGHT_TANK")
+        if profileKey == "DRUID_FERAL" then
+            profileKey = self:ResolveFeralProfile()
+        elseif profileKey == "DEATHKNIGHT_RESOLVE" then
+            profileKey = self:ResolveRoleByGear("DEATHKNIGHT_DPS", "DEATHKNIGHT_TANK")
+        end
+    else
+        -- No readable talent points: infer the role from equipped gear.
+        profileKey = self:ResolveProfileByGear(
+            self:GetClassProfiles(className),
+            "CLASS_FALLBACK:" .. tostring(className)
+        ) or defaultProfile
     end
 
     return profileKey, points, totalPoints

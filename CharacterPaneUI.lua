@@ -70,7 +70,10 @@ function CharacterPaneUI:Create()
         GameTooltip:AddLine("|cff00ff00gs+|r")
         GameTooltip:AddLine("Profile: " .. (data.profileName or "Unknown"), 1, 1, 1)
         GameTooltip:AddDoubleLine("Weighted Score", coloredScore, 1, 1, 1, 1, 1, 1)
-        GameTooltip:AddLine("Budget Score: " .. math.floor(data.totalRawScore or 0), 0.8, 0.8, 0.8)
+
+        if GSPlus.Options:Get("showBudgetScore") then
+            GameTooltip:AddLine("Budget Score: " .. math.floor(data.totalRawScore or 0), 0.8, 0.8, 0.8)
+        end
 
         if GSPlus.Options:Get("showLegacyGearScore") then
             local legacyScore = GSPlus.LegacyGearScore:GetPlayerScore()

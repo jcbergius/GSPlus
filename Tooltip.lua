@@ -355,7 +355,9 @@ function Tooltip:AddCompactGearScore(tooltip, profileKey, rawScore, weightedScor
     tooltip:AddLine(" ")
     tooltip:AddLine("|cff00ff00gs+|r - " .. GSPlus.Profiles:GetProfileDisplayName(profileKey))
     tooltip:AddDoubleLine("Weighted Score", coloredWeightedScore, 1, 1, 1, 1, 1, 1)
-    tooltip:AddDoubleLine("Budget Score", math.floor(rawScore or 0), 1, 1, 1, 0.8, 0.8, 0.8)
+    if GSPlus.Options:Get("showBudgetScore") then
+        tooltip:AddDoubleLine("Budget Score", math.floor(rawScore or 0), 1, 1, 1, 0.8, 0.8, 0.8)
+    end
 
     if itemLink and GSPlus.Options:Get("showLegacyGearScore") then
         local _, classFileName = UnitClass("player")

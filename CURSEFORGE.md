@@ -46,18 +46,21 @@ No setup, no profiles to configure, no commands to learn:
   and discounts hit accordingly - with a note explaining why.
 - **Transparent math.** Hold Shift on any tooltip for the full
   stat-by-stat breakdown. No black box.
-- **Legacy GearScore included.** The familiar classic number is shown
-  alongside, so you can still talk to LFG in units everyone knows.
+- **Legacy GearScore included (opt-in).** Enable it and the familiar
+  classic number shows alongside, so you can still talk to LFG in units
+  everyone knows.
 - **Fair and consistent.** The same gear always produces the same score,
   no matter who computes it. Personal adjustments (like hit cap) only
   ever affect your private upgrade advice, never the shared number.
 
 ## Display settings
 
-`/gs` (or Interface Options → gs+) toggles individual
-visuals: tooltip lines, breakdowns, upgrade comparison, legacy GearScore,
-mouseover scores, character pane display, and score sharing. That's the
-only command - everything else is automatic.
+Defaults are minimal on purpose - your score on the character pane,
+scores on player mouseover, and score sharing, nothing else cluttering
+your tooltips. `/gs` (or Interface Options → gs+) opts into more: item
+tooltip scores, Shift breakdowns, upgrade comparison, legacy GearScore,
+and the unweighted budget score. That's the only command - everything
+else is automatic.
 
 ## Notes
 

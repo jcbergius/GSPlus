@@ -51,10 +51,11 @@ Unlike simple item-level or raw-stat scoring, gs+ attempts to value gear based o
   - Opening it automatically asks group members over comms and inspects
     players in range.
 
-- **Upgrade Comparison**
-  - Item tooltips show a green/red delta against what you have equipped in
-    that slot, using your role weights - "is this an upgrade for *my* spec"
-    at a glance. Two-handers are compared against main hand + off hand.
+- **Upgrade Comparison (opt-in)**
+  - Item tooltips can show a green/red delta against what you have equipped
+    in that slot, using your role weights - "is this an upgrade for *my*
+    spec" at a glance. Two-handers are compared against main hand + off
+    hand. Off by default to keep tooltips lean; enable in `/gs`.
 
 - **Stat Cap Awareness (advice only, never the score)**
   - Hit is the best stat in the game until you reach the cap and nearly
@@ -65,10 +66,10 @@ Unlike simple item-level or raw-stat scoring, gs+ attempts to value gear based o
     currency, and the same gear always produces the same number for
     everyone.
 
-- **Legacy GearScore Number**
-  - Shows the familiar classic GearScore value (item level and rarity
+- **Legacy GearScore Number (opt-in)**
+  - Can show the familiar classic GearScore value (item level and rarity
     based) alongside the weighted score, so you can talk to LFG in units
-    everyone knows.
+    everyone knows. Off by default; enable in `/gs`.
 
 - **Equipped Gear Window**
   - Click the character pane score to see raw and weighted totals and every
@@ -156,10 +157,11 @@ The only slash command is for display settings:
 /gs
 ```
 
-Opens the options panel (also available under Interface Options), where
-individual visual features - tooltip lines, breakdowns, upgrade deltas,
-legacy GearScore, mouseover scores, the character pane display, and score
-sharing - can be toggled.
+Opens the options panel (also available under Interface Options). Defaults
+are deliberately minimal so the addon stays quiet: the character pane
+score, mouseover scores, and score sharing are on; everything else - item
+tooltip scores, the Shift breakdown, upgrade deltas, legacy GearScore, and
+the unweighted budget score - is off until you enable it.
 
 ## Automatic Role Detection
 

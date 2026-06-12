@@ -562,5 +562,160 @@ check(GSPlus.TalentDetector:GetDetectedProfile() == "DEATHKNIGHT_DPS", "Frost DK
 equipped.ChestSlot = chestLink
 GSPlus:InvalidateCaches()
 
+-- 16. Playtest fixes: minimal display defaults
+playerClass = "WARRIOR"
+talentTabs = {
+    { name = "Arms", points = 5 },
+    { name = "Fury", points = 3 },
+    { name = "Protection", points = 41 },
+}
+GSPlus:InvalidateCaches()
+
+check(GSPlus.Options:Get("showItemTooltip") == false, "item tooltip off by default")
+check(GSPlus.Options:Get("showLegacyGearScore") == false, "legacy GS off by default")
+check(GSPlus.Options:Get("showBudgetScore") == false, "budget score off by default")
+check(GSPlus.Options:Get("showTooltipBreakdown") == false, "breakdown off by default")
+check(GSPlus.Options:Get("showUpgradeDelta") == false, "upgrade delta off by default")
+check(GSPlus.Options:Get("showCharacterPane") == true, "character pane on by default")
+check(GSPlus.Options:Get("showUnitTooltip") == true, "unit tooltip on by default")
+check(GSPlus.Options:Get("enableComms") == true, "comms on by default")
+
+local quietTip = {
+    addedLines = {},
+    GetItem = function() return "Test Healer Robe", chestLink end,
+    AddLine = function(self, text) self.addedLines[#self.addedLines + 1] = text or "" end,
+    AddDoubleLine = function(self, l, r) self.addedLines[#self.addedLines + 1] = (l or "") .. " | " .. (r or "") end,
+    Show = function() end,
+}
+GSPlus.Tooltip:AddGearScoreToTooltip(quietTip)
+check(#quietTip.addedLines == 0, "item tooltip adds nothing by default")
+
+GSPlus.Options:Set("showItemTooltip", true)
+quietTip.addedLines = {}
+quietTip.bgsScoreAdded = nil
+GSPlus.Tooltip:AddGearScoreToTooltip(quietTip)
+local sawBudget, sawLegacy = false, false
+for _, line in ipairs(quietTip.addedLines) do
+    if string.find(line, "Budget Score") then sawBudget = true end
+    if string.find(line, "legacy") then sawLegacy = true end
+end
+check(#quietTip.addedLines > 0, "item tooltip shows when enabled")
+check(not sawBudget and not sawLegacy, "budget and legacy lines hidden unless enabled")
+
+GSPlus.Options:Set("showBudgetScore", true)
+quietTip.addedLines = {}
+quietTip.bgsScoreAdded = nil
+GSPlus.Tooltip:AddGearScoreToTooltip(quietTip)
+sawBudget = false
+for _, line in ipairs(quietTip.addedLines) do
+    if string.find(line, "Budget Score") then sawBudget = true end
+end
+check(sawBudget, "budget line shows when enabled")
+GSPlus.Options:Set("showBudgetScore", false)
+GSPlus.Options:Set("showItemTooltip", false)
+
+-- 17. Talent API signature robustness (suspected cause of the playtest
+-- healer mis-scoring: unreadable talents fell back to the class default,
+-- scoring a Resto Shaman with Elemental weights)
+local realGetTalentTabInfo = GetTalentTabInfo
+
+GetTalentTabInfo = function(i) return i, "Tree" .. i, 136052, ({ 0, 0, 44 })[i] end
+local sigCName, sigCPoints = GSPlus.TalentDetector:GetTalentTabNameAndPoints(3)
+check(sigCName == "Tree3" and sigCPoints == 44, "signature C (id, name, texture, points) parsed")
+
+GetTalentTabInfo = function(i) return i, "Tree" .. i, "desc", 136052, ({ 0, 0, 44 })[i] end
+local sigBName, sigBPoints = GSPlus.TalentDetector:GetTalentTabNameAndPoints(3)
+check(sigBName == "Tree3" and sigBPoints == 44, "signature B (id, name, desc, texture, points) parsed")
+
+GetTalentTabInfo = function(i) return i, "Tree" .. i, "desc", 136052 end
+local _, fileIdPoints = GSPlus.TalentDetector:GetTalentTabNameAndPoints(3)
+check(fileIdPoints == 0, "texture fileID never mistaken for talent points")
+
+GetTalentTabInfo = realGetTalentTabInfo
+
+-- 18. Cross-role score parity: equally-itemized warlock and resto shaman
+-- gear must produce similar totals (the playtest saw 1019 vs 430)
+local wlSet = {
+    HeadSlot = "|cffa335ee|Hitem:2001::::::::70:::::|h[Warlock Hood]|h|r",
+    ChestSlot = "|cffa335ee|Hitem:2002::::::::70:::::|h[Warlock Robe]|h|r",
+    LegsSlot = "|cffa335ee|Hitem:2003::::::::70:::::|h[Warlock Legs]|h|r",
+    MainHandSlot = "|cffa335ee|Hitem:2004::::::::70:::::|h[Warlock Staff]|h|r",
+}
+fakeItems[wlSet.HeadSlot] = { name = "Warlock Hood", equipLoc = "INVTYPE_HEAD", ilvl = 115 }
+fakeTooltips[wlSet.HeadSlot] = { "Warlock Hood", "+28 Intellect", "+30 Stamina", "+32 Critical Strike Rating",
+    "Equip: Increases damage and healing done by magical spells and effects by up to 40." }
+fakeItems[wlSet.ChestSlot] = { name = "Warlock Robe", equipLoc = "INVTYPE_ROBE", ilvl = 115 }
+fakeTooltips[wlSet.ChestSlot] = { "Warlock Robe", "+30 Intellect", "+33 Stamina", "+25 Haste Rating",
+    "Equip: Increases damage and healing done by magical spells and effects by up to 46." }
+fakeItems[wlSet.LegsSlot] = { name = "Warlock Legs", equipLoc = "INVTYPE_LEGS", ilvl = 115 }
+fakeTooltips[wlSet.LegsSlot] = { "Warlock Legs", "+32 Intellect", "+30 Stamina", "+24 Spell Hit Rating",
+    "Equip: Increases damage and healing done by magical spells and effects by up to 44." }
+fakeItems[wlSet.MainHandSlot] = { name = "Warlock Staff", equipLoc = "INVTYPE_2HWEAPON", ilvl = 125 }
+fakeTooltips[wlSet.MainHandSlot] = { "Warlock Staff", "+42 Intellect", "+45 Stamina", "+30 Critical Strike Rating",
+    "Equip: Increases damage and healing done by magical spells and effects by up to 121." }
+
+local shSet = {
+    HeadSlot = "|cffa335ee|Hitem:2011::::::::70:::::|h[Shaman Helm]|h|r",
+    ChestSlot = "|cffa335ee|Hitem:2012::::::::70:::::|h[Shaman Hauberk]|h|r",
+    LegsSlot = "|cffa335ee|Hitem:2013::::::::70:::::|h[Shaman Kilt]|h|r",
+    MainHandSlot = "|cffa335ee|Hitem:2014::::::::70:::::|h[Shaman Staff]|h|r",
+}
+fakeItems[shSet.HeadSlot] = { name = "Shaman Helm", equipLoc = "INVTYPE_HEAD", ilvl = 115 }
+fakeTooltips[shSet.HeadSlot] = { "Shaman Helm", "+28 Intellect", "+30 Stamina", "+32 Critical Strike Rating",
+    "Equip: Increases healing done by up to 75 and damage done by up to 25 for all magical spells and effects." }
+fakeItems[shSet.ChestSlot] = { name = "Shaman Hauberk", equipLoc = "INVTYPE_CHEST", ilvl = 115 }
+fakeTooltips[shSet.ChestSlot] = { "Shaman Hauberk", "+30 Intellect", "+33 Stamina",
+    "Equip: Restores 8 mana per 5 sec.",
+    "Equip: Increases healing done by up to 86 and damage done by up to 29 for all magical spells and effects." }
+fakeItems[shSet.LegsSlot] = { name = "Shaman Kilt", equipLoc = "INVTYPE_LEGS", ilvl = 115 }
+fakeTooltips[shSet.LegsSlot] = { "Shaman Kilt", "+32 Intellect", "+30 Stamina", "+24 Critical Strike Rating",
+    "Equip: Increases healing done by up to 84 and damage done by up to 28 for all magical spells and effects." }
+fakeItems[shSet.MainHandSlot] = { name = "Shaman Staff", equipLoc = "INVTYPE_2HWEAPON", ilvl = 125 }
+fakeTooltips[shSet.MainHandSlot] = { "Shaman Staff", "+42 Intellect", "+45 Stamina", "+30 Critical Strike Rating",
+    "Equip: Increases healing done by up to 245 and damage done by up to 82 for all magical spells and effects." }
+
+for slotKey, link in pairs(wlSet) do equipped[slotKey] = link end
+GSPlus:InvalidateCaches()
+local warlockTotal = GSPlus.Calculator:CalculateTotalGSPlus("WARLOCK_DPS").totalWeightedScore
+
+for slotKey, link in pairs(shSet) do equipped[slotKey] = link end
+GSPlus:InvalidateCaches()
+local shamanTotal = GSPlus.Calculator:CalculateTotalGSPlus("SHAMAN_HEALER").totalWeightedScore
+
+local parityRatio = warlockTotal / shamanTotal
+check(parityRatio > 0.80 and parityRatio < 1.25,
+    string.format("equally-geared warlock and resto shaman score within 25%% (%.0f vs %.0f, ratio %.2f)",
+        warlockTotal, shamanTotal, parityRatio))
+
+-- 19. Gear-based profile fallback when talents are unreadable
+playerClass = "SHAMAN"
+talentTabs = {
+    { name = "Elemental", points = 0 },
+    { name = "Enhancement", points = 0 },
+    { name = "Restoration", points = 0 },
+}
+GSPlus:InvalidateCaches()
+check(GSPlus.TalentDetector:GetDetectedProfile() == "SHAMAN_HEALER",
+    "resto shaman in healing gear detected without talents (gear fallback)")
+
+-- Inspected units get the same fallback
+TEST_UNITS.focus = { name = "Carol", guid = "guid-carol", isPlayer = true, class = "SHAMAN" }
+local carolEntry = GSPlus.Inspect:BuildUnitEntry("focus", "inspect")
+check(carolEntry and carolEntry.profileKey == "SHAMAN_HEALER",
+    "inspected shaman in healing gear profiled by gear fallback")
+
+-- restore state
+equipped.HeadSlot = nil
+equipped.LegsSlot = nil
+equipped.ChestSlot = chestLink
+equipped.MainHandSlot = swordLink
+playerClass = "WARRIOR"
+talentTabs = {
+    { name = "Arms", points = 5 },
+    { name = "Fury", points = 3 },
+    { name = "Protection", points = 41 },
+}
+GSPlus:InvalidateCaches()
+
 realPrint(failures == 0 and "ALL TESTS PASSED" or (failures .. " TEST(S) FAILED"))
 os.exit(failures == 0 and 0 or 1)

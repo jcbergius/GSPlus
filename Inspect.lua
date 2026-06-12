@@ -81,7 +81,41 @@ function Inspect:GetUnitProfile(unit)
         end
     end
 
-    return GSPlus.Profiles:GetDefaultProfileForClass(classFileName)
+    -- Inspect talents unreadable: infer the role from their gear instead of
+    -- defaulting (which would score e.g. a Resto Shaman as Elemental).
+    local gearProfile = self:ResolveUnitProfileByGear(unit, classFileName)
+
+    return gearProfile or GSPlus.Profiles:GetDefaultProfileForClass(classFileName)
+end
+
+function Inspect:ResolveUnitProfileByGear(unit, classFileName)
+    local profileKeys = GSPlus.TalentDetector:GetClassProfiles(classFileName)
+
+    if #profileKeys == 0 then
+        return nil
+    end
+
+    if #profileKeys == 1 then
+        return profileKeys[1]
+    end
+
+    local bestKey = nil
+    local bestRatio = -1
+
+    for _, profileKey in ipairs(profileKeys) do
+        local result = self:CalculateUnitScore(unit, profileKey)
+
+        if result.itemCount > 0 and result.totalMaxScore > 0 then
+            local ratio = result.totalWeightedScore / result.totalMaxScore
+
+            if ratio > bestRatio then
+                bestRatio = ratio
+                bestKey = profileKey
+            end
+        end
+    end
+
+    return bestKey
 end
 
 function Inspect:CalculateUnitScore(unit, profileKey)
