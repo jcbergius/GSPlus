@@ -31,9 +31,11 @@ ItemParser.RATING_PER_PERCENT_BY_FLAVOR = {
         HIT = 15.77, SPELL_HIT = 12.62, CRIT = 22.08, SPELL_CRIT = 22.08,
         DODGE = 18.94, PARRY = 23.65, BLOCK = 7.88, HASTE = 15.77,
     },
+    -- PARRY is the post-3.2 value (the 3.0 cost of 49.18 was reduced by 8%);
+    -- Wrath Classic ran on the final 3.4 rules.
     WRATH = {
         HIT = 32.79, SPELL_HIT = 26.23, CRIT = 45.91, SPELL_CRIT = 45.91,
-        DODGE = 39.35, PARRY = 49.18, BLOCK = 16.39, HASTE = 32.79,
+        DODGE = 39.35, PARRY = 45.25, BLOCK = 16.39, HASTE = 32.79,
     },
     CATA = {
         HIT = 120.11, SPELL_HIT = 102.45, CRIT = 179.28, SPELL_CRIT = 179.28,
