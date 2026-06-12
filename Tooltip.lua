@@ -35,6 +35,11 @@ Tooltip.STAT_DISPLAY_NAMES = {
     MP5 = "Mana per 5 sec",
     HP5 = "Health per 5 sec",
 
+    HEALTH = "Health",
+    MANA = "Mana",
+    SPELL_PENETRATION = "Spell Penetration",
+    ARMOR_PENETRATION = "Armor Penetration",
+
     ARCANE_RESISTANCE = "Arcane Resistance",
     FIRE_RESISTANCE = "Fire Resistance",
     FROST_RESISTANCE = "Frost Resistance",
@@ -425,6 +430,11 @@ function Tooltip:AddDetailedBreakdown(tooltip, stats, profileKey, slotKey, itemL
 
     if not anyRows then
         tooltip:AddLine("No weighted stats found for this profile.", 0.8, 0.8, 0.8)
+    end
+
+    -- Transparency: disclose effects the parser recognized but cannot value.
+    if (stats.UNSCORED_EQUIP_EFFECT or 0) > 0 or (stats.UNSCORED_USE_EFFECT or 0) > 0 then
+        tooltip:AddLine("Special equip/use effects are not included in the score.", 0.6, 0.6, 0.6)
     end
 end
 

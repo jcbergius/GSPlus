@@ -804,6 +804,16 @@ Weights.PROFILE_WEIGHTS = {
     },
 }
 
+-- Stats that derive their role value from another stat, so the 18 profile
+-- tables don't need explicit entries for them. The budget cost (see
+-- Calculator.STAT_BUDGET_COST) handles the magnitude conversion.
+Weights.STAT_WEIGHT_ALIASES = {
+    HEALTH = "STAMINA",
+    MANA = "INTELLECT",
+    ARMOR_PENETRATION = "ATTACKPOWER",
+    SPELL_PENETRATION = "SPELLPOWER",
+}
+
 function Weights:ClampWeight(weight)
     weight = tonumber(weight) or 0.0
 
@@ -829,7 +839,17 @@ function Weights:GetWeight(profileKey, statType)
         return 0.0
     end
 
-    return self:ClampWeight(profileWeights[statType] or 0.0)
+    local weight = profileWeights[statType]
+
+    if weight == nil then
+        local alias = self.STAT_WEIGHT_ALIASES[statType]
+
+        if alias then
+            weight = profileWeights[alias]
+        end
+    end
+
+    return self:ClampWeight(weight or 0.0)
 end
 
 function Weights:GetProfileWeights(profileKey)

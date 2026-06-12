@@ -1,5 +1,5 @@
 # Runs on every push and pull request: Lua syntax check on all addon files
-# plus the WoW-API-stub test harness (46 functional tests).
+# plus the WoW-API-stub test harness (60+ functional tests).
 
 name: CI
 

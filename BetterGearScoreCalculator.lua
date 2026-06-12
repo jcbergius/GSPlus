@@ -44,6 +44,12 @@ Calculator.STAT_BUDGET_COST = {
     MP5 = 2.00,
     HP5 = 2.50,
 
+    -- 10 health ~ 1 stamina (x0.67), 15 mana ~ 1 intellect
+    HEALTH = 0.067,
+    MANA = 0.067,
+    SPELL_PENETRATION = 0.20,
+    ARMOR_PENETRATION = 0.10,
+
     ARCANE_RESISTANCE = 2.50,
     FIRE_RESISTANCE = 2.50,
     FROST_RESISTANCE = 2.50,
@@ -63,6 +69,7 @@ Calculator.WEAPON_STAT_KEYS = {
 -- budget or weighted scores.
 Calculator.NON_SCORING_STAT_KEYS = {
     UNSCORED_USE_EFFECT = true,
+    UNSCORED_EQUIP_EFFECT = true,
     UNSCORED_SET_BONUS_EFFECT = true,
     EMPTY_SOCKETS = true,
 }

@@ -215,6 +215,27 @@ local enchantedLink = "|cffa335ee|Hitem:1005:2564:::::::70:::::|h[Enchanted Blad
 fakeItems[enchantedLink] = { name = "Enchanted Blade", equipLoc = "INVTYPE_WEAPONMAINHAND" }
 fakeTooltips[enchantedLink] = { "Enchanted Blade", "+10 Agility" }
 
+-- One item carrying every green-stat format the parser must understand.
+local greenLink = "|cffa335ee|Hitem:1007::::::::70:::::|h[Compendium of Green Text]|h|r"
+fakeItems[greenLink] = { name = "Compendium of Green Text", equipLoc = "INVTYPE_TRINKET" }
+fakeTooltips[greenLink] = {
+    "Compendium of Green Text", "Trinket",
+    "+20 Health",
+    "+150 Mana",
+    "-10 Stamina",
+    "Equip: Increases damage done by Shadow spells and effects by up to 56.",
+    "Equip: Increases healing done by spells and effects by up to 55.",
+    "Equip: Increased Defense +7.",
+    "Equip: Improves your chance to hit with spells by 2%.",
+    "Equip: Increases your chance to parry an attack by 1%.",
+    "Equip: Allows 15% of your Mana regeneration to continue while casting.",
+    "Equip: Your attacks ignore 175 of your opponent's armor.",
+    "Equip: Decreases the magical resistances of your spell targets by 35.",
+    "Equip: +81 Attack Power when fighting Undead.",
+    "Equip: Increases Fire Resistance by 10.",
+    "Equip: Chance on hit to steal 120 life from the target.",
+}
+
 equipped.ChestSlot = chestLink
 equipped.MainHandSlot = swordLink
 
@@ -265,6 +286,37 @@ check(BetterGearScore.ItemParser:GetEnchantId(enchantedLink) == 2564, "enchant i
 check(BetterGearScore.ItemParser:CountMissingEnchants("player") == 2, "missing enchants counted")
 check(BetterGearScore.LegacyGearScore:GetPlayerScore() == 228, "legacy GS total")
 check(BetterGearScore.TalentDetector:GetDetectedProfile() == "WARRIOR_TANK", "warrior prot detected")
+
+-- 3b. Green stat format coverage
+local g = BetterGearScore.ItemParser:ParseItemStats(greenLink)
+check(g.SPELLPOWER == 56, "school-specific spell damage parsed (got " .. tostring(g.SPELLPOWER) .. ")")
+check(g.HEALING == 55, "vanilla healing wording parsed")
+check(g.DEFENSE == 7, "old-style Increased Defense parsed")
+check(g.HIT and math.abs(g.HIT - 25.24) < 0.01, "spell hit percent converted to rating")
+check(g.PARRY and math.abs(g.PARRY - 23.65) < 0.01, "parry percent converted to rating")
+check(g.MP5 and math.abs(g.MP5 - 7.5) < 0.01, "mana regen while casting approximated as MP5")
+check(g.ARMOR_PENETRATION == 175, "armor penetration parsed")
+check(g.SPELL_PENETRATION == 35, "spell penetration parsed")
+check(g.ATTACKPOWER and math.abs(g.ATTACKPOWER - 20.25) < 0.01, "conditional AP scaled to quarter value")
+check(g.FIRE_RESISTANCE == 10, "single-school resistance equip line parsed")
+check(g.HEALTH == 20 and g.MANA == 150, "flat Health/Mana base stats parsed")
+check(g.STAMINA == -10, "negative stat tracked as negative")
+check(g.UNSCORED_EQUIP_EFFECT == 1, "unparseable proc flagged as unscored")
+
+-- Negative stats and unscored markers must not affect the budget score
+local filtered = {}
+for k, v in pairs(g) do
+    if k ~= "UNSCORED_EQUIP_EFFECT" and k ~= "STAMINA" then filtered[k] = v end
+end
+check(math.abs(BetterGearScore.Calculator:CalculateRawStatBudget(g)
+    - BetterGearScore.Calculator:CalculateRawStatBudget(filtered)) < 0.001,
+    "negative stats and unscored markers excluded from budget")
+
+-- Alias weights: new stats inherit role value from their parent stat
+check(BetterGearScore.Weights:GetWeight("WARRIOR_TANK", "HEALTH") == 1.0, "HEALTH aliases STAMINA weight")
+check(BetterGearScore.Weights:GetWeight("MAGE_DPS", "SPELL_PENETRATION") == 1.0, "SPELL_PENETRATION aliases SPELLPOWER weight")
+check(BetterGearScore.Weights:GetWeight("WARRIOR_DPS", "ARMOR_PENETRATION") == 0.90, "ARMOR_PENETRATION aliases ATTACKPOWER weight")
+check(BetterGearScore.Weights:GetWeight("PRIEST_HEALER", "ARMOR_PENETRATION") == 0.0, "healer gets no armor penetration value")
 
 -- 4. Stat cap tapering
 local hitStats = BetterGearScore.ItemParser:ParseItemStats(hitRingLink)

@@ -7,6 +7,57 @@ local ItemParser = BetterGearScore.ItemParser
 
 ItemParser.SPELL_SPECIFIC_EFFECT_SCALE = 0.35
 
+-- Effects that only apply against one creature type (e.g. "+81 Attack Power
+-- when fighting Undead") count at a fraction of their face value.
+ItemParser.CONDITIONAL_EFFECT_SCALE = 0.25
+
+-- "Allows X% of your Mana regeneration to continue while casting": rough
+-- MP5 equivalent per percent for a typical caster's spirit regen.
+ItemParser.REGEN_WHILE_CASTING_MP5_PER_PERCENT = 0.5
+
+-- Level-70 rating-per-1% conversions for vanilla-style percent effects.
+ItemParser.RATING_PER_PERCENT = {
+    HIT = 15.77,
+    SPELL_HIT = 12.62,
+    CRIT = 22.08,
+    SPELL_CRIT = 22.08,
+    DODGE = 18.94,
+    PARRY = 23.65,
+    BLOCK = 7.88,
+    HASTE = 15.77,
+}
+
+ItemParser.SPELL_SCHOOLS = {
+    Arcane = true,
+    Fire = true,
+    Frost = true,
+    Holy = true,
+    Nature = true,
+    Shadow = true,
+}
+
+ItemParser.RESISTANCE_SCHOOLS = {
+    Arcane = "ARCANE_RESISTANCE",
+    Fire = "FIRE_RESISTANCE",
+    Frost = "FROST_RESISTANCE",
+    Nature = "NATURE_RESISTANCE",
+    Shadow = "SHADOW_RESISTANCE",
+}
+
+-- Vanilla-style percent effects. Order matters: "with spells" variants
+-- before their generic counterparts.
+ItemParser.PERCENT_EFFECT_PATTERNS = {
+    { pattern = "Improves your chance to hit with spells by (%d+%.?%d*)%%", stat = "HIT", ratingKey = "SPELL_HIT" },
+    { pattern = "Improves your chance to hit by (%d+%.?%d*)%%", stat = "HIT", ratingKey = "HIT" },
+    { pattern = "Improves your chance to get a critical strike with spells by (%d+%.?%d*)%%", stat = "CRITICAL", ratingKey = "SPELL_CRIT" },
+    { pattern = "Improves your chance to get a critical strike by (%d+%.?%d*)%%", stat = "CRITICAL", ratingKey = "CRIT" },
+    { pattern = "Increases your chance to dodge an attack by (%d+%.?%d*)%%", stat = "DODGE", ratingKey = "DODGE" },
+    { pattern = "Increases your chance to parry an attack by (%d+%.?%d*)%%", stat = "PARRY", ratingKey = "PARRY" },
+    { pattern = "Increases your chance to block attacks with a shield by (%d+%.?%d*)%%", stat = "BLOCK", ratingKey = "BLOCK" },
+    { pattern = "Increases your attack speed by (%d+%.?%d*)%%", stat = "HASTE", ratingKey = "HASTE" },
+    { pattern = "Increases your casting speed by (%d+%.?%d*)%%", stat = "HASTE", ratingKey = "HASTE" },
+}
+
 ItemParser.EQUIPMENT_SLOTS = {
     { key = "HeadSlot",          name = "Head" },
     { key = "NeckSlot",          name = "Neck" },
@@ -103,6 +154,13 @@ ItemParser.TEXT_STAT_MAPPING = {
     ["Spell Haste Rating"] = "HASTE",
     ["Melee Haste Rating"] = "HASTE",
     ["Expertise Rating"] = "EXPERTISE",
+
+    ["Health"] = "HEALTH",
+    ["health"] = "HEALTH",
+    ["Mana"] = "MANA",
+    ["mana"] = "MANA",
+    ["Spell Penetration"] = "SPELL_PENETRATION",
+    ["Armor Penetration"] = "ARMOR_PENETRATION",
 
     ["Mana per 5 sec"] = "MP5",
     ["mana per 5 sec"] = "MP5",
@@ -218,6 +276,18 @@ function ItemParser:AddStackingStat(stats, statName, value)
     value = tonumber(value)
 
     if not value or value <= 0 then
+        return
+    end
+
+    stats[statName] = (stats[statName] or 0) + value
+end
+
+-- For negative stats ("-10 Stamina" on some vanilla items). Totals can go
+-- negative; scoring treats non-positive values as zero.
+function ItemParser:AddSignedStackingStat(stats, statName, value)
+    value = tonumber(value)
+
+    if not value or value == 0 then
         return
     end
 
@@ -530,6 +600,20 @@ function ItemParser:AddTextStat(stats, statName, value, stacking)
         return false
     end
 
+    local numericValue = tonumber(value)
+
+    if numericValue and numericValue < 0 then
+        if internalStat == "ALL_RESISTANCE" then
+            for _, resistStat in pairs(self.RESISTANCE_SCHOOLS) do
+                self:AddSignedStackingStat(stats, resistStat, numericValue)
+            end
+        else
+            self:AddSignedStackingStat(stats, internalStat, numericValue)
+        end
+
+        return true
+    end
+
     if internalStat == "ALL_RESISTANCE" then
         if stacking then
             self:AddStackingStat(stats, "ARCANE_RESISTANCE", value)
@@ -560,11 +644,11 @@ end
 function ItemParser:ParseStatChunks(text, stats, stacking)
     local parsedAny = false
 
-    for value, statName in string.gmatch(text, "%+(%d+)%s+([^%+]+)") do
+    for sign, value, statName in string.gmatch(text, "([%+%-])(%d+)%s+([^%+%-]+)") do
         statName = string.gsub(statName, "%s+and%s*$", "")
         statName = string.gsub(statName, "%s*$", "")
 
-        if self:AddTextStat(stats, statName, value, stacking) then
+        if self:AddTextStat(stats, statName, tonumber(sign .. value), stacking) then
             parsedAny = true
         end
     end
@@ -684,7 +768,14 @@ function ItemParser:ParseBaseTooltipStatLine(text, stats)
         return true
     end
 
-    if string.sub(text, 1, 1) == "+" and self:CountPlusSigns(text) == 1 then
+    local firstChar = string.sub(text, 1, 1)
+
+    if firstChar == "+" and self:CountPlusSigns(text) == 1 then
+        return self:ParseStatChunks(text, stats, false)
+    end
+
+    -- Negative base stats, e.g. "-10 Stamina" on some vanilla items.
+    if firstChar == "-" and self:CountPlusSigns(text) == 0 then
         return self:ParseStatChunks(text, stats, false)
     end
 
@@ -716,7 +807,13 @@ function ItemParser:ParseEquipTooltipLine(text, stats)
         return false
     end
 
-    return self:ParseEffectText(equipText, stats, true)
+    if not self:ParseEffectText(equipText, stats, true) then
+        -- Unrecognized equip effect (proc, utility, threat, etc.): flag it
+        -- so the tooltip breakdown can disclose that something isn't scored.
+        self:AddStackingStat(stats, "UNSCORED_EQUIP_EFFECT", 1)
+    end
+
+    return true
 end
 
 function ItemParser:ParseEffectText(text, stats, stacking)
@@ -745,6 +842,10 @@ function ItemParser:ParseEffectText(text, stats, stacking)
     end
 
     if self:ParseWeaponSkillEffect(text, stats, stacking) then
+        return true
+    end
+
+    if self:ParseMiscEquipEffect(text, stats) then
         return true
     end
 
@@ -822,6 +923,37 @@ function ItemParser:ParseGenericHealingSpellDamageEffect(text, stats, stacking)
         return true
     end
 
+    -- Vanilla healing wording: "Increases healing done by spells and
+    -- effects by up to X."
+    healingOnly = string.match(text, "Increases healing done by spells and effects by up to (%d+)")
+
+    if healingOnly then
+        self:AddStackingStat(stats, "HEALING", healingOnly)
+        return true
+    end
+
+    -- Creature-type-conditional caster damage (e.g. Mark of the Champion):
+    -- "Increases damage done to Undead by magical spells and effects by up
+    -- to X." Counted at a fraction since it only applies sometimes.
+    local conditionalSpellDamage = string.match(
+        text,
+        "Increases damage done to [%a%s]+ by magical spells and effects by up to (%d+)"
+    )
+
+    if conditionalSpellDamage then
+        self:AddScaledStackingStat(stats, "SPELLPOWER", conditionalSpellDamage, self.CONDITIONAL_EFFECT_SCALE)
+        return true
+    end
+
+    -- School-specific spell damage (Frozen Shadoweave etc.):
+    -- "Increases damage done by Shadow spells and effects by up to X."
+    local school, schoolDamage = string.match(text, "Increases damage done by (%a+) spells and effects by up to (%d+)")
+
+    if school and schoolDamage and self.SPELL_SCHOOLS[school] then
+        self:AddStackingStat(stats, "SPELLPOWER", schoolDamage)
+        return true
+    end
+
     return false
 end
 
@@ -865,6 +997,16 @@ function ItemParser:ParseSpellSpecificEffect(text, stats)
 end
 
 function ItemParser:ParseAttackPowerEffect(text, stats, stacking)
+    -- Creature-type-conditional AP must be checked before the generic
+    -- pattern, which would otherwise match the same line at full value.
+    local conditionalAttackPower = string.match(text, "Increases attack power by (%d+) when fighting")
+        or string.match(text, "^%+(%d+) Attack Power when fighting")
+
+    if conditionalAttackPower then
+        self:AddScaledStackingStat(stats, "ATTACKPOWER", conditionalAttackPower, self.CONDITIONAL_EFFECT_SCALE)
+        return true
+    end
+
     local feralAttackPower = string.match(
         text,
         "Increases attack power by (%d+) in Cat, Bear, Dire Bear, and Moonkin forms only"
@@ -920,6 +1062,21 @@ function ItemParser:ParseAttackPowerEffect(text, stats, stacking)
         return true
     end
 
+    -- Old plain formats: "Equip: +28 Attack Power." / "+14 ranged Attack Power."
+    rangedAttackPower = string.match(text, "^%+(%d+) [Rr]anged Attack Power%.?$")
+
+    if rangedAttackPower then
+        self:AddStackingStat(stats, "RANGED_ATTACKPOWER", rangedAttackPower)
+        return true
+    end
+
+    attackPower = string.match(text, "^%+(%d+) Attack Power%.?$")
+
+    if attackPower then
+        self:AddStackingStat(stats, "ATTACKPOWER", attackPower)
+        return true
+    end
+
     return false
 end
 
@@ -956,25 +1113,17 @@ function ItemParser:ParseRatingEffect(text, stats, stacking)
         end
     end
 
-    local oldHitPercent = string.match(text, "Improves your chance to hit by (%d+)%%")
+    -- Vanilla-style percent effects, converted to level-70 rating
+    -- equivalents. "with spells" variants are listed before their generic
+    -- counterparts so they match first.
+    for _, percentInfo in ipairs(self.PERCENT_EFFECT_PATTERNS) do
+        local percent = string.match(text, percentInfo.pattern)
 
-    if oldHitPercent then
-        self:AddStackingStat(stats, "HIT", tonumber(oldHitPercent) * 15.8)
-        return true
-    end
-
-    local oldCritPercent = string.match(text, "Improves your chance to get a critical strike by (%d+)%%")
-
-    if oldCritPercent then
-        self:AddStackingStat(stats, "CRITICAL", tonumber(oldCritPercent) * 22.1)
-        return true
-    end
-
-    local oldDodgePercent = string.match(text, "Increases your chance to dodge an attack by (%d+)%%")
-
-    if oldDodgePercent then
-        self:AddStackingStat(stats, "DODGE", tonumber(oldDodgePercent) * 18.9)
-        return true
+        if percent then
+            local rating = tonumber(percent) * self.RATING_PER_PERCENT[percentInfo.ratingKey]
+            self:AddStackingStat(stats, percentInfo.stat, rating)
+            return true
+        end
     end
 
     return false
@@ -1092,6 +1241,52 @@ function ItemParser:ParseWeaponSkillEffect(text, stats, stacking)
             self:AddStackingStat(stats, "WEAPON_SKILL", value)
             return true
         end
+    end
+
+    return false
+end
+
+function ItemParser:ParseMiscEquipEffect(text, stats)
+    -- Old-style defense: "Increased Defense +7."
+    local defense = string.match(text, "Increased Defense %+(%d+)")
+
+    if defense then
+        self:AddStackingStat(stats, "DEFENSE", defense)
+        return true
+    end
+
+    -- Armor penetration (TBC): "Your attacks ignore X of your opponent's armor."
+    local armorPenetration = string.match(text, "Your attacks ignore (%d+) of your opponent's armor")
+
+    if armorPenetration then
+        self:AddStackingStat(stats, "ARMOR_PENETRATION", armorPenetration)
+        return true
+    end
+
+    -- Spell penetration: "Decreases the magical resistances of your spell
+    -- targets by X."
+    local spellPenetration = string.match(text, "Decreases the magical resistances of your spell targets by (%d+)")
+
+    if spellPenetration then
+        self:AddStackingStat(stats, "SPELL_PENETRATION", spellPenetration)
+        return true
+    end
+
+    -- Vanilla casting regen: "Allows 15% of your Mana regeneration to
+    -- continue while casting." Converted to a rough MP5 equivalent.
+    local regenPercent = string.match(text, "Allows (%d+)%% of your [Mm]ana regeneration to continue while casting")
+
+    if regenPercent then
+        self:AddScaledStackingStat(stats, "MP5", regenPercent, self.REGEN_WHILE_CASTING_MP5_PER_PERCENT)
+        return true
+    end
+
+    -- Single-school resistance equip lines: "Increases Fire Resistance by 10."
+    local resistSchool, resistValue = string.match(text, "Increases (%a+) [Rr]esistance by (%d+)")
+
+    if resistSchool and resistValue and self.RESISTANCE_SCHOOLS[resistSchool] then
+        self:AddStackingStat(stats, self.RESISTANCE_SCHOOLS[resistSchool], resistValue)
+        return true
     end
 
     return false

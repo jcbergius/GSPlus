@@ -2,7 +2,7 @@
 
 BetterGearScore = BetterGearScore or {}
 
-BetterGearScore.VERSION = "1.3.0"
+BetterGearScore.VERSION = "1.4.0"
 BetterGearScore.ItemParser = BetterGearScore.ItemParser or {}
 BetterGearScore.Calculator = BetterGearScore.Calculator or {}
 BetterGearScore.Weights = BetterGearScore.Weights or {}

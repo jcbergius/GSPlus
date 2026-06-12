@@ -240,27 +240,39 @@ Displayed score:
 Better Gear Score currently supports these stat categories:
 
 ```text
-Strength
-Agility
-Intellect
-Stamina
-Spirit
+Strength, Agility, Intellect, Stamina, Spirit
+Health, Mana
 Armor
-Attack Power
-Ranged Attack Power
-Spell Power
-Healing
-Defense
-Dodge
-Parry
-Block
-Critical Strike
-Hit
-Haste
-Mana per 5 seconds
+Attack Power, Ranged Attack Power, Feral Attack Power
+Spell Power (including school-specific spell damage), Healing
+Spell Penetration, Armor Penetration
+Defense, Dodge, Parry, Block, Block Value, Resilience
+Critical Strike, Hit, Haste, Expertise, Weapon Skill
+Mana per 5 seconds, Health per 5 seconds
+Resistances (all schools)
 ```
 
-Classic items often contain special equip effects rather than clean modern stat entries. Better Gear Score scans item tooltips to detect important effects such as healing power, spell damage, MP5, hit, crit, and dodge.
+Classic items often express these as green equip effects rather than clean
+stat entries, in many different wordings. The parser covers both the TBC
+rating formats and the vanilla-era formats, including:
+
+- `Equip: Increases damage done by Shadow spells and effects by up to X`
+  (all six schools)
+- `Equip: Increases healing done by spells and effects by up to X`
+- `Equip: Increased Defense +X`
+- `Equip: Improves your chance to hit / crit (with spells) by X%`,
+  dodge/parry/block/attack speed percents - converted to level-70 rating
+  equivalents
+- `Equip: Allows X% of your Mana regeneration to continue while casting`
+  (approximated as MP5)
+- `Equip: Your attacks ignore X of your opponent's armor`
+- `Equip: Decreases the magical resistances of your spell targets by X`
+- `Equip: +X Attack Power when fighting Undead` and other creature-type
+  effects (counted at a fraction of face value)
+- Negative stats (`-10 Stamina`) are tracked and never add to the score
+
+Equip effects the parser cannot value (procs, threat, utility) are flagged,
+and the tooltip breakdown discloses that the item has unscored effects.
 
 ## Role Profiles
 
