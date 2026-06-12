@@ -298,7 +298,8 @@ check(GSPlus.TalentDetector:GetDetectedProfile() == "WARRIOR_TANK", "warrior pro
 
 -- 3b. Green stat format coverage
 local g = GSPlus.ItemParser:ParseItemStats(greenLink)
-check(g.SPELLPOWER == 56, "school-specific spell damage parsed (got " .. tostring(g.SPELLPOWER) .. ")")
+check(g.SCHOOL_SPELLPOWER == 56, "school-specific spell damage parsed (got " .. tostring(g.SCHOOL_SPELLPOWER) .. ")")
+check(GSPlus.Weights:GetWeight("WARLOCK_DPS", "SCHOOL_SPELLPOWER") == 1.0, "school spell damage aliases SPELLPOWER weight")
 check(g.HEALING == 55, "vanilla healing wording parsed")
 check(g.DEFENSE == 7, "old-style Increased Defense parsed")
 check(g.HIT and math.abs(g.HIT - 25.24) < 0.01, "spell hit percent converted to rating")
@@ -716,6 +717,27 @@ talentTabs = {
     { name = "Protection", points = 41 },
 }
 GSPlus:InvalidateCaches()
+
+-- 20. Dual-school items count their best school once, not the sum
+-- (playtest: Frozen Shadoweave Boots showed red because Shadow+Frost
+-- lines stacked into double spell power)
+local fswBootsLink = "|cffa335ee|Hitem:2021::::::::70:::::|h[Frozen Shadoweave Boots]|h|r"
+fakeItems[fswBootsLink] = { name = "Frozen Shadoweave Boots", equipLoc = "INVTYPE_FEET", ilvl = 146 }
+fakeTooltips[fswBootsLink] = {
+    "Frozen Shadoweave Boots", "Feet", "Cloth",
+    "+33 Stamina",
+    "Equip: Increases damage done by Shadow spells and effects by up to 73.",
+    "Equip: Increases damage done by Frost spells and effects by up to 73.",
+}
+local fswStats = GSPlus.ItemParser:ParseItemStats(fswBootsLink)
+check(fswStats.SCHOOL_SPELLPOWER == 73,
+    "dual-school spell damage counts max, not sum (got " .. tostring(fswStats.SCHOOL_SPELLPOWER) .. ")")
+
+local fswWeighted = GSPlus.Calculator:CalculateWeightedScore(fswStats, "WARLOCK_DPS", "FeetSlot", fswBootsLink)
+local fswMax = GSPlus.Calculator:GetWeightedColorReferenceForItem("WARLOCK_DPS", "FeetSlot", fswBootsLink)
+local fswRatio = GSPlus.Calculator:GetScoreRatio(fswWeighted, fswMax)
+check(fswRatio < 0.90,
+    string.format("crafted dual-school boots no longer color red (ratio %.2f)", fswRatio))
 
 realPrint(failures == 0 and "ALL TESTS PASSED" or (failures .. " TEST(S) FAILED"))
 os.exit(failures == 0 and 0 or 1)

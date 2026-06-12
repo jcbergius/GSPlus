@@ -981,10 +981,14 @@ function ItemParser:ParseGenericHealingSpellDamageEffect(text, stats, stacking)
 
     -- School-specific spell damage (Frozen Shadoweave etc.):
     -- "Increases damage done by Shadow spells and effects by up to X."
+    -- Dual-school items (Frozen Shadoweave: Shadow+Frost, Spellfire:
+    -- Fire+Arcane) carry one line per school, but a spell only ever
+    -- benefits from ONE school - so track the best school (max), never
+    -- the sum, via a dedicated stat.
     local school, schoolDamage = string.match(text, "Increases damage done by (%a+) spells and effects by up to (%d+)")
 
     if school and schoolDamage and self.SPELL_SCHOOLS[school] then
-        self:AddStackingStat(stats, "SPELLPOWER", schoolDamage)
+        self:AddStat(stats, "SCHOOL_SPELLPOWER", schoolDamage)
         return true
     end
 

@@ -40,6 +40,7 @@ Tooltip.STAT_DISPLAY_NAMES = {
     SPELL_PENETRATION = "Spell Penetration",
     ARMOR_PENETRATION = "Armor Penetration",
     MASTERY = "Mastery Rating",
+    SCHOOL_SPELLPOWER = "Spell Damage (one school)",
 
     ARCANE_RESISTANCE = "Arcane Resistance",
     FIRE_RESISTANCE = "Fire Resistance",
@@ -67,26 +68,6 @@ local function GetStatDisplayName(statType)
     return Tooltip.STAT_DISPLAY_NAMES[statType] or statType or "Unknown"
 end
 
-function Tooltip:CopyStats(stats)
-    local copy = {}
-
-    for statType, value in pairs(stats or {}) do
-        copy[statType] = value
-    end
-
-    return copy
-end
-
-function Tooltip:MergeStats(target, source)
-    for statType, value in pairs(source or {}) do
-        value = tonumber(value)
-
-        if value and value > 0 then
-            target[statType] = (target[statType] or 0) + value
-        end
-    end
-end
-
 function Tooltip:HasAnyStats(stats)
     for _, value in pairs(stats or {}) do
         if value and value > 0 then
@@ -95,19 +76,6 @@ function Tooltip:HasAnyStats(stats)
     end
 
     return false
-end
-
-function Tooltip:GetTooltipStatsWithActiveSetBonuses(itemLink)
-    local itemStats = GSPlus.ItemParser:ParseItemStats(itemLink)
-    local combinedStats = self:CopyStats(itemStats)
-    local setBonusStats = {}
-
-    if GSPlus.SetBonuses and GSPlus.SetBonuses.GetActiveSetBonusStatsForItem then
-        setBonusStats = GSPlus.SetBonuses:GetActiveSetBonusStatsForItem(itemLink)
-        self:MergeStats(combinedStats, setBonusStats)
-    end
-
-    return combinedStats, itemStats, setBonusStats
 end
 
 function Tooltip:BuildStatContributionRows(stats, profileKey)
@@ -349,7 +317,7 @@ function Tooltip:AddUpgradeComparison(tooltip, itemLink, profileKey)
     end
 end
 
-function Tooltip:AddCompactGearScore(tooltip, profileKey, rawScore, weightedScore, maxBudgetScore, hasActiveSetBonuses, itemLink)
+function Tooltip:AddCompactGearScore(tooltip, profileKey, rawScore, weightedScore, maxBudgetScore, setBonusWeightedScore, itemLink)
     local coloredWeightedScore = GSPlus.Calculator:ColorizeScore(weightedScore or 0, maxBudgetScore or 0)
 
     tooltip:AddLine(" ")
@@ -372,8 +340,9 @@ function Tooltip:AddCompactGearScore(tooltip, profileKey, rawScore, weightedScor
         self:AddUpgradeComparison(tooltip, itemLink, profileKey)
     end
 
-    if hasActiveSetBonuses then
-        tooltip:AddLine("Includes active set bonuses.", 0.65, 0.85, 1.0)
+    if (setBonusWeightedScore or 0) > 0 then
+        tooltip:AddLine(string.format("Active set bonuses add +%d (scored separately).",
+            math.floor(setBonusWeightedScore)), 0.65, 0.85, 1.0)
     end
 
     if GSPlus.Options:Get("showTooltipBreakdown") and not IsShiftKeyDown() then
@@ -381,7 +350,7 @@ function Tooltip:AddCompactGearScore(tooltip, profileKey, rawScore, weightedScor
     end
 end
 
-function Tooltip:AddDetailedBreakdown(tooltip, stats, profileKey, slotKey, itemLink, setBonusStats)
+function Tooltip:AddDetailedBreakdown(tooltip, stats, profileKey, slotKey, itemLink)
     if not GSPlus.Options:Get("showTooltipBreakdown") then
         return
     end
@@ -396,10 +365,6 @@ function Tooltip:AddDetailedBreakdown(tooltip, stats, profileKey, slotKey, itemL
     tooltip:AddLine(" ")
     tooltip:AddLine("|cffffff00Stat Contribution Breakdown|r")
     tooltip:AddLine("|cffaaaaaaValue × Budget Cost × Role Weight → Score|r")
-
-    if self:HasAnyStats(setBonusStats) then
-        tooltip:AddLine("|cff66ccffActive set bonuses are included in the values below.|r")
-    end
 
     local anyRows = false
 
@@ -459,7 +424,17 @@ function Tooltip:AddGearScoreToTooltip(tooltip)
     end
 
     local profileKey = GSPlus.Profiles:GetSelectedProfile()
-    local stats, _, setBonusStats = self:GetTooltipStatsWithActiveSetBonuses(itemLink)
+
+    -- Score the ITEM ONLY. Merging active set bonuses into a single item's
+    -- score inflates it against a per-slot color reference (a set bonus is
+    -- not part of any one item) - set bonuses are shown as their own line
+    -- and scored as their own entry in the total.
+    local stats = GSPlus.ItemParser:ParseItemStats(itemLink)
+    local setBonusStats = {}
+
+    if GSPlus.SetBonuses and GSPlus.SetBonuses.GetActiveSetBonusStatsForItem then
+        setBonusStats = GSPlus.SetBonuses:GetActiveSetBonusStatsForItem(itemLink)
+    end
 
     local statBudgetScore = GSPlus.Calculator:CalculateRawStatBudget(stats)
     local weaponBudgetScore = GSPlus.Calculator:CalculateWeaponBudgetScore(stats)
@@ -471,12 +446,16 @@ function Tooltip:AddGearScoreToTooltip(tooltip)
         return
     end
 
-    local hasActiveSetBonuses = self:HasAnyStats(setBonusStats)
+    local setBonusWeightedScore = 0
+
+    if self:HasAnyStats(setBonusStats) then
+        setBonusWeightedScore = GSPlus.Calculator:CalculateWeightedStatScore(setBonusStats, profileKey)
+    end
 
     tooltip.bgsScoreAdded = true
 
-    self:AddCompactGearScore(tooltip, profileKey, rawScore, weightedScore, maxBudgetScore, hasActiveSetBonuses, itemLink)
-    self:AddDetailedBreakdown(tooltip, stats, profileKey, nil, itemLink, setBonusStats)
+    self:AddCompactGearScore(tooltip, profileKey, rawScore, weightedScore, maxBudgetScore, setBonusWeightedScore, itemLink)
+    self:AddDetailedBreakdown(tooltip, stats, profileKey, nil, itemLink)
 
     tooltip:Show()
 end

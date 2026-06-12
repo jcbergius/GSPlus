@@ -27,6 +27,7 @@ Calculator.STAT_BUDGET_COST = {
     FERAL_ATTACKPOWER = 0.50,
 
     SPELLPOWER = 0.86,
+    SCHOOL_SPELLPOWER = 0.86,
     HEALING = 0.45,
 
     DEFENSE = 1.00,
@@ -75,6 +76,12 @@ Calculator.NON_SCORING_STAT_KEYS = {
     EMPTY_SOCKETS = true,
 }
 
+-- Per-slot, per-role weighted score references used ONLY for coloring
+-- (never for the score itself). The intent: an item's color reflects how
+-- close it is to the best realistically obtainable item for that slot at
+-- the expansion's endgame - so red ~= Sunwell-tier BiS in TBC.
+-- Color scale (see GetScoreColorHex): 0% white -> 25% green -> 50% blue
+-- -> 75% purple -> 90% orange -> 100% red of the slot reference.
 Calculator.WEIGHTED_COLOR_CAPS = {
     HEALER = {
         INVTYPE_HEAD = 105,

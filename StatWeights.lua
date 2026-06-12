@@ -849,6 +849,9 @@ Weights.STAT_WEIGHT_ALIASES = {
     MANA = "INTELLECT",
     ARMOR_PENETRATION = "ATTACKPOWER",
     SPELL_PENETRATION = "SPELLPOWER",
+    -- Single-school spell damage counts at the general spell power weight
+    -- (BiS lists agree matching-school gear is top-tier for that school).
+    SCHOOL_SPELLPOWER = "SPELLPOWER",
     -- Placeholder until proper per-spec values exist (Cata): mastery is a
     -- throughput secondary, so crit is the closest stand-in.
     MASTERY = "CRITICAL",

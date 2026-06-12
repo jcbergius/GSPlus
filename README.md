@@ -237,6 +237,22 @@ Displayed score:
 59
 ```
 
+## Score Colors
+
+Score colors compare the weighted score against a per-slot, per-role
+reference representing the best realistically obtainable item for that
+slot at the expansion's endgame:
+
+```text
+white -> green (25%) -> blue (50%) -> purple (75%) -> orange (90%) -> red (100%)
+```
+
+So in TBC, red means Sunwell-tier best-in-slot. The references are used
+only for coloring, never for the score itself. Dual-school items (e.g.
+Frozen Shadoweave's Shadow+Frost damage) count their best school once -
+a spell only ever benefits from one school - so they color according to
+their real value.
+
 ## Supported Stats
 
 gs+ currently supports these stat categories:
