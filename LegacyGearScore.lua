@@ -1,12 +1,12 @@
 -- LegacyGearScore.lua
 -- Approximates the classic GearScore number (item level + rarity based) so
--- players used to "the" GearScore can read BetterGearScore output without
+-- players used to "the" GearScore can read GSPlus output without
 -- mental translation.
 
-BetterGearScore = BetterGearScore or {}
-BetterGearScore.LegacyGearScore = BetterGearScore.LegacyGearScore or {}
+GSPlus = GSPlus or {}
+GSPlus.LegacyGearScore = GSPlus.LegacyGearScore or {}
 
-local LegacyGearScore = BetterGearScore.LegacyGearScore
+local LegacyGearScore = GSPlus.LegacyGearScore
 
 LegacyGearScore.SCALE_FACTOR = 1.8618
 
@@ -135,7 +135,7 @@ function LegacyGearScore:GetUnitScore(unit)
     local _, classFileName = UnitClass(unit)
     local total = 0
 
-    for _, slotInfo in ipairs(BetterGearScore.ItemParser.EQUIPMENT_SLOTS) do
+    for _, slotInfo in ipairs(GSPlus.ItemParser.EQUIPMENT_SLOTS) do
         local slotId = GetInventorySlotInfo(slotInfo.key)
         local itemLink = slotId and GetInventoryItemLink(unit, slotId)
 

@@ -1,11 +1,11 @@
 -- SetBonuses.lua
 
-BetterGearScore = BetterGearScore or {}
-BetterGearScore.SetBonuses = BetterGearScore.SetBonuses or {}
+GSPlus = GSPlus or {}
+GSPlus.SetBonuses = GSPlus.SetBonuses or {}
 
-local SetBonuses = BetterGearScore.SetBonuses
+local SetBonuses = GSPlus.SetBonuses
 
-SetBonuses.scannerName = "BetterGearScoreSetBonusScanner"
+SetBonuses.scannerName = "GSPlusSetBonusScanner"
 
 -- Conservative conversions for percent-based set bonuses.
 -- These let useful set bonuses contribute without pretending we know exact uptime/simulation value.
@@ -564,8 +564,8 @@ function SetBonuses:ParseSetBonusTextLine(text, stats)
 
     local parsedAny = false
 
-    if BetterGearScore.ItemParser and BetterGearScore.ItemParser.ParseEffectText then
-        if BetterGearScore.ItemParser:ParseEffectText(text, stats, true) then
+    if GSPlus.ItemParser and GSPlus.ItemParser.ParseEffectText then
+        if GSPlus.ItemParser:ParseEffectText(text, stats, true) then
             parsedAny = true
         end
     end
@@ -708,11 +708,11 @@ function SetBonuses:GetEquippedActiveSetBonusStats()
     local totalStats = {}
     local processedBonuses = {}
 
-    if not BetterGearScore.ItemParser or not BetterGearScore.ItemParser.EQUIPMENT_SLOTS then
+    if not GSPlus.ItemParser or not GSPlus.ItemParser.EQUIPMENT_SLOTS then
         return totalStats
     end
 
-    for _, slotInfo in ipairs(BetterGearScore.ItemParser.EQUIPMENT_SLOTS) do
+    for _, slotInfo in ipairs(GSPlus.ItemParser.EQUIPMENT_SLOTS) do
         local slotId = GetInventorySlotInfo(slotInfo.key)
         local itemLink = slotId and GetInventoryItemLink("player", slotId)
 

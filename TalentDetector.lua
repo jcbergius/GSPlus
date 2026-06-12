@@ -1,8 +1,8 @@
 -- TalentDetector.lua
 
-BetterGearScore.TalentDetector = BetterGearScore.TalentDetector or {}
+GSPlus.TalentDetector = GSPlus.TalentDetector or {}
 
-local TalentDetector = BetterGearScore.TalentDetector
+local TalentDetector = GSPlus.TalentDetector
 
 TalentDetector.CLASS_TREE_PROFILES = {
     WARRIOR = {
@@ -144,10 +144,10 @@ function TalentDetector:ResolveRoleByGear(dpsProfile, tankProfile)
         return self.roleCache[cacheKey]
     end
 
-    local Calculator = BetterGearScore.Calculator
+    local Calculator = GSPlus.Calculator
 
-    local dps = Calculator:CalculateTotalBetterGearScore(dpsProfile)
-    local tank = Calculator:CalculateTotalBetterGearScore(tankProfile)
+    local dps = Calculator:CalculateTotalGSPlus(dpsProfile)
+    local tank = Calculator:CalculateTotalGSPlus(tankProfile)
 
     local dpsRatio = 0
     local tankRatio = 0
@@ -177,7 +177,7 @@ function TalentDetector:ResolveRoleByGear(dpsProfile, tankProfile)
 end
 
 function TalentDetector:ResolveFeralProfile()
-    if not BetterGearScore.Options:Get("autoDetectFeralRole") then
+    if not GSPlus.Options:Get("autoDetectFeralRole") then
         return "DRUID_FERAL"
     end
 
@@ -185,9 +185,9 @@ function TalentDetector:ResolveFeralProfile()
 end
 
 function TalentDetector:GetDetectedProfile()
-    local className = BetterGearScore.Calculator:GetPlayerClass()
+    local className = GSPlus.Calculator:GetPlayerClass()
     local bestTreeIndex, points, totalPoints = self:GetDominantTreeIndex()
-    local defaultProfile = BetterGearScore.Profiles:GetDefaultProfileForClass(className)
+    local defaultProfile = GSPlus.Profiles:GetDefaultProfileForClass(className)
     local profileKey = defaultProfile
 
     if bestTreeIndex then

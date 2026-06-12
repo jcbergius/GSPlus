@@ -1,39 +1,39 @@
--- BetterGearScore Core Module
+-- GSPlus Core Module
 
-BetterGearScore = BetterGearScore or {}
+GSPlus = GSPlus or {}
 
-BetterGearScore.VERSION = "1.5.0"
-BetterGearScore.ItemParser = BetterGearScore.ItemParser or {}
-BetterGearScore.Calculator = BetterGearScore.Calculator or {}
-BetterGearScore.Weights = BetterGearScore.Weights or {}
-BetterGearScore.UI = BetterGearScore.UI or {}
-BetterGearScore.Commands = BetterGearScore.Commands or {}
-BetterGearScore.Tooltip = BetterGearScore.Tooltip or {}
-BetterGearScore.TalentDetector = BetterGearScore.TalentDetector or {}
-BetterGearScore.Profiles = BetterGearScore.Profiles or {}
-BetterGearScore.CharacterPaneUI = BetterGearScore.CharacterPaneUI or {}
-BetterGearScore.SetBonuses = BetterGearScore.SetBonuses or {}
-BetterGearScore.Inspect = BetterGearScore.Inspect or {}
-BetterGearScore.Options = BetterGearScore.Options or {}
-BetterGearScore.LegacyGearScore = BetterGearScore.LegacyGearScore or {}
-BetterGearScore.PlayerCache = BetterGearScore.PlayerCache or {}
-BetterGearScore.Comms = BetterGearScore.Comms or {}
-BetterGearScore.UnitTooltip = BetterGearScore.UnitTooltip or {}
-BetterGearScore.GroupFrame = BetterGearScore.GroupFrame or {}
-BetterGearScore.InspectPaneUI = BetterGearScore.InspectPaneUI or {}
-BetterGearScore.StatCaps = BetterGearScore.StatCaps or {}
-BetterGearScore.GameVersion = BetterGearScore.GameVersion or {}
+GSPlus.VERSION = "2.0.0"
+GSPlus.ItemParser = GSPlus.ItemParser or {}
+GSPlus.Calculator = GSPlus.Calculator or {}
+GSPlus.Weights = GSPlus.Weights or {}
+GSPlus.UI = GSPlus.UI or {}
+GSPlus.Commands = GSPlus.Commands or {}
+GSPlus.Tooltip = GSPlus.Tooltip or {}
+GSPlus.TalentDetector = GSPlus.TalentDetector or {}
+GSPlus.Profiles = GSPlus.Profiles or {}
+GSPlus.CharacterPaneUI = GSPlus.CharacterPaneUI or {}
+GSPlus.SetBonuses = GSPlus.SetBonuses or {}
+GSPlus.Inspect = GSPlus.Inspect or {}
+GSPlus.Options = GSPlus.Options or {}
+GSPlus.LegacyGearScore = GSPlus.LegacyGearScore or {}
+GSPlus.PlayerCache = GSPlus.PlayerCache or {}
+GSPlus.Comms = GSPlus.Comms or {}
+GSPlus.UnitTooltip = GSPlus.UnitTooltip or {}
+GSPlus.GroupFrame = GSPlus.GroupFrame or {}
+GSPlus.InspectPaneUI = GSPlus.InspectPaneUI or {}
+GSPlus.StatCaps = GSPlus.StatCaps or {}
+GSPlus.GameVersion = GSPlus.GameVersion or {}
 
-function BetterGearScore:Initialize()
-    BetterGearScoreSavedVars = BetterGearScoreSavedVars or {}
+function GSPlus:Initialize()
+    GSPlusSavedVars = GSPlusSavedVars or {}
 
     -- Zero-config philosophy: silent on login, one short orientation message
     -- on first install only.
-    if not BetterGearScoreSavedVars.welcomed then
-        BetterGearScoreSavedVars.welcomed = true
-        print("|cff00ff00BetterGearScore|r is ready. Your score is on your character pane"
+    if not GSPlusSavedVars.welcomed then
+        GSPlusSavedVars.welcomed = true
+        print("|cff00ff00gs+|r is ready. Your score is on your character pane"
             .. " (click it for details, right-click for group scores)."
-            .. " Display settings: Interface Options or |cff00ff00/bgs|r.")
+            .. " Display settings: Interface Options or |cff00ff00/gs|r.")
     end
 
     if self.CharacterPaneUI and self.CharacterPaneUI.Initialize then
@@ -54,7 +54,7 @@ function BetterGearScore:Initialize()
     end
 end
 
-function BetterGearScore:InvalidateCaches()
+function GSPlus:InvalidateCaches()
     if self.SetBonuses and self.SetBonuses.InvalidateCache then
         self.SetBonuses:InvalidateCache()
     end
@@ -72,12 +72,12 @@ function BetterGearScore:InvalidateCaches()
     end
 end
 
-function BetterGearScore:RegisterEvents()
+function GSPlus:RegisterEvents()
     if self.frame then
         return
     end
 
-    self.frame = CreateFrame("Frame", "BetterGearScoreFrame")
+    self.frame = CreateFrame("Frame", "GSPlusFrame")
     self.frame:RegisterEvent("ADDON_LOADED")
     self.frame:RegisterEvent("PLAYER_LOGIN")
     self.frame:RegisterEvent("PLAYER_ENTERING_WORLD")
@@ -87,15 +87,15 @@ function BetterGearScore:RegisterEvents()
     self.frame:RegisterEvent("GET_ITEM_INFO_RECEIVED")
 
     self.frame:SetScript("OnEvent", function(_, event, ...)
-        BetterGearScore:OnEvent(event, ...)
+        GSPlus:OnEvent(event, ...)
     end)
 end
 
-function BetterGearScore:OnEvent(event, ...)
+function GSPlus:OnEvent(event, ...)
     if event == "ADDON_LOADED" then
         local addonName = ...
 
-        if addonName == "BetterGearScore" then
+        if addonName == "GSPlus" then
             self:Initialize()
         elseif addonName == "Blizzard_InspectUI" then
             -- The inspect UI is load-on-demand; hook it as soon as it exists.
@@ -123,7 +123,7 @@ function BetterGearScore:OnEvent(event, ...)
 end
 
 -- Equipment swaps fire one event per slot; collapse bursts into one refresh.
-function BetterGearScore:RequestRefresh()
+function GSPlus:RequestRefresh()
     if not (C_Timer and C_Timer.After) then
         self:RefreshUI()
         return
@@ -136,12 +136,12 @@ function BetterGearScore:RequestRefresh()
     self.refreshPending = true
 
     C_Timer.After(0.1, function()
-        BetterGearScore.refreshPending = false
-        BetterGearScore:RefreshUI()
+        GSPlus.refreshPending = false
+        GSPlus:RefreshUI()
     end)
 end
 
-function BetterGearScore:RefreshUI()
+function GSPlus:RefreshUI()
     if self.UI and self.UI:IsVisible() then
         self.UI:Update()
     end
@@ -151,4 +151,4 @@ function BetterGearScore:RefreshUI()
     end
 end
 
-BetterGearScore:RegisterEvents()
+GSPlus:RegisterEvents()

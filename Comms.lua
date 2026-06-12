@@ -1,13 +1,13 @@
 -- Comms.lua
--- Shares exact scores between BetterGearScore users over the addon message
+-- Shares exact scores between GSPlus users over the addon message
 -- channel, so group members see each other without needing inspect range.
 
-BetterGearScore = BetterGearScore or {}
-BetterGearScore.Comms = BetterGearScore.Comms or {}
+GSPlus = GSPlus or {}
+GSPlus.Comms = GSPlus.Comms or {}
 
-local Comms = BetterGearScore.Comms
+local Comms = GSPlus.Comms
 
-Comms.PREFIX = "BGScore"
+Comms.PREFIX = "GSPlus"
 Comms.PROTOCOL_VERSION = 1
 Comms.BROADCAST_DEBOUNCE = 5
 Comms.REQUEST_REPLY_THROTTLE = 3
@@ -34,9 +34,9 @@ function Comms:Initialize()
 
     eventFrame:SetScript("OnEvent", function(_, event, ...)
         if event == "CHAT_MSG_ADDON" then
-            BetterGearScore.Comms:OnChatMsgAddon(...)
+            GSPlus.Comms:OnChatMsgAddon(...)
         elseif event == "GROUP_ROSTER_UPDATE" or event == "PLAYER_EQUIPMENT_CHANGED" then
-            BetterGearScore.Comms:ScheduleBroadcast()
+            GSPlus.Comms:ScheduleBroadcast()
         end
     end)
 
@@ -45,7 +45,7 @@ function Comms:Initialize()
 end
 
 function Comms:IsEnabled()
-    return BetterGearScore.Options:Get("enableComms")
+    return GSPlus.Options:Get("enableComms")
 end
 
 function Comms:GetChannel()
@@ -81,7 +81,7 @@ function Comms:Send(message, channel)
 end
 
 function Comms:BuildScoreMessage()
-    local entry = BetterGearScore.Inspect:BuildPlayerEntry()
+    local entry = GSPlus.Inspect:BuildPlayerEntry()
 
     return string.format(
         "S:%d:%.1f:%.1f:%.1f:%d:%s",
@@ -147,8 +147,8 @@ function Comms:ScheduleBroadcast()
     self.broadcastPending = true
 
     C_Timer.After(self.BROADCAST_DEBOUNCE, function()
-        BetterGearScore.Comms.broadcastPending = false
-        BetterGearScore.Comms:BroadcastScore()
+        GSPlus.Comms.broadcastPending = false
+        GSPlus.Comms:BroadcastScore()
     end)
 end
 
@@ -174,7 +174,7 @@ function Comms:OnChatMsgAddon(prefix, message, channel, sender)
         return
     end
 
-    local senderKey = BetterGearScore.PlayerCache:NormalizeSenderKey(sender)
+    local senderKey = GSPlus.PlayerCache:NormalizeSenderKey(sender)
     local playerName = UnitName and UnitName("player") or nil
 
     -- Addon messages are echoed back to the sender.
@@ -192,10 +192,10 @@ function Comms:OnChatMsgAddon(prefix, message, channel, sender)
         local entry = self:ParseScoreMessage(message, sender)
 
         if entry then
-            BetterGearScore.PlayerCache:Set(senderKey, entry)
+            GSPlus.PlayerCache:Set(senderKey, entry)
 
-            if BetterGearScore.GroupFrame and BetterGearScore.GroupFrame.OnScoreUpdated then
-                BetterGearScore.GroupFrame:OnScoreUpdated(nil, senderKey, entry)
+            if GSPlus.GroupFrame and GSPlus.GroupFrame.OnScoreUpdated then
+                GSPlus.GroupFrame:OnScoreUpdated(nil, senderKey, entry)
             end
         end
     elseif kind == "R" then

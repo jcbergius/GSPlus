@@ -1,4 +1,4 @@
-package-as: BetterGearScore
+package-as: GSPlus
 enable-nolib-creation: no
 
 ignore:

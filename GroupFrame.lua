@@ -1,11 +1,11 @@
 -- GroupFrame.lua
--- Party/raid gear score overview (/bgs group): scores from comms or inspect,
+-- Party/raid gear score overview: scores from comms or inspect,
 -- with missing enchant/socket callouts for raid leaders.
 
-BetterGearScore = BetterGearScore or {}
-BetterGearScore.GroupFrame = BetterGearScore.GroupFrame or {}
+GSPlus = GSPlus or {}
+GSPlus.GroupFrame = GSPlus.GroupFrame or {}
 
-local GroupFrame = BetterGearScore.GroupFrame
+local GroupFrame = GSPlus.GroupFrame
 
 GroupFrame.WINDOW_WIDTH = 440
 GroupFrame.WINDOW_HEIGHT = 480
@@ -46,9 +46,9 @@ function GroupFrame:CollectRows()
             local entry
 
             if UnitIsUnit(unit, "player") then
-                entry = BetterGearScore.Inspect:BuildPlayerEntry()
+                entry = GSPlus.Inspect:BuildPlayerEntry()
             else
-                entry = BetterGearScore.PlayerCache:GetByUnit(unit)
+                entry = GSPlus.PlayerCache:GetByUnit(unit)
             end
 
             rows[#rows + 1] = {
@@ -79,7 +79,7 @@ function GroupFrame:CreateWindow()
         return self.frame
     end
 
-    local frame = CreateFrame("Frame", "BetterGearScoreGroupWindow", UIParent, "BasicFrameTemplateWithInset")
+    local frame = CreateFrame("Frame", "GSPlusGroupWindow", UIParent, "BasicFrameTemplateWithInset")
     frame:SetSize(self.WINDOW_WIDTH, self.WINDOW_HEIGHT)
     frame:SetPoint("CENTER", UIParent, "CENTER", 50, 0)
     frame:SetMovable(true)
@@ -98,18 +98,18 @@ function GroupFrame:CreateWindow()
     refreshButton:SetPoint("TOPLEFT", frame, "TOPLEFT", 15, -28)
     refreshButton:SetText("Refresh")
     refreshButton:SetScript("OnClick", function()
-        BetterGearScore.GroupFrame:RequestMissingScores()
+        GSPlus.GroupFrame:RequestMissingScores()
     end)
 
     local hintText = frame:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
     hintText:SetPoint("LEFT", refreshButton, "RIGHT", 10, 0)
     hintText:SetText("|cff888888Asks group members and inspects players in range.|r")
 
-    local scrollFrame = CreateFrame("ScrollFrame", "BetterGearScoreGroupScrollFrame", frame, "UIPanelScrollFrameTemplate")
+    local scrollFrame = CreateFrame("ScrollFrame", "GSPlusGroupScrollFrame", frame, "UIPanelScrollFrameTemplate")
     scrollFrame:SetPoint("TOPLEFT", refreshButton, "BOTTOMLEFT", 0, -8)
     scrollFrame:SetSize(self.WINDOW_WIDTH - 55, self.WINDOW_HEIGHT - 100)
 
-    local listFrame = CreateFrame("Frame", "BetterGearScoreGroupListFrame", scrollFrame)
+    local listFrame = CreateFrame("Frame", "GSPlusGroupListFrame", scrollFrame)
     listFrame:SetSize(self.WINDOW_WIDTH - 70, 1)
     scrollFrame:SetScrollChild(listFrame)
 
@@ -130,8 +130,8 @@ function GroupFrame:RegisterEvents()
     eventFrame:RegisterEvent("GROUP_ROSTER_UPDATE")
 
     eventFrame:SetScript("OnEvent", function()
-        if BetterGearScore.GroupFrame:IsVisible() then
-            BetterGearScore.GroupFrame:Update()
+        if GSPlus.GroupFrame:IsVisible() then
+            GSPlus.GroupFrame:Update()
         end
     end)
 
@@ -192,11 +192,11 @@ function GroupFrame:SetRow(row, data)
     local entry = data.entry
 
     if entry then
-        row.scoreText:SetText(BetterGearScore.Calculator:ColorizeScore(entry.weighted or 0, entry.max or 0))
+        row.scoreText:SetText(GSPlus.Calculator:ColorizeScore(entry.weighted or 0, entry.max or 0))
 
-        local details = BetterGearScore.Profiles:GetProfileDisplayName(entry.profileKey)
+        local details = GSPlus.Profiles:GetProfileDisplayName(entry.profileKey)
 
-        if BetterGearScore.Options:Get("showLegacyGearScore") and entry.legacy and entry.legacy > 0 then
+        if GSPlus.Options:Get("showLegacyGearScore") and entry.legacy and entry.legacy > 0 then
             details = details .. "  |cff888888GS " .. math.floor(entry.legacy) .. "|r"
         end
 
@@ -215,8 +215,8 @@ function GroupFrame:SetRow(row, data)
         end
 
         if entry.source and entry.source ~= "self" then
-            details = details .. "  |cff666666(" .. BetterGearScore.PlayerCache:FormatSource(entry)
-                .. ", " .. BetterGearScore.PlayerCache:FormatAge(entry) .. ")|r"
+            details = details .. "  |cff666666(" .. GSPlus.PlayerCache:FormatSource(entry)
+                .. ", " .. GSPlus.PlayerCache:FormatAge(entry) .. ")|r"
         end
 
         row.detailText:SetText(details)
@@ -254,13 +254,13 @@ function GroupFrame:Update()
 end
 
 function GroupFrame:RequestMissingScores()
-    BetterGearScore.Comms:RequestScores()
+    GSPlus.Comms:RequestScores()
 
     for _, unit in ipairs(self:GetGroupUnits()) do
         if not UnitIsUnit(unit, "player")
-            and not BetterGearScore.PlayerCache:GetByUnit(unit)
+            and not GSPlus.PlayerCache:GetByUnit(unit)
             and (not CanInspect or CanInspect(unit)) then
-            BetterGearScore.Inspect:QueueUnitInspect(unit)
+            GSPlus.Inspect:QueueUnitInspect(unit)
         end
     end
 

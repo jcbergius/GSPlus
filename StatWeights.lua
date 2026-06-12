@@ -1,6 +1,6 @@
 -- StatWeights.lua
 
-local Weights = BetterGearScore.Weights
+local Weights = GSPlus.Weights
 
 Weights.BASE_STATS = {
     "STRENGTH",

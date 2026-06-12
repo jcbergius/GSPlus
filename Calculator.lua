@@ -1,6 +1,6 @@
--- BetterGearScoreCalculator.lua
+-- GSPlusCalculator.lua
 
-local Calculator = BetterGearScore.Calculator
+local Calculator = GSPlus.Calculator
 
 Calculator.ITEMIZATION_MODE = "TBC"
 Calculator.ITEM_BUDGET_EXPONENT = 1.7095
@@ -222,7 +222,7 @@ Calculator.COLOR_REFERENCE_SCALE_BY_FLAVOR = {
 }
 
 function Calculator:GetColorReferenceScale()
-    return BetterGearScore.GameVersion:Select(self.COLOR_REFERENCE_SCALE_BY_FLAVOR) or 1.0
+    return GSPlus.GameVersion:Select(self.COLOR_REFERENCE_SCALE_BY_FLAVOR) or 1.0
 end
 
 Calculator.PROFILE_COLOR_CAP_GROUP = {
@@ -302,10 +302,10 @@ end
 -- cap adjustments. applyCaps exists solely for the personal "vs Equipped"
 -- upgrade comparison, which is advice for this player, not a score.
 function Calculator:GetEffectiveWeight(profileKey, statType, applyCaps)
-    local roleWeight = BetterGearScore.Weights:GetWeight(profileKey, statType)
+    local roleWeight = GSPlus.Weights:GetWeight(profileKey, statType)
 
-    if applyCaps and roleWeight > 0 and BetterGearScore.StatCaps then
-        roleWeight = roleWeight * BetterGearScore.StatCaps:GetWeightMultiplier(profileKey, statType)
+    if applyCaps and roleWeight > 0 and GSPlus.StatCaps then
+        roleWeight = roleWeight * GSPlus.StatCaps:GetWeightMultiplier(profileKey, statType)
     end
 
     return roleWeight
@@ -384,8 +384,8 @@ function Calculator:CalculateWeaponScore(stats, profileKey, slotKey, itemLink)
 
     local dpsWeightKey, damageWeightKey = self:GetWeaponWeightKeys(slotKey, itemLink)
 
-    local dpsWeight = BetterGearScore.Weights:GetWeight(profileKey, dpsWeightKey)
-    local damageWeight = BetterGearScore.Weights:GetWeight(profileKey, damageWeightKey)
+    local dpsWeight = GSPlus.Weights:GetWeight(profileKey, dpsWeightKey)
+    local damageWeight = GSPlus.Weights:GetWeight(profileKey, damageWeightKey)
 
     return (weaponDps * dpsWeight) + (averageDamage * damageWeight)
 end
@@ -553,19 +553,19 @@ function Calculator:InvalidateCache()
     self.scoreCache = nil
 end
 
-function Calculator:CalculateTotalBetterGearScore(profileKey)
-    profileKey = profileKey or BetterGearScore.Profiles:GetSelectedProfile()
+function Calculator:CalculateTotalGSPlus(profileKey)
+    profileKey = profileKey or GSPlus.Profiles:GetSelectedProfile()
 
     if self.scoreCache and self.scoreCache.profileKey == profileKey then
         return self.scoreCache
     end
 
-    local equippedItems = BetterGearScore.ItemParser:GetEquippedItems()
+    local equippedItems = GSPlus.ItemParser:GetEquippedItems()
 
     local setBonusStats = {}
 
-    if BetterGearScore.SetBonuses and BetterGearScore.SetBonuses.GetEquippedActiveSetBonusStats then
-        setBonusStats = BetterGearScore.SetBonuses:GetEquippedActiveSetBonusStats()
+    if GSPlus.SetBonuses and GSPlus.SetBonuses.GetEquippedActiveSetBonusStats then
+        setBonusStats = GSPlus.SetBonuses:GetEquippedActiveSetBonusStats()
     end
 
     local setBonusRawScore = self:CalculateRawStatBudget(setBonusStats)
@@ -619,7 +619,7 @@ function Calculator:CalculateTotalBetterGearScore(profileKey)
 
     local result = {
         profileKey = profileKey,
-        profileName = BetterGearScore.Profiles:GetProfileDisplayName(profileKey),
+        profileName = GSPlus.Profiles:GetProfileDisplayName(profileKey),
         totalRawScore = totalRawScore,
         totalWeightedScore = totalWeightedScore,
         totalMaxBudgetScore = totalMaxBudgetScore,
@@ -640,8 +640,8 @@ function Calculator:GetPlayerClass()
     return classFileName
 end
 
-function Calculator:GetPlayerBetterGearScore()
-    local profileKey = BetterGearScore.Profiles:GetSelectedProfile()
+function Calculator:GetPlayerGSPlus()
+    local profileKey = GSPlus.Profiles:GetSelectedProfile()
 
-    return self:CalculateTotalBetterGearScore(profileKey)
+    return self:CalculateTotalGSPlus(profileKey)
 end

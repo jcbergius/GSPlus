@@ -1,10 +1,10 @@
 -- Options.lua
 -- Saved settings with defaults plus an Interface Options panel.
 
-BetterGearScore = BetterGearScore or {}
-BetterGearScore.Options = BetterGearScore.Options or {}
+GSPlus = GSPlus or {}
+GSPlus.Options = GSPlus.Options or {}
 
-local Options = BetterGearScore.Options
+local Options = GSPlus.Options
 
 Options.DEFAULTS = {
     showItemTooltip = true,
@@ -30,10 +30,10 @@ Options.PANEL_OPTIONS = {
 }
 
 function Options:GetStore()
-    BetterGearScoreSavedVars = BetterGearScoreSavedVars or {}
-    BetterGearScoreSavedVars.options = BetterGearScoreSavedVars.options or {}
+    GSPlusSavedVars = GSPlusSavedVars or {}
+    GSPlusSavedVars.options = GSPlusSavedVars.options or {}
 
-    return BetterGearScoreSavedVars.options
+    return GSPlusSavedVars.options
 end
 
 function Options:Get(key)
@@ -49,15 +49,15 @@ end
 function Options:Set(key, value)
     self:GetStore()[key] = value and true or false
 
-    if BetterGearScore.TalentDetector then
-        BetterGearScore.TalentDetector.roleCache = nil
+    if GSPlus.TalentDetector then
+        GSPlus.TalentDetector.roleCache = nil
     end
 
-    if BetterGearScore.Calculator and BetterGearScore.Calculator.InvalidateCache then
-        BetterGearScore.Calculator:InvalidateCache()
+    if GSPlus.Calculator and GSPlus.Calculator.InvalidateCache then
+        GSPlus.Calculator:InvalidateCache()
     end
 
-    BetterGearScore:RefreshUI()
+    GSPlus:RefreshUI()
 end
 
 function Options:CreatePanel()
@@ -65,23 +65,23 @@ function Options:CreatePanel()
         return self.panel
     end
 
-    local panel = CreateFrame("Frame", "BetterGearScoreOptionsPanel", UIParent)
-    panel.name = "BetterGearScore"
+    local panel = CreateFrame("Frame", "GSPlusOptionsPanel", UIParent)
+    panel.name = "gs+"
 
     local title = panel:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
     title:SetPoint("TOPLEFT", panel, "TOPLEFT", 16, -16)
-    title:SetText("BetterGearScore")
+    title:SetText("gs+")
 
     local subtitle = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
     subtitle:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -8)
-    subtitle:SetText("v" .. (BetterGearScore.VERSION or "?") .. " - Role-aware gear scoring")
+    subtitle:SetText("v" .. (GSPlus.VERSION or "?") .. " - Role-aware gear scoring")
 
     local checkboxes = {}
     local anchor = subtitle
     local anchorOffset = -16
 
     for index, optionInfo in ipairs(self.PANEL_OPTIONS) do
-        local name = "BetterGearScoreOptionsCheck" .. index
+        local name = "GSPlusOptionsCheck" .. index
         local checkbox = CreateFrame("CheckButton", name, panel, "InterfaceOptionsCheckButtonTemplate")
         checkbox:SetPoint("TOPLEFT", anchor, "BOTTOMLEFT", 0, anchorOffset)
 
@@ -137,7 +137,7 @@ function Options:OpenPanel()
         InterfaceOptionsFrame_OpenToCategory(self.panel)
         InterfaceOptionsFrame_OpenToCategory(self.panel)
     else
-        print("|cff00ff00BetterGearScore:|r Options panel is not available on this client. Use /bgs help.")
+        print("|cff00ff00GSPlus:|r Options panel is not available on this client. Use /gs.")
     end
 end
 

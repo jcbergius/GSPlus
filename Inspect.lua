@@ -2,10 +2,10 @@
 -- Throttled inspect queue that scores other players' visible gear and feeds
 -- the player cache used by unit tooltips and the group window.
 
-BetterGearScore = BetterGearScore or {}
-BetterGearScore.Inspect = BetterGearScore.Inspect or {}
+GSPlus = GSPlus or {}
+GSPlus.Inspect = GSPlus.Inspect or {}
 
-local Inspect = BetterGearScore.Inspect
+local Inspect = GSPlus.Inspect
 
 Inspect.INSPECT_TIMEOUT = 2.5
 Inspect.RETRY_COOLDOWN = 10
@@ -23,7 +23,7 @@ function Inspect:RegisterEvents()
     eventFrame:RegisterEvent("INSPECT_READY")
 
     eventFrame:SetScript("OnEvent", function(_, _, guid)
-        BetterGearScore.Inspect:OnInspectReady(guid)
+        GSPlus.Inspect:OnInspectReady(guid)
     end)
 
     self.eventFrame = eventFrame
@@ -32,14 +32,14 @@ end
 -- Builds a cache entry for the player themselves (used by comms broadcasts
 -- and the player's own tooltip line).
 function Inspect:BuildPlayerEntry()
-    local data = BetterGearScore.Calculator:GetPlayerBetterGearScore()
+    local data = GSPlus.Calculator:GetPlayerGSPlus()
     local _, classFileName = UnitClass("player")
 
     return {
         weighted = data.totalWeightedScore or 0,
         max = data.totalMaxBudgetScore or 0,
         raw = data.totalRawScore or 0,
-        legacy = BetterGearScore.LegacyGearScore:GetPlayerScore(),
+        legacy = GSPlus.LegacyGearScore:GetPlayerScore(),
         profileKey = data.profileKey,
         class = classFileName,
         source = "self",
@@ -51,7 +51,7 @@ end
 -- exposes inspect talents, otherwise falls back to their class default.
 function Inspect:GetUnitProfile(unit)
     local _, classFileName = UnitClass(unit)
-    local detector = BetterGearScore.TalentDetector
+    local detector = GSPlus.TalentDetector
 
     local bestIndex = nil
     local bestPoints = -1
@@ -76,17 +76,17 @@ function Inspect:GetUnitProfile(unit)
         local classProfiles = detector.CLASS_TREE_PROFILES[classFileName]
         local profileKey = classProfiles and classProfiles[bestIndex]
 
-        if profileKey and BetterGearScore.Weights.PROFILE_WEIGHTS[profileKey] then
+        if profileKey and GSPlus.Weights.PROFILE_WEIGHTS[profileKey] then
             return profileKey
         end
     end
 
-    return BetterGearScore.Profiles:GetDefaultProfileForClass(classFileName)
+    return GSPlus.Profiles:GetDefaultProfileForClass(classFileName)
 end
 
 function Inspect:CalculateUnitScore(unit, profileKey)
-    local Calculator = BetterGearScore.Calculator
-    local ItemParser = BetterGearScore.ItemParser
+    local Calculator = GSPlus.Calculator
+    local ItemParser = GSPlus.ItemParser
 
     local totalRawScore = 0
     local totalWeightedScore = 0
@@ -141,14 +141,14 @@ function Inspect:BuildUnitEntry(unit, source)
         weighted = result.totalWeightedScore,
         max = result.totalMaxScore,
         raw = result.totalRawScore,
-        legacy = BetterGearScore.LegacyGearScore:GetUnitScore(unit),
+        legacy = GSPlus.LegacyGearScore:GetUnitScore(unit),
         profileKey = profileKey,
         class = classFileName,
         source = source or "inspect",
         time = time(),
         itemCount = result.itemCount,
         missingItems = result.missingItems,
-        missingEnchants = BetterGearScore.ItemParser:CountMissingEnchants(unit),
+        missingEnchants = GSPlus.ItemParser:CountMissingEnchants(unit),
         emptySockets = result.emptySockets,
     }
 end
@@ -241,7 +241,7 @@ function Inspect:ProcessQueue()
         local token = request
 
         C_Timer.After(self.INSPECT_TIMEOUT, function()
-            BetterGearScore.Inspect:OnInspectTimeout(token)
+            GSPlus.Inspect:OnInspectTimeout(token)
         end)
     end
 end
@@ -301,7 +301,7 @@ function Inspect:OnInspectReady(guid)
             local entry = self:BuildUnitEntry(unit, "inspect")
 
             if entry then
-                BetterGearScore.PlayerCache:SetForUnit(unit, entry)
+                GSPlus.PlayerCache:SetForUnit(unit, entry)
                 self:NotifyScoreUpdated(guid, UnitName(unit), entry)
             end
         end
@@ -321,7 +321,7 @@ function Inspect:OnInspectReady(guid)
         local entry = self:BuildUnitEntry(unit, "inspect")
 
         if entry then
-            BetterGearScore.PlayerCache:SetForUnit(unit, entry)
+            GSPlus.PlayerCache:SetForUnit(unit, entry)
             self:NotifyScoreUpdated(request.guid, UnitName(unit), entry)
         end
     end
@@ -333,7 +333,7 @@ function Inspect:OnInspectReady(guid)
 
     if C_Timer and C_Timer.After then
         C_Timer.After(self.QUEUE_STEP_DELAY, function()
-            BetterGearScore.Inspect:ProcessQueue()
+            GSPlus.Inspect:ProcessQueue()
         end)
     else
         self:ProcessQueue()
@@ -341,15 +341,15 @@ function Inspect:OnInspectReady(guid)
 end
 
 function Inspect:NotifyScoreUpdated(guid, name, entry)
-    if BetterGearScore.UnitTooltip and BetterGearScore.UnitTooltip.OnScoreUpdated then
-        BetterGearScore.UnitTooltip:OnScoreUpdated(guid, name, entry)
+    if GSPlus.UnitTooltip and GSPlus.UnitTooltip.OnScoreUpdated then
+        GSPlus.UnitTooltip:OnScoreUpdated(guid, name, entry)
     end
 
-    if BetterGearScore.GroupFrame and BetterGearScore.GroupFrame.OnScoreUpdated then
-        BetterGearScore.GroupFrame:OnScoreUpdated(guid, name, entry)
+    if GSPlus.GroupFrame and GSPlus.GroupFrame.OnScoreUpdated then
+        GSPlus.GroupFrame:OnScoreUpdated(guid, name, entry)
     end
 
-    if BetterGearScore.InspectPaneUI and BetterGearScore.InspectPaneUI.OnScoreUpdated then
-        BetterGearScore.InspectPaneUI:OnScoreUpdated(guid, name, entry)
+    if GSPlus.InspectPaneUI and GSPlus.InspectPaneUI.OnScoreUpdated then
+        GSPlus.InspectPaneUI:OnScoreUpdated(guid, name, entry)
     end
 end

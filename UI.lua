@@ -1,6 +1,6 @@
--- UI Panel for displaying BetterGearScore
+-- UI Panel for displaying GSPlus
 
-local UI = BetterGearScore.UI
+local UI = GSPlus.UI
 
 UI.WINDOW_WIDTH = 400
 UI.WINDOW_HEIGHT = 600
@@ -13,7 +13,7 @@ function UI:CreateWindow()
         return self.frame
     end
 
-    local frame = CreateFrame("Frame", "BetterGearScoreMainWindow", UIParent, "BasicFrameTemplateWithInset")
+    local frame = CreateFrame("Frame", "GSPlusMainWindow", UIParent, "BasicFrameTemplateWithInset")
     frame:SetSize(self.WINDOW_WIDTH, self.WINDOW_HEIGHT)
     frame:SetPoint("CENTER")
     frame:SetMovable(true)
@@ -24,7 +24,7 @@ function UI:CreateWindow()
     frame:Hide()
 
     if frame.TitleText then
-        frame.TitleText:SetText("Better Gear Score")
+        frame.TitleText:SetText("gs+")
     end
 
     local totalScoreFrame = CreateFrame("Frame", nil, frame, "BackdropTemplate")
@@ -50,7 +50,7 @@ function UI:CreateWindow()
     groupButton:SetPoint("TOPRIGHT", totalScoreFrame, "TOPRIGHT", -10, -8)
     groupButton:SetText("Group Scores")
     groupButton:SetScript("OnClick", function()
-        BetterGearScore.GroupFrame:Toggle()
+        GSPlus.GroupFrame:Toggle()
     end)
 
     local infoText = totalScoreFrame:CreateFontString(nil, "ARTWORK", "GameFontNormal")
@@ -60,11 +60,11 @@ function UI:CreateWindow()
 
     self:CreateProfileDropdown(totalScoreFrame)
 
-    local scrollFrame = CreateFrame("ScrollFrame", "BetterGearScoreScrollFrame", frame, "UIPanelScrollFrameTemplate")
+    local scrollFrame = CreateFrame("ScrollFrame", "GSPlusScrollFrame", frame, "UIPanelScrollFrameTemplate")
     scrollFrame:SetPoint("TOPLEFT", totalScoreFrame, "BOTTOMLEFT", 0, -10)
     scrollFrame:SetSize(self.WINDOW_WIDTH - 40, self.WINDOW_HEIGHT - self.HEADER_HEIGHT - 50)
 
-    local listFrame = CreateFrame("Frame", "BetterGearScoreListFrame", scrollFrame)
+    local listFrame = CreateFrame("Frame", "GSPlusListFrame", scrollFrame)
     listFrame:SetSize(self.WINDOW_WIDTH - 65, 1)
     scrollFrame:SetScrollChild(listFrame)
 
@@ -84,12 +84,12 @@ function UI:CreateProfileDropdown(parent)
         return nil
     end
 
-    local dropdown = CreateFrame("Frame", "BetterGearScoreProfileDropdown", parent, "UIDropDownMenuTemplate")
+    local dropdown = CreateFrame("Frame", "GSPlusProfileDropdown", parent, "UIDropDownMenuTemplate")
     dropdown:SetPoint("TOPLEFT", self.infoText, "BOTTOMLEFT", -20, -8)
     UIDropDownMenu_SetWidth(dropdown, 180)
 
     UIDropDownMenu_Initialize(dropdown, function(_, level)
-        local Profiles = BetterGearScore.Profiles
+        local Profiles = GSPlus.Profiles
         local manual = Profiles:IsUsingManualProfile()
         local selected = Profiles:GetSelectedProfile()
 
@@ -102,7 +102,7 @@ function UI:CreateProfileDropdown(parent)
         UIDropDownMenu_AddButton(info, level)
 
         for _, profileKey in ipairs(Profiles.SORTED_PROFILE_KEYS) do
-            if BetterGearScore.Weights.PROFILE_WEIGHTS[profileKey] then
+            if GSPlus.Weights.PROFILE_WEIGHTS[profileKey] then
                 local key = profileKey
 
                 info = UIDropDownMenu_CreateInfo()
@@ -127,7 +127,7 @@ function UI:UpdateProfileDropdown()
         return
     end
 
-    local Profiles = BetterGearScore.Profiles
+    local Profiles = GSPlus.Profiles
     local text = Profiles:GetProfileDisplayName(Profiles:GetSelectedProfile())
 
     if not Profiles:IsUsingManualProfile() then
@@ -142,7 +142,7 @@ end
 function UI:GetOrderedItemScores(itemScores)
     local ordered = {}
 
-    for _, slotInfo in ipairs(BetterGearScore.ItemParser.EQUIPMENT_SLOTS) do
+    for _, slotInfo in ipairs(GSPlus.ItemParser.EQUIPMENT_SLOTS) do
         local slotId = GetInventorySlotInfo(slotInfo.key)
         local itemScore = slotId and itemScores[slotId]
 
@@ -210,7 +210,7 @@ end
 function UI:SetItemEntry(frame, labelText, weightedScore, maxBudgetScore, itemLink)
     frame.itemLink = itemLink
     frame.nameText:SetText(labelText)
-    frame.scoreText:SetText(BetterGearScore.Calculator:ColorizeScore(weightedScore or 0, maxBudgetScore or 0))
+    frame.scoreText:SetText(GSPlus.Calculator:ColorizeScore(weightedScore or 0, maxBudgetScore or 0))
 end
 
 function UI:Update()
@@ -218,8 +218,8 @@ function UI:Update()
         self:CreateWindow()
     end
 
-    local data = BetterGearScore.Calculator:GetPlayerBetterGearScore()
-    local coloredTotalScore = BetterGearScore.Calculator:ColorizeScore(
+    local data = GSPlus.Calculator:GetPlayerGSPlus()
+    local coloredTotalScore = GSPlus.Calculator:ColorizeScore(
         data.totalWeightedScore or 0,
         data.totalMaxBudgetScore or 0
     )
@@ -243,7 +243,7 @@ function UI:Update()
         local labelText
 
         if itemScore.link then
-            local itemName = BetterGearScore.ItemParser:GetItemName(itemScore.link)
+            local itemName = GSPlus.ItemParser:GetItemName(itemScore.link)
             labelText = (itemScore.slotName or "Unknown") .. ": " .. itemName
         else
             labelText = itemScore.slotName or "Unknown"

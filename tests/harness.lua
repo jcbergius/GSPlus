@@ -1,4 +1,4 @@
--- WoW API stub harness to smoke-test BetterGearScore outside the game.
+-- WoW API stub harness to smoke-test GSPlus outside the game.
 -- Run from the repo root: lua5.1 tests/harness.lua
 local ADDON_DIR = arg[1] or "."
 
@@ -251,7 +251,7 @@ equipped.MainHandSlot = swordLink
 -- Load addon files in toc order ----------------------------------------------
 local tocOrder = {
     "Core.lua", "GameVersion.lua", "StatWeights.lua", "StatCaps.lua", "Profiles.lua", "TalentDetector.lua",
-    "ItemParser.lua", "SetBonuses.lua", "BetterGearScoreCalculator.lua",
+    "ItemParser.lua", "SetBonuses.lua", "Calculator.lua",
     "LegacyGearScore.lua", "Options.lua", "PlayerCache.lua",
     "CharacterPaneUI.lua", "InspectPaneUI.lua", "UI.lua", "GroupFrame.lua",
     "Tooltip.lua", "UnitTooltip.lua", "Inspect.lua", "Comms.lua", "Commands.lua",
@@ -274,8 +274,8 @@ end
 
 -- 1. Zero-config: welcome message printed once, login silent afterwards
 printed = {}
-BetterGearScore:Initialize()
-BetterGearScore:Initialize()
+GSPlus:Initialize()
+GSPlus:Initialize()
 local welcomeCount = 0
 for _, line in ipairs(printed) do
     if string.find(line, "is ready") then welcomeCount = welcomeCount + 1 end
@@ -283,21 +283,21 @@ end
 check(welcomeCount == 1, "welcome message printed exactly once")
 
 -- 2. Single slash command opens options
-SlashCmdList["BetterGearScore"]("")
-check(optionsPanelOpened > 0, "/bgs opens the options panel")
+SlashCmdList["GSPlus"]("")
+check(optionsPanelOpened > 0, "/gs opens the options panel")
 
 -- 3. Item parsing regressions
-local stats = BetterGearScore.ItemParser:ParseItemStats(chestLink)
+local stats = GSPlus.ItemParser:ParseItemStats(chestLink)
 check(stats.SPIRIT == 18 and stats.HEALING == 42 and stats.MP5 == 7, "chest stats parsed")
-local gstats = BetterGearScore.ItemParser:ParseItemStats(gemChestLink)
+local gstats = GSPlus.ItemParser:ParseItemStats(gemChestLink)
 check(gstats.EMPTY_SOCKETS == 2, "empty sockets detected")
-check(BetterGearScore.ItemParser:GetEnchantId(enchantedLink) == 2564, "enchant id parsed")
-check(BetterGearScore.ItemParser:CountMissingEnchants("player") == 2, "missing enchants counted")
-check(BetterGearScore.LegacyGearScore:GetPlayerScore() == 228, "legacy GS total")
-check(BetterGearScore.TalentDetector:GetDetectedProfile() == "WARRIOR_TANK", "warrior prot detected")
+check(GSPlus.ItemParser:GetEnchantId(enchantedLink) == 2564, "enchant id parsed")
+check(GSPlus.ItemParser:CountMissingEnchants("player") == 2, "missing enchants counted")
+check(GSPlus.LegacyGearScore:GetPlayerScore() == 228, "legacy GS total")
+check(GSPlus.TalentDetector:GetDetectedProfile() == "WARRIOR_TANK", "warrior prot detected")
 
 -- 3b. Green stat format coverage
-local g = BetterGearScore.ItemParser:ParseItemStats(greenLink)
+local g = GSPlus.ItemParser:ParseItemStats(greenLink)
 check(g.SPELLPOWER == 56, "school-specific spell damage parsed (got " .. tostring(g.SPELLPOWER) .. ")")
 check(g.HEALING == 55, "vanilla healing wording parsed")
 check(g.DEFENSE == 7, "old-style Increased Defense parsed")
@@ -317,158 +317,158 @@ local filtered = {}
 for k, v in pairs(g) do
     if k ~= "UNSCORED_EQUIP_EFFECT" and k ~= "STAMINA" then filtered[k] = v end
 end
-check(math.abs(BetterGearScore.Calculator:CalculateRawStatBudget(g)
-    - BetterGearScore.Calculator:CalculateRawStatBudget(filtered)) < 0.001,
+check(math.abs(GSPlus.Calculator:CalculateRawStatBudget(g)
+    - GSPlus.Calculator:CalculateRawStatBudget(filtered)) < 0.001,
     "negative stats and unscored markers excluded from budget")
 
 -- Alias weights: new stats inherit role value from their parent stat
-check(BetterGearScore.Weights:GetWeight("WARRIOR_TANK", "HEALTH") == 1.0, "HEALTH aliases STAMINA weight")
-check(BetterGearScore.Weights:GetWeight("MAGE_DPS", "SPELL_PENETRATION") == 1.0, "SPELL_PENETRATION aliases SPELLPOWER weight")
-check(BetterGearScore.Weights:GetWeight("WARRIOR_DPS", "ARMOR_PENETRATION") == 0.90, "ARMOR_PENETRATION aliases ATTACKPOWER weight")
-check(BetterGearScore.Weights:GetWeight("PRIEST_HEALER", "ARMOR_PENETRATION") == 0.0, "healer gets no armor penetration value")
+check(GSPlus.Weights:GetWeight("WARRIOR_TANK", "HEALTH") == 1.0, "HEALTH aliases STAMINA weight")
+check(GSPlus.Weights:GetWeight("MAGE_DPS", "SPELL_PENETRATION") == 1.0, "SPELL_PENETRATION aliases SPELLPOWER weight")
+check(GSPlus.Weights:GetWeight("WARRIOR_DPS", "ARMOR_PENETRATION") == 0.90, "ARMOR_PENETRATION aliases ATTACKPOWER weight")
+check(GSPlus.Weights:GetWeight("PRIEST_HEALER", "ARMOR_PENETRATION") == 0.0, "healer gets no armor penetration value")
 
 -- 4. Stat cap tapering
-local hitStats = BetterGearScore.ItemParser:ParseItemStats(hitRingLink)
+local hitStats = GSPlus.ItemParser:ParseItemStats(hitRingLink)
 check(hitStats.HIT == 20, "hit ring parsed")
 
 combatRatingBonus[6] = 5.0  -- melee hit, well below 9% cap
-BetterGearScore.StatCaps:InvalidateCache()
-check(BetterGearScore.StatCaps:GetWeightMultiplier("WARRIOR_DPS", "HIT") == 1, "below cap: full hit weight")
-local uncappedScore = BetterGearScore.Calculator:CalculateWeightedScore(hitStats, "WARRIOR_DPS", nil, nil, true)
+GSPlus.StatCaps:InvalidateCache()
+check(GSPlus.StatCaps:GetWeightMultiplier("WARRIOR_DPS", "HIT") == 1, "below cap: full hit weight")
+local uncappedScore = GSPlus.Calculator:CalculateWeightedScore(hitStats, "WARRIOR_DPS", nil, nil, true)
 
 combatRatingBonus[6] = 12.0  -- past the 9% cap
-BetterGearScore.StatCaps:InvalidateCache()
-check(BetterGearScore.StatCaps:GetWeightMultiplier("WARRIOR_DPS", "HIT") == 0.15, "past cap: hit weight floored")
-local cappedScore = BetterGearScore.Calculator:CalculateWeightedScore(hitStats, "WARRIOR_DPS", nil, nil, true)
+GSPlus.StatCaps:InvalidateCache()
+check(GSPlus.StatCaps:GetWeightMultiplier("WARRIOR_DPS", "HIT") == 0.15, "past cap: hit weight floored")
+local cappedScore = GSPlus.Calculator:CalculateWeightedScore(hitStats, "WARRIOR_DPS", nil, nil, true)
 check(cappedScore < uncappedScore * 0.2, "capped hit item scores far lower ("
     .. string.format("%.1f vs %.1f", cappedScore, uncappedScore) .. ")")
 
-local uncappedForOthers = BetterGearScore.Calculator:CalculateWeightedScore(hitStats, "WARRIOR_DPS", nil, nil, false)
+local uncappedForOthers = GSPlus.Calculator:CalculateWeightedScore(hitStats, "WARRIOR_DPS", nil, nil, false)
 check(math.abs(uncappedForOthers - uncappedScore) < 0.001, "caps not applied when scoring other players")
 
 combatRatingBonus[6] = 8.5  -- inside the 1% taper window
-BetterGearScore.StatCaps:InvalidateCache()
-local taperMult = BetterGearScore.StatCaps:GetWeightMultiplier("WARRIOR_DPS", "HIT")
+GSPlus.StatCaps:InvalidateCache()
+local taperMult = GSPlus.StatCaps:GetWeightMultiplier("WARRIOR_DPS", "HIT")
 check(taperMult > 0.15 and taperMult < 1, "taper window interpolates (" .. string.format("%.2f", taperMult) .. ")")
 
 combatRatingBonus[8] = 10.0  -- spell hit below 16% cap
-BetterGearScore.StatCaps:InvalidateCache()
-check(BetterGearScore.StatCaps:GetWeightMultiplier("MAGE_DPS", "HIT") == 1, "caster uses spell hit cap")
+GSPlus.StatCaps:InvalidateCache()
+check(GSPlus.StatCaps:GetWeightMultiplier("MAGE_DPS", "HIT") == 1, "caster uses spell hit cap")
 
 defenseBase, defenseMod = 350, 145  -- 495 defense, past 490
-BetterGearScore.StatCaps:InvalidateCache()
-check(BetterGearScore.StatCaps:GetWeightMultiplier("WARRIOR_TANK", "DEFENSE") == 0.5, "defense floored at 0.5 past 490")
-check(BetterGearScore.StatCaps:GetWeightMultiplier("WARRIOR_DPS", "DEFENSE") == 1, "defense cap only applies to tanks")
+GSPlus.StatCaps:InvalidateCache()
+check(GSPlus.StatCaps:GetWeightMultiplier("WARRIOR_TANK", "DEFENSE") == 0.5, "defense floored at 0.5 past 490")
+check(GSPlus.StatCaps:GetWeightMultiplier("WARRIOR_DPS", "DEFENSE") == 1, "defense cap only applies to tanks")
 
 expertiseValue = 30  -- past 26 dodge cap
-BetterGearScore.StatCaps:InvalidateCache()
-check(BetterGearScore.StatCaps:GetWeightMultiplier("ROGUE_DPS", "EXPERTISE") == 0.15, "dps expertise floored past dodge cap")
-check(BetterGearScore.StatCaps:GetWeightMultiplier("WARRIOR_TANK", "EXPERTISE") == 1, "tank expertise not tapered")
+GSPlus.StatCaps:InvalidateCache()
+check(GSPlus.StatCaps:GetWeightMultiplier("ROGUE_DPS", "EXPERTISE") == 0.15, "dps expertise floored past dodge cap")
+check(GSPlus.StatCaps:GetWeightMultiplier("WARRIOR_TANK", "EXPERTISE") == 1, "tank expertise not tapered")
 
 -- reset ratings for remaining tests
 combatRatingBonus = {}
 defenseBase, defenseMod = 350, 0
 expertiseValue = 0
-BetterGearScore.StatCaps:InvalidateCache()
-BetterGearScore:InvalidateCaches()
+GSPlus.StatCaps:InvalidateCache()
+GSPlus:InvalidateCaches()
 
 -- 4b. Flavor portability: era data switches with the detected client
-check(BetterGearScore.GameVersion:GetFlavor() == "TBC", "TBC flavor detected from project id")
+check(GSPlus.GameVersion:GetFlavor() == "TBC", "TBC flavor detected from project id")
 
 WOW_PROJECT_ID = WOW_PROJECT_WRATH_CLASSIC
-BetterGearScore.GameVersion:Detect()
-BetterGearScore.StatCaps:InvalidateCache()
-check(BetterGearScore.GameVersion:GetFlavor() == "WRATH", "WRATH flavor detected")
-check(BetterGearScore.ItemParser:GetRatingPerPercent("HIT") == 32.79, "wrath level-80 hit rating conversion")
-check(BetterGearScore.Calculator:GetColorReferenceScale() == 2.95, "wrath color reference scale applied")
+GSPlus.GameVersion:Detect()
+GSPlus.StatCaps:InvalidateCache()
+check(GSPlus.GameVersion:GetFlavor() == "WRATH", "WRATH flavor detected")
+check(GSPlus.ItemParser:GetRatingPerPercent("HIT") == 32.79, "wrath level-80 hit rating conversion")
+check(GSPlus.Calculator:GetColorReferenceScale() == 2.95, "wrath color reference scale applied")
 
 combatRatingBonus[6] = 8.5  -- past the wrath 8% melee cap (below TBC's 9%)
-BetterGearScore.StatCaps:InvalidateCache()
-check(BetterGearScore.StatCaps:GetWeightMultiplier("WARRIOR_DPS", "HIT") == 0.15, "wrath melee hit cap is 8%")
+GSPlus.StatCaps:InvalidateCache()
+check(GSPlus.StatCaps:GetWeightMultiplier("WARRIOR_DPS", "HIT") == 0.15, "wrath melee hit cap is 8%")
 
-check(BetterGearScore.ItemParser:NormalizeStatName("Mastery Rating") == "MASTERY", "mastery rating recognized")
-check(BetterGearScore.Weights:GetWeight("WARRIOR_DPS", "MASTERY") == 0.85, "MASTERY aliases CRITICAL weight")
+check(GSPlus.ItemParser:NormalizeStatName("Mastery Rating") == "MASTERY", "mastery rating recognized")
+check(GSPlus.Weights:GetWeight("WARRIOR_DPS", "MASTERY") == 0.85, "MASTERY aliases CRITICAL weight")
 
 -- The legacy formula IS the wrath-era GearScore formula: an ilvl 264 epic
 -- chest must score 494, the per-slot value behind the famous ~5.9k ICC GS.
 local iccChestLink = "|cffa335ee|Hitem:1008::::::::80:::::|h[Sanctified Chestguard]|h|r"
 fakeItems[iccChestLink] = { name = "Sanctified Chestguard", equipLoc = "INVTYPE_CHEST", ilvl = 264 }
 fakeTooltips[iccChestLink] = { "Sanctified Chestguard", "Chest", "Plate", "+200 Stamina" }
-check(BetterGearScore.LegacyGearScore:GetItemScore(iccChestLink, "WARRIOR") == 494,
+check(GSPlus.LegacyGearScore:GetItemScore(iccChestLink, "WARRIOR") == 494,
     "legacy GS matches real wrath GearScore for ilvl 264 chest")
 
 WOW_PROJECT_ID = WOW_PROJECT_CLASSIC
-BetterGearScore.GameVersion:Detect()
-BetterGearScore.StatCaps:InvalidateCache()
+GSPlus.GameVersion:Detect()
+GSPlus.StatCaps:InvalidateCache()
 expertiseValue = 30
-check(BetterGearScore.GameVersion:GetFlavor() == "VANILLA", "VANILLA flavor detected")
-check(BetterGearScore.StatCaps:GetWeightMultiplier("ROGUE_DPS", "EXPERTISE") == 1, "vanilla has no expertise cap")
-check(BetterGearScore.Calculator:GetColorReferenceScale() == 0.60, "vanilla color reference scale applied")
+check(GSPlus.GameVersion:GetFlavor() == "VANILLA", "VANILLA flavor detected")
+check(GSPlus.StatCaps:GetWeightMultiplier("ROGUE_DPS", "EXPERTISE") == 1, "vanilla has no expertise cap")
+check(GSPlus.Calculator:GetColorReferenceScale() == 0.60, "vanilla color reference scale applied")
 
 -- restore TBC for the rest of the suite
 WOW_PROJECT_ID = WOW_PROJECT_BURNING_CRUSADE_CLASSIC
-BetterGearScore.GameVersion:Detect()
+GSPlus.GameVersion:Detect()
 combatRatingBonus = {}
 expertiseValue = 0
-BetterGearScore.StatCaps:InvalidateCache()
-BetterGearScore:InvalidateCaches()
-check(BetterGearScore.GameVersion:GetFlavor() == "TBC", "flavor restored to TBC")
+GSPlus.StatCaps:InvalidateCache()
+GSPlus:InvalidateCaches()
+check(GSPlus.GameVersion:GetFlavor() == "TBC", "flavor restored to TBC")
 
 -- 5. CONSISTENCY INVARIANT: displayed/shared scores are never cap-adjusted.
 -- The same gear must produce the same number for everyone, regardless of
 -- the local player's rating state.
-BetterGearScore:InvalidateCaches()
-local scoreBefore = BetterGearScore.Calculator:GetPlayerBetterGearScore().totalWeightedScore
-local commsBefore = BetterGearScore.Comms:BuildScoreMessage()
+GSPlus:InvalidateCaches()
+local scoreBefore = GSPlus.Calculator:GetPlayerGSPlus().totalWeightedScore
+local commsBefore = GSPlus.Comms:BuildScoreMessage()
 
 combatRatingBonus[6] = 12.0  -- now hit-capped
-BetterGearScore.StatCaps:InvalidateCache()
-BetterGearScore:InvalidateCaches()
-local scoreAfter = BetterGearScore.Calculator:GetPlayerBetterGearScore().totalWeightedScore
-local commsAfter = BetterGearScore.Comms:BuildScoreMessage()
+GSPlus.StatCaps:InvalidateCache()
+GSPlus:InvalidateCaches()
+local scoreAfter = GSPlus.Calculator:GetPlayerGSPlus().totalWeightedScore
+local commsAfter = GSPlus.Comms:BuildScoreMessage()
 
 check(math.abs(scoreBefore - scoreAfter) < 0.001, "total score unchanged by player's cap state")
 check(commsBefore == commsAfter, "broadcast score unchanged by player's cap state")
 
-local rows = BetterGearScore.Tooltip:BuildStatContributionRows(hitStats, "WARRIOR_DPS")
+local rows = GSPlus.Tooltip:BuildStatContributionRows(hitStats, "WARRIOR_DPS")
 check(#rows == 1 and math.abs(rows[1].roleWeight - 1.0) < 0.001,
     "breakdown shows cap-neutral weights matching the score")
 
-local cappedNames = BetterGearScore.StatCaps:GetCappedStatNames(hitStats, "WARRIOR_DPS")
+local cappedNames = GSPlus.StatCaps:GetCappedStatNames(hitStats, "WARRIOR_DPS")
 check(#cappedNames == 1 and cappedNames[1] == "Hit Rating", "capped stat names listed for advisory note")
 
 -- The personal upgrade comparison IS cap-aware (advice, not a score)
-local cappedDelta = BetterGearScore.Tooltip:GetUpgradeComparison(hitRingLink, "WARRIOR_DPS").delta
+local cappedDelta = GSPlus.Tooltip:GetUpgradeComparison(hitRingLink, "WARRIOR_DPS").delta
 combatRatingBonus = {}
-BetterGearScore.StatCaps:InvalidateCache()
-local uncappedDelta = BetterGearScore.Tooltip:GetUpgradeComparison(hitRingLink, "WARRIOR_DPS").delta
+GSPlus.StatCaps:InvalidateCache()
+local uncappedDelta = GSPlus.Tooltip:GetUpgradeComparison(hitRingLink, "WARRIOR_DPS").delta
 check(cappedDelta < uncappedDelta, "upgrade comparison discounts capped hit ("
     .. string.format("%.1f vs %.1f", cappedDelta, uncappedDelta) .. ")")
-BetterGearScore:InvalidateCaches()
+GSPlus:InvalidateCaches()
 
 -- 6. Profile override still works through the Profiles API (dropdown path)
-BetterGearScore.Profiles:SetSelectedProfile("MAGE_DPS")
-check(BetterGearScore.Profiles:GetSelectedProfile() == "MAGE_DPS", "manual profile via dropdown API")
-BetterGearScore.Profiles:UseAutomaticProfileDetection()
-check(BetterGearScore.Profiles:GetSelectedProfile() == "WARRIOR_TANK", "auto detection restored")
+GSPlus.Profiles:SetSelectedProfile("MAGE_DPS")
+check(GSPlus.Profiles:GetSelectedProfile() == "MAGE_DPS", "manual profile via dropdown API")
+GSPlus.Profiles:UseAutomaticProfileDetection()
+check(GSPlus.Profiles:GetSelectedProfile() == "WARRIOR_TANK", "auto detection restored")
 
 -- 7. Comms roundtrip
-local message = BetterGearScore.Comms:BuildScoreMessage()
+local message = GSPlus.Comms:BuildScoreMessage()
 check(string.match(message, "^S:1:") ~= nil, "score message built")
-BetterGearScore.Comms:OnChatMsgAddon("BGScore", message, "PARTY", "Alice-Realm")
-local aliceEntry = BetterGearScore.PlayerCache:Get("Alice")
+GSPlus.Comms:OnChatMsgAddon("GSPlus", message, "PARTY", "Alice-Realm")
+local aliceEntry = GSPlus.PlayerCache:Get("Alice")
 check(aliceEntry ~= nil and aliceEntry.source == "comms", "comms score cached")
 
 -- 8. Inspect queue (silent)
 TEST_UNITS.target = { name = "Bob", guid = "guid-bob", isPlayer = true, class = "MAGE" }
 notifyInspectCalls = 0
-check(BetterGearScore.Inspect:QueueUnitInspect("target"), "inspect queued")
+check(GSPlus.Inspect:QueueUnitInspect("target"), "inspect queued")
 check(notifyInspectCalls == 1, "NotifyInspect called once")
-BetterGearScore.Inspect:OnInspectReady("guid-bob")
-local bobEntry = BetterGearScore.PlayerCache:Get("Bob")
+GSPlus.Inspect:OnInspectReady("guid-bob")
+local bobEntry = GSPlus.PlayerCache:Get("Bob")
 check(bobEntry ~= nil and bobEntry.source == "inspect" and bobEntry.profileKey == "MAGE_DPS", "inspect cached with talent profile")
-check(BetterGearScore.Inspect:QueueUnitInspect("target") == false, "re-inspect blocked by cooldown")
-check(BetterGearScore.Inspect:QueueUnitInspect("player") == false, "self-inspect is a no-op")
+check(GSPlus.Inspect:QueueUnitInspect("target") == false, "re-inspect blocked by cooldown")
+check(GSPlus.Inspect:QueueUnitInspect("player") == false, "self-inspect is a no-op")
 
 -- 9. Unit tooltip
 local fakeUnitTip = {
@@ -478,10 +478,10 @@ local fakeUnitTip = {
     AddDoubleLine = function(self, l, r) self.addedLines[#self.addedLines + 1] = (l or "") .. " | " .. (r or "") end,
     Show = function() end,
 }
-BetterGearScore.UnitTooltip:AddScoreToTooltip(fakeUnitTip)
+GSPlus.UnitTooltip:AddScoreToTooltip(fakeUnitTip)
 local sawScoreLine = false
 for _, line in ipairs(fakeUnitTip.addedLines) do
-    if string.find(line, "BetterGearScore") then sawScoreLine = true end
+    if string.find(line, "gs+", 1, true) then sawScoreLine = true end
 end
 check(sawScoreLine, "unit tooltip shows cached score")
 
@@ -489,45 +489,45 @@ check(sawScoreLine, "unit tooltip shows cached score")
 InspectFrame = CreateFrame("Frame", "InspectFrame")
 InspectFrame.unit = "target"
 InspectPaperDollFrame = CreateFrame("Frame", "InspectPaperDollFrame")
-BetterGearScore.InspectPaneUI:Initialize()
+GSPlus.InspectPaneUI:Initialize()
 InspectFrame:Show()
-BetterGearScore.InspectPaneUI:Update()
-check(BetterGearScore.InspectPaneUI.frame ~= nil, "inspect pane frame created")
-check(BetterGearScore.InspectPaneUI.scoreText.text ~= nil
-    and string.find(BetterGearScore.InspectPaneUI.scoreText.text, "|c") ~= nil, "inspect pane shows Bob's score")
-BetterGearScore.InspectPaneUI:OnScoreUpdated("guid-bob")
-check(BetterGearScore.InspectPaneUI.frame:IsShown(), "inspect pane visible after score update")
+GSPlus.InspectPaneUI:Update()
+check(GSPlus.InspectPaneUI.frame ~= nil, "inspect pane frame created")
+check(GSPlus.InspectPaneUI.scoreText.text ~= nil
+    and string.find(GSPlus.InspectPaneUI.scoreText.text, "|c") ~= nil, "inspect pane shows Bob's score")
+GSPlus.InspectPaneUI:OnScoreUpdated("guid-bob")
+check(GSPlus.InspectPaneUI.frame:IsShown(), "inspect pane visible after score update")
 
 -- 11. Character pane is the click hub
-local paneFrame = BetterGearScore.CharacterPaneUI.frame
+local paneFrame = GSPlus.CharacterPaneUI.frame
 check(paneFrame ~= nil and paneFrame.script_OnMouseUp ~= nil, "character pane has click handler")
 paneFrame.script_OnMouseUp(paneFrame, "LeftButton")
-check(BetterGearScore.UI:IsVisible(), "left-click opens gear window")
+check(GSPlus.UI:IsVisible(), "left-click opens gear window")
 paneFrame.script_OnMouseUp(paneFrame, "LeftButton")
-check(not BetterGearScore.UI:IsVisible(), "left-click again closes gear window")
+check(not GSPlus.UI:IsVisible(), "left-click again closes gear window")
 paneFrame.script_OnMouseUp(paneFrame, "RightButton")
-check(BetterGearScore.GroupFrame:IsVisible(), "right-click opens group window")
+check(GSPlus.GroupFrame:IsVisible(), "right-click opens group window")
 paneFrame.script_OnMouseUp(paneFrame, "RightButton")
-check(not BetterGearScore.GroupFrame:IsVisible(), "right-click again closes group window")
+check(not GSPlus.GroupFrame:IsVisible(), "right-click again closes group window")
 
 -- 12. Group window auto-requests scores on open
 inGroup = true
-BetterGearScore.Comms.lastRequest = 0
+GSPlus.Comms.lastRequest = 0
 sentMessages = {}
-BetterGearScore.GroupFrame:Show()
+GSPlus.GroupFrame:Show()
 local sawRequest = false
 for _, sent in ipairs(sentMessages) do
     if sent.message == "R:1" then sawRequest = true end
 end
 check(sawRequest, "group window open requests scores automatically")
-BetterGearScore.GroupFrame:Hide()
+GSPlus.GroupFrame:Hide()
 inGroup = false
 
 -- 13. Upgrade comparison still works (player context with caps)
-local profileKey = BetterGearScore.Profiles:GetSelectedProfile()
-local equippedCmp = BetterGearScore.Tooltip:GetUpgradeComparison(chestLink, profileKey)
+local profileKey = GSPlus.Profiles:GetSelectedProfile()
+local equippedCmp = GSPlus.Tooltip:GetUpgradeComparison(chestLink, profileKey)
 check(equippedCmp and equippedCmp.isEquipped, "equipped item recognized")
-local upgradeCmp = BetterGearScore.Tooltip:GetUpgradeComparison(betterChestLink, profileKey)
+local upgradeCmp = GSPlus.Tooltip:GetUpgradeComparison(betterChestLink, profileKey)
 check(upgradeCmp and (upgradeCmp.delta or 0) > 0, "tanky chest is an upgrade for warrior tank")
 
 -- 14. Feral druid gear-based detection regression
@@ -537,12 +537,12 @@ talentTabs = {
     { name = "Feral Combat", points = 41 },
     { name = "Restoration", points = 5 },
 }
-BetterGearScore:InvalidateCaches()
+GSPlus:InvalidateCaches()
 equipped.ChestSlot = betterChestLink
-BetterGearScore.ItemParser.statsCache = {}
-check(BetterGearScore.TalentDetector:GetDetectedProfile() == "DRUID_TANK", "tanky gear flips feral to DRUID_TANK")
+GSPlus.ItemParser.statsCache = {}
+check(GSPlus.TalentDetector:GetDetectedProfile() == "DRUID_TANK", "tanky gear flips feral to DRUID_TANK")
 equipped.ChestSlot = chestLink
-BetterGearScore:InvalidateCaches()
+GSPlus:InvalidateCaches()
 
 -- 15. Death Knight gear-based role detection (Wrath/Cata class, same logic)
 playerClass = "DEATHKNIGHT"
@@ -552,15 +552,15 @@ talentTabs = {
     { name = "Unholy", points = 0 },
 }
 equipped.ChestSlot = betterChestLink
-BetterGearScore:InvalidateCaches()
-check(BetterGearScore.TalentDetector:GetDetectedProfile() == "DEATHKNIGHT_TANK",
+GSPlus:InvalidateCaches()
+check(GSPlus.TalentDetector:GetDetectedProfile() == "DEATHKNIGHT_TANK",
     "Blood DK with tanky gear resolves to tank")
 talentTabs[1].points = 0
 talentTabs[2].points = 51
-BetterGearScore:InvalidateCaches()
-check(BetterGearScore.TalentDetector:GetDetectedProfile() == "DEATHKNIGHT_DPS", "Frost DK detected as DPS")
+GSPlus:InvalidateCaches()
+check(GSPlus.TalentDetector:GetDetectedProfile() == "DEATHKNIGHT_DPS", "Frost DK detected as DPS")
 equipped.ChestSlot = chestLink
-BetterGearScore:InvalidateCaches()
+GSPlus:InvalidateCaches()
 
 realPrint(failures == 0 and "ALL TESTS PASSED" or (failures .. " TEST(S) FAILED"))
 os.exit(failures == 0 and 0 or 1)

@@ -2,18 +2,18 @@
 -- Stores gear scores for other players, gathered via inspect or addon comms.
 -- Persisted across sessions so previously-seen players show instantly.
 
-BetterGearScore = BetterGearScore or {}
-BetterGearScore.PlayerCache = BetterGearScore.PlayerCache or {}
+GSPlus = GSPlus or {}
+GSPlus.PlayerCache = GSPlus.PlayerCache or {}
 
-local PlayerCache = BetterGearScore.PlayerCache
+local PlayerCache = GSPlus.PlayerCache
 
 PlayerCache.MAX_ENTRIES = 300
 
 function PlayerCache:GetStore()
-    BetterGearScoreSavedVars = BetterGearScoreSavedVars or {}
-    BetterGearScoreSavedVars.playerCache = BetterGearScoreSavedVars.playerCache or {}
+    GSPlusSavedVars = GSPlusSavedVars or {}
+    GSPlusSavedVars.playerCache = GSPlusSavedVars.playerCache or {}
 
-    return BetterGearScoreSavedVars.playerCache
+    return GSPlusSavedVars.playerCache
 end
 
 function PlayerCache:GetKeyForUnit(unit)

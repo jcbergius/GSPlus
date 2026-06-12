@@ -1,9 +1,9 @@
 -- CharacterPaneUI.lua
 
-BetterGearScore = BetterGearScore or {}
-BetterGearScore.CharacterPaneUI = BetterGearScore.CharacterPaneUI or {}
+GSPlus = GSPlus or {}
+GSPlus.CharacterPaneUI = GSPlus.CharacterPaneUI or {}
 
-local CharacterPaneUI = BetterGearScore.CharacterPaneUI
+local CharacterPaneUI = GSPlus.CharacterPaneUI
 
 CharacterPaneUI.frame = CharacterPaneUI.frame or nil
 CharacterPaneUI.labelText = CharacterPaneUI.labelText or nil
@@ -34,7 +34,7 @@ function CharacterPaneUI:Create()
         return nil
     end
 
-    local frame = CreateFrame("Frame", "BetterGearScoreCharacterPaneFrame", parent)
+    local frame = CreateFrame("Frame", "GSPlusCharacterPaneFrame", parent)
     frame:SetSize(135, 22)
     frame:SetFrameStrata("DIALOG")
     frame:SetFrameLevel(999)
@@ -52,7 +52,7 @@ function CharacterPaneUI:Create()
 
     local labelText = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     labelText:SetPoint("LEFT", frame, "LEFT", 0, 0)
-    labelText:SetText("|cffffffffBGS|r")
+    labelText:SetText("|cffffffffgs+|r")
 
     local scoreText = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlightLarge")
     scoreText:SetPoint("LEFT", labelText, "RIGHT", 8, 0)
@@ -61,19 +61,19 @@ function CharacterPaneUI:Create()
     frame:SetScript("OnEnter", function()
         GameTooltip:SetOwner(frame, "ANCHOR_RIGHT")
 
-        local data = BetterGearScore.Calculator:GetPlayerBetterGearScore()
-        local coloredScore = BetterGearScore.Calculator:ColorizeScore(
+        local data = GSPlus.Calculator:GetPlayerGSPlus()
+        local coloredScore = GSPlus.Calculator:ColorizeScore(
             data.totalWeightedScore or 0,
             data.totalMaxBudgetScore or 0
         )
 
-        GameTooltip:AddLine("|cff00ff00BetterGearScore|r")
+        GameTooltip:AddLine("|cff00ff00gs+|r")
         GameTooltip:AddLine("Profile: " .. (data.profileName or "Unknown"), 1, 1, 1)
         GameTooltip:AddDoubleLine("Weighted Score", coloredScore, 1, 1, 1, 1, 1, 1)
         GameTooltip:AddLine("Budget Score: " .. math.floor(data.totalRawScore or 0), 0.8, 0.8, 0.8)
 
-        if BetterGearScore.Options:Get("showLegacyGearScore") then
-            local legacyScore = BetterGearScore.LegacyGearScore:GetPlayerScore()
+        if GSPlus.Options:Get("showLegacyGearScore") then
+            local legacyScore = GSPlus.LegacyGearScore:GetPlayerScore()
 
             if legacyScore > 0 then
                 GameTooltip:AddLine("GearScore (legacy): " .. legacyScore, 0.6, 0.6, 0.6)
@@ -93,9 +93,9 @@ function CharacterPaneUI:Create()
 
     frame:SetScript("OnMouseUp", function(_, button)
         if button == "RightButton" then
-            BetterGearScore.GroupFrame:Toggle()
+            GSPlus.GroupFrame:Toggle()
         else
-            BetterGearScore.UI:Toggle()
+            GSPlus.UI:Toggle()
         end
     end)
 
@@ -139,7 +139,7 @@ function CharacterPaneUI:Reanchor()
 end
 
 function CharacterPaneUI:Update()
-    if not BetterGearScore.Options:Get("showCharacterPane") then
+    if not GSPlus.Options:Get("showCharacterPane") then
         if self.frame then
             self.frame:Hide()
         end
@@ -158,8 +158,8 @@ function CharacterPaneUI:Update()
         self.frame:Show()
     end
 
-    local data = BetterGearScore.Calculator:GetPlayerBetterGearScore()
-    local coloredScore = BetterGearScore.Calculator:ColorizeScore(
+    local data = GSPlus.Calculator:GetPlayerGSPlus()
+    local coloredScore = GSPlus.Calculator:ColorizeScore(
         data.totalWeightedScore or 0,
         data.totalMaxBudgetScore or 0
     )
@@ -168,7 +168,7 @@ function CharacterPaneUI:Update()
 end
 
 function CharacterPaneUI:Show()
-    if not BetterGearScore.Options:Get("showCharacterPane") then
+    if not GSPlus.Options:Get("showCharacterPane") then
         self:Hide()
         return
     end
@@ -199,21 +199,21 @@ function CharacterPaneUI:HookCharacterFrame()
 
     if CharacterFrame then
         CharacterFrame:HookScript("OnShow", function()
-            BetterGearScore.CharacterPaneUI:Show()
+            GSPlus.CharacterPaneUI:Show()
         end)
 
         CharacterFrame:HookScript("OnHide", function()
-            BetterGearScore.CharacterPaneUI:Hide()
+            GSPlus.CharacterPaneUI:Hide()
         end)
     end
 
     if PaperDollFrame then
         PaperDollFrame:HookScript("OnShow", function()
-            BetterGearScore.CharacterPaneUI:Show()
+            GSPlus.CharacterPaneUI:Show()
         end)
 
         PaperDollFrame:HookScript("OnHide", function()
-            BetterGearScore.CharacterPaneUI:Hide()
+            GSPlus.CharacterPaneUI:Hide()
         end)
     end
 end
@@ -231,11 +231,11 @@ function CharacterPaneUI:CreateEventFrame()
     eventFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
 
     eventFrame:SetScript("OnEvent", function()
-        BetterGearScore.CharacterPaneUI:HookCharacterFrame()
-        BetterGearScore.CharacterPaneUI:Update()
+        GSPlus.CharacterPaneUI:HookCharacterFrame()
+        GSPlus.CharacterPaneUI:Update()
 
         if CharacterFrame and CharacterFrame:IsShown() then
-            BetterGearScore.CharacterPaneUI:Show()
+            GSPlus.CharacterPaneUI:Show()
         end
     end)
 

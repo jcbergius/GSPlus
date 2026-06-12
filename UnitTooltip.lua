@@ -2,10 +2,10 @@
 -- Shows gear scores on player mouseover tooltips, fed by the player cache
 -- (comms or inspect) with a silent inspect request on cache miss.
 
-BetterGearScore = BetterGearScore or {}
-BetterGearScore.UnitTooltip = BetterGearScore.UnitTooltip or {}
+GSPlus = GSPlus or {}
+GSPlus.UnitTooltip = GSPlus.UnitTooltip or {}
 
-local UnitTooltip = BetterGearScore.UnitTooltip
+local UnitTooltip = GSPlus.UnitTooltip
 
 function UnitTooltip:HookTooltips()
     if self.hooked then
@@ -17,7 +17,7 @@ function UnitTooltip:HookTooltips()
     end
 
     GameTooltip:HookScript("OnTooltipSetUnit", function(tooltip)
-        BetterGearScore.UnitTooltip:AddScoreToTooltip(tooltip)
+        GSPlus.UnitTooltip:AddScoreToTooltip(tooltip)
     end)
 
     GameTooltip:HookScript("OnTooltipCleared", function(tooltip)
@@ -38,7 +38,7 @@ function UnitTooltip:GetTooltipUnit(tooltip)
 end
 
 function UnitTooltip:AddScoreToTooltip(tooltip)
-    if not BetterGearScore.Options:Get("showUnitTooltip") then
+    if not GSPlus.Options:Get("showUnitTooltip") then
         return
     end
 
@@ -57,9 +57,9 @@ function UnitTooltip:AddScoreToTooltip(tooltip)
     local entry
 
     if UnitIsUnit(unit, "player") then
-        entry = BetterGearScore.Inspect:BuildPlayerEntry()
+        entry = GSPlus.Inspect:BuildPlayerEntry()
     else
-        entry = BetterGearScore.PlayerCache:GetByUnit(unit)
+        entry = GSPlus.PlayerCache:GetByUnit(unit)
     end
 
     if entry then
@@ -67,11 +67,11 @@ function UnitTooltip:AddScoreToTooltip(tooltip)
     else
         -- Queue a silent inspect; if it completes while the tooltip is still
         -- up, OnScoreUpdated appends the result live.
-        local queued = BetterGearScore.Inspect:QueueUnitInspect(unit)
+        local queued = GSPlus.Inspect:QueueUnitInspect(unit)
 
         if queued then
             self.waitingGuid = UnitGUID and UnitGUID(unit) or nil
-            tooltip:AddDoubleLine("BetterGearScore", "inspecting...", 0, 1, 0, 0.6, 0.6, 0.6)
+            tooltip:AddDoubleLine("gs+", "inspecting...", 0, 1, 0, 0.6, 0.6, 0.6)
         end
     end
 
@@ -79,23 +79,23 @@ function UnitTooltip:AddScoreToTooltip(tooltip)
 end
 
 function UnitTooltip:AppendEntryLines(tooltip, entry)
-    local coloredScore = BetterGearScore.Calculator:ColorizeScore(entry.weighted or 0, entry.max or 0)
-    local profileName = BetterGearScore.Profiles:GetProfileDisplayName(entry.profileKey)
+    local coloredScore = GSPlus.Calculator:ColorizeScore(entry.weighted or 0, entry.max or 0)
+    local profileName = GSPlus.Profiles:GetProfileDisplayName(entry.profileKey)
 
     tooltip:AddDoubleLine(
-        "BetterGearScore",
+        "gs+",
         coloredScore .. " |cff888888(" .. profileName .. ")|r",
         0, 1, 0, 1, 1, 1
     )
 
-    if BetterGearScore.Options:Get("showLegacyGearScore") and entry.legacy and entry.legacy > 0 then
+    if GSPlus.Options:Get("showLegacyGearScore") and entry.legacy and entry.legacy > 0 then
         tooltip:AddDoubleLine("GearScore (legacy)", tostring(math.floor(entry.legacy)), 0.6, 0.6, 0.6, 0.8, 0.8, 0.8)
     end
 
     if entry.source and entry.source ~= "self" then
         tooltip:AddLine(
-            "|cff666666" .. BetterGearScore.PlayerCache:FormatSource(entry)
-            .. ", " .. BetterGearScore.PlayerCache:FormatAge(entry) .. "|r"
+            "|cff666666" .. GSPlus.PlayerCache:FormatSource(entry)
+            .. ", " .. GSPlus.PlayerCache:FormatAge(entry) .. "|r"
         )
     end
 end

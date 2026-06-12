@@ -1,8 +1,8 @@
-# Better Gear Score
+# gs+
 
-Better Gear Score is a World of Warcraft Classic / Anniversary addon that calculates a role-aware gear score for the player’s equipped items.
+gs+ (formerly BetterGearScore; this repository keeps the old name) is a World of Warcraft Classic / Anniversary addon that calculates a role-aware gear score for the player’s equipped items.
 
-Unlike simple item-level or raw-stat scoring, Better Gear Score attempts to value gear based on what your character is actually built to do. It detects your class and talent specialization, chooses an appropriate role profile, scans equipped items, and calculates both raw and weighted gear scores.
+Unlike simple item-level or raw-stat scoring, gs+ attempts to value gear based on what your character is actually built to do. It detects your class and talent specialization, chooses an appropriate role profile, scans equipped items, and calculates both raw and weighted gear scores.
 
 ## Features
 
@@ -27,7 +27,7 @@ Unlike simple item-level or raw-stat scoring, Better Gear Score attempts to valu
   - Useful for comparing how much total stat value an item has before role weighting.
 
 - **Tooltip Scanning**
-  - Adds Better Gear Score information directly to item tooltips.
+  - Adds gs+ information directly to item tooltips.
   - Detects many Classic-style green equip effects that are not always exposed cleanly by Blizzard’s item stat API.
   - Examples:
     - `Equip: Increases healing done by up to X`
@@ -41,7 +41,7 @@ Unlike simple item-level or raw-stat scoring, Better Gear Score attempts to valu
     previously seen players show instantly.
 
 - **Group Score Sharing (Addon Channel)**
-  - BetterGearScore users in the same party or raid exchange exact scores
+  - gs+ users in the same party or raid exchange exact scores
     automatically - no inspect range needed, nothing to enable.
 
 - **Group Overview Window**
@@ -89,7 +89,7 @@ Unlike simple item-level or raw-stat scoring, Better Gear Score attempts to valu
     under cat and bear weightings and picks the better fit automatically.
 
 - **Zero Configuration**
-  - Everything above works out of the box. The only slash command, `/bgs`,
+  - Everything above works out of the box. The only slash command, `/gs`,
     opens the display settings panel (also reachable via Interface
     Options) for toggling individual visual features off.
 
@@ -105,27 +105,27 @@ Unlike simple item-level or raw-stat scoring, Better Gear Score attempts to valu
 2. Copy the addon folder into your WoW Classic addon directory:
 
    ```text
-   World of Warcraft/_classic_/Interface/AddOns/BetterGearScore
+   World of Warcraft/_classic_/Interface/AddOns/GSPlus
    ```
 
    On Windows, this is often:
 
    ```text
-   C:\Program Files (x86)\World of Warcraft\_classic_\Interface\AddOns\BetterGearScore
+   C:\Program Files (x86)\World of Warcraft\_classic_\Interface\AddOns\GSPlus
    ```
 
-3. Make sure the folder contains `BetterGearScore.toc` directly inside it.
+3. Make sure the folder contains `GSPlus.toc` directly inside it.
 
    Correct:
 
    ```text
-   Interface/AddOns/BetterGearScore/BetterGearScore.toc
+   Interface/AddOns/GSPlus/GSPlus.toc
    ```
 
    Incorrect:
 
    ```text
-   Interface/AddOns/BetterGearScore/BetterGearScore/BetterGearScore.toc
+   Interface/AddOns/GSPlus/GSPlus/GSPlus.toc
    ```
 
 4. Restart the game or type:
@@ -153,7 +153,7 @@ There is nothing to set up. Everything works immediately after install:
 The only slash command is for display settings:
 
 ```text
-/bgs
+/gs
 ```
 
 Opens the options panel (also available under Interface Options), where
@@ -163,7 +163,7 @@ sharing - can be toggled.
 
 ## Automatic Role Detection
 
-Better Gear Score uses your talent trees to determine your role profile.
+gs+ uses your talent trees to determine your role profile.
 
 For example:
 
@@ -185,11 +185,11 @@ For example:
 | Druid | Feral Combat | Druid Feral |
 | Druid | Restoration | Druid Restoration |
 
-Some roles are inherently ambiguous. For example, a Feral Druid may be playing as either cat DPS or bear tank. Better Gear Score currently defaults Feral to `Druid Feral`. Future versions may improve this by also analyzing equipped gear.
+Some roles are inherently ambiguous. For example, a Feral Druid may be playing as either cat DPS or bear tank. gs+ currently defaults Feral to `Druid Feral`. Future versions may improve this by also analyzing equipped gear.
 
 ## Scoring Model
 
-Better Gear Score calculates two values:
+gs+ calculates two values:
 
 ### Raw Stat Budget
 
@@ -237,7 +237,7 @@ Displayed score:
 
 ## Supported Stats
 
-Better Gear Score currently supports these stat categories:
+gs+ currently supports these stat categories:
 
 ```text
 Strength, Agility, Intellect, Stamina, Spirit
@@ -296,8 +296,8 @@ Examples:
 ## Files
 
 ```text
-BetterGearScore.toc
-BetterGearScore_TBC.toc
+GSPlus.toc
+GSPlus_TBC.toc
 Core.lua
 StatWeights.lua
 StatCaps.lua
@@ -305,7 +305,7 @@ Profiles.lua
 TalentDetector.lua
 ItemParser.lua
 SetBonuses.lua
-BetterGearScoreCalculator.lua
+Calculator.lua
 LegacyGearScore.lua
 Options.lua
 PlayerCache.lua
@@ -323,7 +323,7 @@ README.md
 
 ### File Overview
 
-- **BetterGearScore.toc**
+- **GSPlus.toc**
   - Addon manifest and load order.
 
 - **Core.lua**
@@ -349,7 +349,7 @@ README.md
 - **SetBonuses.lua**
   - Detects active set bonuses on equipped gear and converts them into stats.
 
-- **BetterGearScoreCalculator.lua**
+- **Calculator.lua**
   - Calculates raw and weighted gear scores. The total score is cached until equipment or talents change.
 
 - **CharacterPaneUI.lua**
@@ -360,16 +360,16 @@ README.md
   - Displays the inspected player's score on the Blizzard inspect window.
 
 - **UI.lua**
-  - Creates and updates the Better Gear Score window, including the profile dropdown.
+  - Creates and updates the gs+ window, including the profile dropdown.
 
 - **Tooltip.lua**
-  - Adds Better Gear Score information to item tooltips, including comparison tooltips.
+  - Adds gs+ information to item tooltips, including comparison tooltips.
 
 - **LegacyGearScore.lua**
   - Approximates the classic GearScore number from item level and rarity.
 
 - **Options.lua**
-  - Saved settings with an Interface Options panel (`/bgs`).
+  - Saved settings with an Interface Options panel (`/gs`).
 
 - **PlayerCache.lua**
   - Persistent cache of other players' scores from inspect and comms.
@@ -388,14 +388,14 @@ README.md
   - Exchanges scores between addon users over the addon message channel.
 
 - **Commands.lua**
-  - Registers the single `/bgs` slash command, which opens the options panel.
+  - Registers the single `/gs` slash command, which opens the options panel.
 
 ## Saved Variables
 
-Better Gear Score uses:
+gs+ uses:
 
 ```lua
-BetterGearScoreSavedVars
+GSPlusSavedVars
 ```
 
 This is used for settings such as manual profile overrides.
@@ -403,7 +403,7 @@ This is used for settings such as manual profile overrides.
 Your `.toc` should contain:
 
 ```toc
-## SavedVariables: BetterGearScoreSavedVars
+## SavedVariables: GSPlusSavedVars
 ```
 
 ## Development Notes

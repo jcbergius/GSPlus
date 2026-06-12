@@ -4,10 +4,10 @@
 -- flavor-keyed tables. Everything else in the addon is data-driven by the
 -- tooltip text itself and ports without changes.
 
-BetterGearScore = BetterGearScore or {}
-BetterGearScore.GameVersion = BetterGearScore.GameVersion or {}
+GSPlus = GSPlus or {}
+GSPlus.GameVersion = GSPlus.GameVersion or {}
 
-local GameVersion = BetterGearScore.GameVersion
+local GameVersion = GSPlus.GameVersion
 
 GameVersion.VANILLA = "VANILLA"
 GameVersion.TBC = "TBC"

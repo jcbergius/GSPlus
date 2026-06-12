@@ -2,15 +2,15 @@
 -- The addon configures itself and every feature has a UI entry point, so the
 -- only slash command opens the options panel (display/style settings).
 
-local Commands = BetterGearScore.Commands
+local Commands = GSPlus.Commands
 
 function Commands:RegisterCommands()
-    SLASH_BetterGearScore1 = "/bettergearscore"
-    SLASH_BetterGearScore2 = "/bgs"
-    SLASH_BetterGearScore3 = "/gs"
+    SLASH_GSPlus1 = "/gsplus"
+    SLASH_GSPlus2 = "/bgs"
+    SLASH_GSPlus3 = "/gs"
 
-    SlashCmdList["BetterGearScore"] = function()
-        BetterGearScore.Options:OpenPanel()
+    SlashCmdList["GSPlus"] = function()
+        GSPlus.Options:OpenPanel()
     end
 end
 

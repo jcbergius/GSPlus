@@ -8,12 +8,12 @@ window in a raid.
 
 ---
 
-# BetterGearScore
+# gs+ (GearScore Plus)
 
 **Gear scores that understand your spec. Zero configuration - install it
 and everything just works.**
 
-Classic GearScore tells you how big an item is. BetterGearScore tells you
+Classic GearScore tells you how big an item is. gs+ tells you
 how good it is *for the character wearing it*. A Resto Shaman and a
 Warrior tank looking at the same trinket see different scores - because it
 IS worth different amounts to them.
@@ -31,7 +31,7 @@ No setup, no profiles to configure, no commands to learn:
   enchant / empty socket warnings.
 - **Group overview for raid leaders.** Every party/raid member's score,
   role, and gear warnings in one window - perfect for vetting pugs.
-- **Exact score sharing between users.** BetterGearScore users in the
+- **Exact score sharing between users.** gs+ users in the
   same group exchange scores automatically over the addon channel - no
   inspect range needed. The more of your raid runs it, the better it
   gets.
@@ -54,7 +54,7 @@ No setup, no profiles to configure, no commands to learn:
 
 ## Display settings
 
-`/bgs` (or Interface Options → BetterGearScore) toggles individual
+`/gs` (or Interface Options → gs+) toggles individual
 visuals: tooltip lines, breakdowns, upgrade comparison, legacy GearScore,
 mouseover scores, character pane display, and score sharing. That's the
 only command - everything else is automatic.

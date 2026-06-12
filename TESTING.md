@@ -18,12 +18,12 @@ Leave script errors on for the whole pass - any Lua error popup is a failure.
 - [ ] On a character that has never used the addon, exactly one green
       orientation message appears in chat after login. `/reload` again -
       no message this time.
-- [ ] `/bgs` opens the options panel; every checkbox reflects its default
+- [ ] `/gs` opens the options panel; every checkbox reflects its default
       (all on). The panel also appears under Interface Options → AddOns.
 
 ## 2. Character pane hub (2 min)
 
-- [ ] Open the character pane (`C`). The **BGS** score shows, positioned
+- [ ] Open the character pane (`C`). The **gs+** score shows, positioned
       sensibly (not overlapping stats or buttons). *If misplaced, note the
       offset - it's set in `CharacterPaneUI.lua` (`73, 254`).*
 - [ ] Hover it: tooltip shows profile, weighted score, budget score,
@@ -34,12 +34,12 @@ Leave script errors on for the whole pass - any Lua error popup is a failure.
       hovering a row shows the item tooltip.
 - [ ] Profile dropdown: pick a different profile - scores update; pick
       "Automatic" - detected profile returns.
-- [ ] **Right-click** the BGS score → group window opens. Solo, it shows
+- [ ] **Right-click** the gs+ score → group window opens. Solo, it shows
       just you with your score.
 
 ## 3. Item tooltips (2 min)
 
-- [ ] Hover an equipped item: BetterGearScore section shows Weighted
+- [ ] Hover an equipped item: gs+ section shows Weighted
       Score, Budget Score, GearScore (legacy), and "For You vs Equipped:
       currently equipped".
 - [ ] Hover a bag/bank/AH item for the same slot: the For You line shows
@@ -51,7 +51,7 @@ Leave script errors on for the whole pass - any Lua error popup is a failure.
 - [ ] Shift-compare (hover item with Shift on a vendor/AH): the
       comparison tooltips also show scores, with no duplicated lines.
 - [ ] Hover a recipe or container item repeatedly: no duplicate
-      BetterGearScore sections.
+      gs+ sections.
 - [ ] If your character is at/near hit cap: an orange note appears under
       the For You line on hit items - but the Weighted Score itself must
       NOT change as you cross the cap.
@@ -84,7 +84,7 @@ Leave script errors on for the whole pass - any Lua error popup is a failure.
 
 - [ ] Toggle "Show gear score on item tooltips" off: tooltip section
       disappears immediately. Toggle back on.
-- [ ] Toggle "Show gear score on the character pane" off: BGS display
+- [ ] Toggle "Show gear score on the character pane" off: gs+ display
       hides. Toggle back on.
 - [ ] `/reload`: all toggles persisted.
 

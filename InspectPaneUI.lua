@@ -4,10 +4,10 @@
 -- loads. Opening the inspect window triggers Blizzard's own NotifyInspect,
 -- and Inspect.lua's opportunistic INSPECT_READY handler caches the result.
 
-BetterGearScore = BetterGearScore or {}
-BetterGearScore.InspectPaneUI = BetterGearScore.InspectPaneUI or {}
+GSPlus = GSPlus or {}
+GSPlus.InspectPaneUI = GSPlus.InspectPaneUI or {}
 
-local InspectPaneUI = BetterGearScore.InspectPaneUI
+local InspectPaneUI = GSPlus.InspectPaneUI
 
 function InspectPaneUI:GetParentFrame()
     return InspectPaperDollFrame or InspectFrame
@@ -32,7 +32,7 @@ function InspectPaneUI:Create()
         return nil
     end
 
-    local frame = CreateFrame("Frame", "BetterGearScoreInspectPaneFrame", parent)
+    local frame = CreateFrame("Frame", "GSPlusInspectPaneFrame", parent)
     frame:SetSize(135, 22)
     frame:SetFrameStrata("DIALOG")
     frame:SetFrameLevel(999)
@@ -41,14 +41,14 @@ function InspectPaneUI:Create()
 
     local labelText = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     labelText:SetPoint("LEFT", frame, "LEFT", 0, 0)
-    labelText:SetText("|cffffffffBGS|r")
+    labelText:SetText("|cffffffffgs+|r")
 
     local scoreText = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlightLarge")
     scoreText:SetPoint("LEFT", labelText, "RIGHT", 8, 0)
     scoreText:SetText("|cff888888...|r")
 
     frame:SetScript("OnEnter", function()
-        BetterGearScore.InspectPaneUI:ShowTooltip(frame)
+        GSPlus.InspectPaneUI:ShowTooltip(frame)
     end)
 
     frame:SetScript("OnLeave", function()
@@ -63,19 +63,19 @@ end
 
 function InspectPaneUI:ShowTooltip(owner)
     local unit = self:GetInspectedUnit()
-    local entry = BetterGearScore.PlayerCache:GetByUnit(unit)
+    local entry = GSPlus.PlayerCache:GetByUnit(unit)
 
     GameTooltip:SetOwner(owner, "ANCHOR_RIGHT")
-    GameTooltip:AddLine("|cff00ff00BetterGearScore|r")
+    GameTooltip:AddLine("|cff00ff00gs+|r")
 
     if entry then
-        local coloredScore = BetterGearScore.Calculator:ColorizeScore(entry.weighted or 0, entry.max or 0)
+        local coloredScore = GSPlus.Calculator:ColorizeScore(entry.weighted or 0, entry.max or 0)
 
-        GameTooltip:AddLine("Profile: " .. BetterGearScore.Profiles:GetProfileDisplayName(entry.profileKey), 1, 1, 1)
+        GameTooltip:AddLine("Profile: " .. GSPlus.Profiles:GetProfileDisplayName(entry.profileKey), 1, 1, 1)
         GameTooltip:AddDoubleLine("Weighted Score", coloredScore, 1, 1, 1, 1, 1, 1)
         GameTooltip:AddLine("Budget Score: " .. math.floor(entry.raw or 0), 0.8, 0.8, 0.8)
 
-        if BetterGearScore.Options:Get("showLegacyGearScore") and entry.legacy and entry.legacy > 0 then
+        if GSPlus.Options:Get("showLegacyGearScore") and entry.legacy and entry.legacy > 0 then
             GameTooltip:AddLine("GearScore (legacy): " .. math.floor(entry.legacy), 0.6, 0.6, 0.6)
         end
 
@@ -108,16 +108,16 @@ function InspectPaneUI:Update()
     end
 
     local unit = self:GetInspectedUnit()
-    local entry = BetterGearScore.PlayerCache:GetByUnit(unit)
+    local entry = GSPlus.PlayerCache:GetByUnit(unit)
 
     if entry then
-        self.scoreText:SetText(BetterGearScore.Calculator:ColorizeScore(entry.weighted or 0, entry.max or 0))
+        self.scoreText:SetText(GSPlus.Calculator:ColorizeScore(entry.weighted or 0, entry.max or 0))
     else
         self.scoreText:SetText("|cff888888...|r")
 
         -- Blizzard's NotifyInspect usually covers this, but queue our own
         -- request in case its data was claimed before we could read it.
-        BetterGearScore.Inspect:QueueUnitInspect(unit)
+        GSPlus.Inspect:QueueUnitInspect(unit)
     end
 
     self.frame:Show()
@@ -149,12 +149,12 @@ function InspectPaneUI:Initialize()
     self:Create()
 
     InspectFrame:HookScript("OnShow", function()
-        BetterGearScore.InspectPaneUI:Update()
+        GSPlus.InspectPaneUI:Update()
     end)
 
     InspectFrame:HookScript("OnHide", function()
-        if BetterGearScore.InspectPaneUI.frame then
-            BetterGearScore.InspectPaneUI.frame:Hide()
+        if GSPlus.InspectPaneUI.frame then
+            GSPlus.InspectPaneUI.frame:Hide()
         end
     end)
 

@@ -1,9 +1,9 @@
 -- Tooltip.lua
 
-BetterGearScore = BetterGearScore or {}
-BetterGearScore.Tooltip = BetterGearScore.Tooltip or {}
+GSPlus = GSPlus or {}
+GSPlus.Tooltip = GSPlus.Tooltip or {}
 
-local Tooltip = BetterGearScore.Tooltip
+local Tooltip = GSPlus.Tooltip
 
 Tooltip.STAT_DISPLAY_NAMES = {
     STRENGTH = "Strength",
@@ -98,12 +98,12 @@ function Tooltip:HasAnyStats(stats)
 end
 
 function Tooltip:GetTooltipStatsWithActiveSetBonuses(itemLink)
-    local itemStats = BetterGearScore.ItemParser:ParseItemStats(itemLink)
+    local itemStats = GSPlus.ItemParser:ParseItemStats(itemLink)
     local combinedStats = self:CopyStats(itemStats)
     local setBonusStats = {}
 
-    if BetterGearScore.SetBonuses and BetterGearScore.SetBonuses.GetActiveSetBonusStatsForItem then
-        setBonusStats = BetterGearScore.SetBonuses:GetActiveSetBonusStatsForItem(itemLink)
+    if GSPlus.SetBonuses and GSPlus.SetBonuses.GetActiveSetBonusStatsForItem then
+        setBonusStats = GSPlus.SetBonuses:GetActiveSetBonusStatsForItem(itemLink)
         self:MergeStats(combinedStats, setBonusStats)
     end
 
@@ -112,16 +112,16 @@ end
 
 function Tooltip:BuildStatContributionRows(stats, profileKey)
     local rows = {}
-    local exponent = BetterGearScore.Calculator.ITEM_BUDGET_EXPONENT or 1.7095
+    local exponent = GSPlus.Calculator.ITEM_BUDGET_EXPONENT or 1.7095
     local totalPower = 0
 
     -- Cap-neutral on purpose: this breakdown explains the displayed score,
     -- which must be identical for everyone with the same gear.
     for statType, value in pairs(stats or {}) do
-        if BetterGearScore.Calculator:IsScoringStat(statType) then
-            local budgetCost = BetterGearScore.Calculator:GetStatBudgetCost(statType)
-            local roleWeight = BetterGearScore.Weights:GetWeight(profileKey, statType)
-            local budgetValue = BetterGearScore.Calculator:CalculateBudgetAdjustedStatValue(statType, value)
+        if GSPlus.Calculator:IsScoringStat(statType) then
+            local budgetCost = GSPlus.Calculator:GetStatBudgetCost(statType)
+            local roleWeight = GSPlus.Weights:GetWeight(profileKey, statType)
+            local budgetValue = GSPlus.Calculator:CalculateBudgetAdjustedStatValue(statType, value)
             local weightedBudgetValue = budgetValue * roleWeight
 
             if weightedBudgetValue > 0 then
@@ -175,10 +175,10 @@ function Tooltip:BuildWeaponContributionRows(stats, profileKey, slotKey, itemLin
         return rows, 0
     end
 
-    local dpsWeightKey, damageWeightKey = BetterGearScore.Calculator:GetWeaponWeightKeys(slotKey, itemLink)
+    local dpsWeightKey, damageWeightKey = GSPlus.Calculator:GetWeaponWeightKeys(slotKey, itemLink)
 
-    local dpsWeight = BetterGearScore.Weights:GetWeight(profileKey, dpsWeightKey)
-    local damageWeight = BetterGearScore.Weights:GetWeight(profileKey, damageWeightKey)
+    local dpsWeight = GSPlus.Weights:GetWeight(profileKey, dpsWeightKey)
+    local damageWeight = GSPlus.Weights:GetWeight(profileKey, damageWeightKey)
 
     local dpsContribution = weaponDps * dpsWeight
     local damageContribution = averageDamage * damageWeight
@@ -240,9 +240,9 @@ Tooltip.EQUIPLOC_TO_SLOTS = {
 -- Used only by the personal upgrade comparison, so it IS cap-adjusted (both
 -- sides of the comparison consistently). Displayed scores never are.
 function Tooltip:GetItemOnlyWeightedScore(itemLink, profileKey, slotKey)
-    local stats = BetterGearScore.ItemParser:ParseItemStats(itemLink)
+    local stats = GSPlus.ItemParser:ParseItemStats(itemLink)
 
-    return BetterGearScore.Calculator:CalculateWeightedScore(stats, profileKey, slotKey, itemLink, true)
+    return GSPlus.Calculator:CalculateWeightedScore(stats, profileKey, slotKey, itemLink, true)
 end
 
 -- Compares the hovered item against what the player has equipped in the
@@ -307,7 +307,7 @@ function Tooltip:GetUpgradeComparison(itemLink, profileKey)
 end
 
 function Tooltip:AddUpgradeComparison(tooltip, itemLink, profileKey)
-    if not BetterGearScore.Options:Get("showUpgradeDelta") then
+    if not GSPlus.Options:Get("showUpgradeDelta") then
         return
     end
 
@@ -337,8 +337,8 @@ function Tooltip:AddUpgradeComparison(tooltip, itemLink, profileKey)
 
     -- The comparison is personal: stats the player has capped count for
     -- less in it (but never in the displayed scores). Say so when relevant.
-    local stats = BetterGearScore.ItemParser:ParseItemStats(itemLink)
-    local cappedNames = BetterGearScore.StatCaps:GetCappedStatNames(stats, profileKey)
+    local stats = GSPlus.ItemParser:ParseItemStats(itemLink)
+    local cappedNames = GSPlus.StatCaps:GetCappedStatNames(stats, profileKey)
 
     if #cappedNames > 0 then
         tooltip:AddLine(
@@ -350,16 +350,16 @@ function Tooltip:AddUpgradeComparison(tooltip, itemLink, profileKey)
 end
 
 function Tooltip:AddCompactGearScore(tooltip, profileKey, rawScore, weightedScore, maxBudgetScore, hasActiveSetBonuses, itemLink)
-    local coloredWeightedScore = BetterGearScore.Calculator:ColorizeScore(weightedScore or 0, maxBudgetScore or 0)
+    local coloredWeightedScore = GSPlus.Calculator:ColorizeScore(weightedScore or 0, maxBudgetScore or 0)
 
     tooltip:AddLine(" ")
-    tooltip:AddLine("|cff00ff00BetterGearScore|r - " .. BetterGearScore.Profiles:GetProfileDisplayName(profileKey))
+    tooltip:AddLine("|cff00ff00gs+|r - " .. GSPlus.Profiles:GetProfileDisplayName(profileKey))
     tooltip:AddDoubleLine("Weighted Score", coloredWeightedScore, 1, 1, 1, 1, 1, 1)
     tooltip:AddDoubleLine("Budget Score", math.floor(rawScore or 0), 1, 1, 1, 0.8, 0.8, 0.8)
 
-    if itemLink and BetterGearScore.Options:Get("showLegacyGearScore") then
+    if itemLink and GSPlus.Options:Get("showLegacyGearScore") then
         local _, classFileName = UnitClass("player")
-        local legacyScore = BetterGearScore.LegacyGearScore:GetItemScore(itemLink, classFileName)
+        local legacyScore = GSPlus.LegacyGearScore:GetItemScore(itemLink, classFileName)
 
         if legacyScore > 0 then
             tooltip:AddDoubleLine("GearScore (legacy)", legacyScore, 1, 1, 1, 0.6, 0.6, 0.6)
@@ -374,13 +374,13 @@ function Tooltip:AddCompactGearScore(tooltip, profileKey, rawScore, weightedScor
         tooltip:AddLine("Includes active set bonuses.", 0.65, 0.85, 1.0)
     end
 
-    if BetterGearScore.Options:Get("showTooltipBreakdown") and not IsShiftKeyDown() then
+    if GSPlus.Options:Get("showTooltipBreakdown") and not IsShiftKeyDown() then
         tooltip:AddLine("Hold Shift for stat breakdown.", 0.65, 0.65, 0.65)
     end
 end
 
 function Tooltip:AddDetailedBreakdown(tooltip, stats, profileKey, slotKey, itemLink, setBonusStats)
-    if not BetterGearScore.Options:Get("showTooltipBreakdown") then
+    if not GSPlus.Options:Get("showTooltipBreakdown") then
         return
     end
 
@@ -440,7 +440,7 @@ function Tooltip:AddDetailedBreakdown(tooltip, stats, profileKey, slotKey, itemL
 end
 
 function Tooltip:AddGearScoreToTooltip(tooltip)
-    if not BetterGearScore.Options:Get("showItemTooltip") then
+    if not GSPlus.Options:Get("showItemTooltip") then
         return
     end
 
@@ -456,14 +456,14 @@ function Tooltip:AddGearScoreToTooltip(tooltip)
         return
     end
 
-    local profileKey = BetterGearScore.Profiles:GetSelectedProfile()
+    local profileKey = GSPlus.Profiles:GetSelectedProfile()
     local stats, _, setBonusStats = self:GetTooltipStatsWithActiveSetBonuses(itemLink)
 
-    local statBudgetScore = BetterGearScore.Calculator:CalculateRawStatBudget(stats)
-    local weaponBudgetScore = BetterGearScore.Calculator:CalculateWeaponBudgetScore(stats)
+    local statBudgetScore = GSPlus.Calculator:CalculateRawStatBudget(stats)
+    local weaponBudgetScore = GSPlus.Calculator:CalculateWeaponBudgetScore(stats)
     local rawScore = statBudgetScore + weaponBudgetScore
-    local weightedScore = BetterGearScore.Calculator:CalculateWeightedScore(stats, profileKey, nil, itemLink)
-    local maxBudgetScore = BetterGearScore.Calculator:GetWeightedColorReferenceForItem(profileKey, nil, itemLink)
+    local weightedScore = GSPlus.Calculator:CalculateWeightedScore(stats, profileKey, nil, itemLink)
+    local maxBudgetScore = GSPlus.Calculator:GetWeightedColorReferenceForItem(profileKey, nil, itemLink)
 
     if not rawScore or rawScore <= 0 then
         return
@@ -485,7 +485,7 @@ function Tooltip:HookTooltip(tooltipFrame)
     end
 
     tooltipFrame:HookScript("OnTooltipSetItem", function(tooltip)
-        BetterGearScore.Tooltip:AddGearScoreToTooltip(tooltip)
+        GSPlus.Tooltip:AddGearScoreToTooltip(tooltip)
     end)
 
     tooltipFrame:HookScript("OnTooltipCleared", function(tooltip)

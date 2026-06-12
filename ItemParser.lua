@@ -1,9 +1,9 @@
 -- ItemParser.lua
 
-BetterGearScore = BetterGearScore or {}
-BetterGearScore.ItemParser = BetterGearScore.ItemParser or {}
+GSPlus = GSPlus or {}
+GSPlus.ItemParser = GSPlus.ItemParser or {}
 
-local ItemParser = BetterGearScore.ItemParser
+local ItemParser = GSPlus.ItemParser
 
 ItemParser.SPELL_SPECIFIC_EFFECT_SCALE = 0.35
 
@@ -45,7 +45,7 @@ ItemParser.RATING_PER_PERCENT_BY_FLAVOR = {
 ItemParser.RATING_PER_PERCENT_BY_FLAVOR.DEFAULT = ItemParser.RATING_PER_PERCENT_BY_FLAVOR.TBC
 
 function ItemParser:GetRatingPerPercent(ratingKey)
-    local ratings = BetterGearScore.GameVersion:Select(self.RATING_PER_PERCENT_BY_FLAVOR)
+    local ratings = GSPlus.GameVersion:Select(self.RATING_PER_PERCENT_BY_FLAVOR)
 
     return (ratings and ratings[ratingKey]) or 15.77
 end
@@ -353,7 +353,7 @@ function ItemParser:ScanTooltipStats(itemLink, stats)
         return
     end
 
-    local scannerName = "BetterGearScoreTooltipScanner"
+    local scannerName = "GSPlusTooltipScanner"
     local scanner = _G[scannerName]
 
     if not scanner then

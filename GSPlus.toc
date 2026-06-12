@@ -1,9 +1,9 @@
 ## Interface: 20504
-## Title: Better Gear Score
+## Title: gs+
 ## Author: Jonathan Bergius
-## Version: 1.5.0
+## Version: 2.0.0
 ## Notes: Role-aware gear scores for you, your group, and everyone you mouse over - zero configuration
-## SavedVariables: BetterGearScoreSavedVars
+## SavedVariables: GSPlusSavedVars
 ## X-Category: Inventory
 ## X-Website: https://github.com/jcbergius/BetterGearScore
 ## X-License: MIT
@@ -16,7 +16,7 @@ Profiles.lua
 TalentDetector.lua
 ItemParser.lua
 SetBonuses.lua
-BetterGearScoreCalculator.lua
+Calculator.lua
 LegacyGearScore.lua
 Options.lua
 PlayerCache.lua

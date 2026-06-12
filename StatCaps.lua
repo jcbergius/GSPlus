@@ -5,10 +5,10 @@
 -- with no configuration. Applied only when scoring for the player (own gear
 -- and tooltip comparisons), never to other players whose totals we can't see.
 
-BetterGearScore = BetterGearScore or {}
-BetterGearScore.StatCaps = BetterGearScore.StatCaps or {}
+GSPlus = GSPlus or {}
+GSPlus.StatCaps = GSPlus.StatCaps or {}
 
-local StatCaps = BetterGearScore.StatCaps
+local StatCaps = GSPlus.StatCaps
 
 -- Caps against a boss-level (+3) target, per client flavor. The rating APIs
 -- only report bonuses from gear, not talents (e.g. Precision), so these are
@@ -38,7 +38,7 @@ StatCaps.CAPS_BY_FLAVOR = {
 StatCaps.CAPS_BY_FLAVOR.DEFAULT = StatCaps.CAPS_BY_FLAVOR.TBC
 
 function StatCaps:GetCaps()
-    return BetterGearScore.GameVersion:Select(self.CAPS_BY_FLAVOR) or self.CAPS_BY_FLAVOR.DEFAULT
+    return GSPlus.GameVersion:Select(self.CAPS_BY_FLAVOR) or self.CAPS_BY_FLAVOR.DEFAULT
 end
 
 -- Taper windows: full value until (cap - window), then linear down to the
@@ -82,7 +82,7 @@ function StatCaps:GetTaperMultiplier(current, cap, window)
 end
 
 function StatCaps:GetHitCapForProfile(profileKey)
-    local group = BetterGearScore.Calculator:GetProfileColorCapGroup(profileKey)
+    local group = GSPlus.Calculator:GetProfileColorCapGroup(profileKey)
     local caps = self:GetCaps()
 
     if group == "CASTER_DPS" or group == "HEALER" then
@@ -114,7 +114,7 @@ function StatCaps:GetExpertiseMultiplier(profileKey)
         return 1
     end
 
-    local group = BetterGearScore.Calculator:GetProfileColorCapGroup(profileKey)
+    local group = GSPlus.Calculator:GetProfileColorCapGroup(profileKey)
 
     if group ~= "PHYSICAL_DPS" and group ~= "TANK" then
         return 1
@@ -144,7 +144,7 @@ function StatCaps:GetDefenseMultiplier(profileKey)
         return 1
     end
 
-    local group = BetterGearScore.Calculator:GetProfileColorCapGroup(profileKey)
+    local group = GSPlus.Calculator:GetProfileColorCapGroup(profileKey)
 
     if group ~= "TANK" then
         return 1
@@ -208,9 +208,9 @@ function StatCaps:GetCappedStatNames(stats, profileKey)
 
     for statType, value in pairs(stats or {}) do
         if value and value > 0
-            and BetterGearScore.Weights:GetWeight(profileKey, statType) > 0
+            and GSPlus.Weights:GetWeight(profileKey, statType) > 0
             and self:IsCapped(profileKey, statType) then
-            local displayNames = BetterGearScore.Tooltip and BetterGearScore.Tooltip.STAT_DISPLAY_NAMES
+            local displayNames = GSPlus.Tooltip and GSPlus.Tooltip.STAT_DISPLAY_NAMES
             names[#names + 1] = (displayNames and displayNames[statType]) or statType
         end
     end

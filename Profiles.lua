@@ -1,6 +1,6 @@
 -- Profiles.lua
 
-local Profiles = BetterGearScore.Profiles
+local Profiles = GSPlus.Profiles
 
 Profiles.DEFAULT_PROFILE_BY_CLASS = {
     WARRIOR = "WARRIOR_DPS",
@@ -62,28 +62,28 @@ function Profiles:GetDefaultProfileForClass(className)
 end
 
 function Profiles:GetSelectedProfile()
-    BetterGearScoreSavedVars = BetterGearScoreSavedVars or {}
+    GSPlusSavedVars = GSPlusSavedVars or {}
 
-    if BetterGearScoreSavedVars.useManualProfile and BetterGearScoreSavedVars.selectedProfile then
-        local manualProfile = self:NormalizeProfileKey(BetterGearScoreSavedVars.selectedProfile)
+    if GSPlusSavedVars.useManualProfile and GSPlusSavedVars.selectedProfile then
+        local manualProfile = self:NormalizeProfileKey(GSPlusSavedVars.selectedProfile)
 
-        if manualProfile and BetterGearScore.Weights.PROFILE_WEIGHTS[manualProfile] then
+        if manualProfile and GSPlus.Weights.PROFILE_WEIGHTS[manualProfile] then
             return manualProfile
         end
     end
 
-    if BetterGearScore.TalentDetector then
-        local detectedProfile = BetterGearScore.TalentDetector:GetDetectedProfile()
+    if GSPlus.TalentDetector then
+        local detectedProfile = GSPlus.TalentDetector:GetDetectedProfile()
 
-        if detectedProfile and BetterGearScore.Weights.PROFILE_WEIGHTS[detectedProfile] then
+        if detectedProfile and GSPlus.Weights.PROFILE_WEIGHTS[detectedProfile] then
             return detectedProfile
         end
     end
 
-    local className = BetterGearScore.Calculator:GetPlayerClass()
+    local className = GSPlus.Calculator:GetPlayerClass()
     local defaultProfile = self:GetDefaultProfileForClass(className)
 
-    if BetterGearScore.Weights.PROFILE_WEIGHTS[defaultProfile] then
+    if GSPlus.Weights.PROFILE_WEIGHTS[defaultProfile] then
         return defaultProfile
     end
 
@@ -93,25 +93,25 @@ end
 function Profiles:SetSelectedProfile(profileKey)
     profileKey = self:NormalizeProfileKey(profileKey)
 
-    if not profileKey or not BetterGearScore.Weights.PROFILE_WEIGHTS[profileKey] then
+    if not profileKey or not GSPlus.Weights.PROFILE_WEIGHTS[profileKey] then
         return false
     end
 
-    BetterGearScoreSavedVars = BetterGearScoreSavedVars or {}
-    BetterGearScoreSavedVars.useManualProfile = true
-    BetterGearScoreSavedVars.selectedProfile = profileKey
+    GSPlusSavedVars = GSPlusSavedVars or {}
+    GSPlusSavedVars.useManualProfile = true
+    GSPlusSavedVars.selectedProfile = profileKey
 
-    BetterGearScore:RefreshUI()
+    GSPlus:RefreshUI()
 
     return true
 end
 
 function Profiles:UseAutomaticProfileDetection()
-    BetterGearScoreSavedVars = BetterGearScoreSavedVars or {}
-    BetterGearScoreSavedVars.useManualProfile = false
-    BetterGearScoreSavedVars.selectedProfile = nil
+    GSPlusSavedVars = GSPlusSavedVars or {}
+    GSPlusSavedVars.useManualProfile = false
+    GSPlusSavedVars.selectedProfile = nil
 
-    BetterGearScore:RefreshUI()
+    GSPlus:RefreshUI()
 end
 
 function Profiles:GetProfileDisplayName(profileKey)
@@ -151,8 +151,8 @@ Profiles.SORTED_PROFILE_KEYS = {
 }
 
 function Profiles:IsUsingManualProfile()
-    BetterGearScoreSavedVars = BetterGearScoreSavedVars or {}
+    GSPlusSavedVars = GSPlusSavedVars or {}
 
-    return BetterGearScoreSavedVars.useManualProfile == true
+    return GSPlusSavedVars.useManualProfile == true
 end
 
