@@ -14,7 +14,9 @@ local StatCaps = BetterGearScore.StatCaps
 -- only report bonuses from gear, not talents (e.g. Precision), so these are
 -- slightly conservative - gear keeps a little value near the true cap.
 -- A nil entry means the cap doesn't exist on that flavor (no taper).
--- WRATH/CATA values should be verified when those clients ship.
+-- WRATH/CATA values are the established caps from Wrath/Cata Classic:
+-- 8% melee / 17% spell vs bosses, 540 defense in Wrath, defense removed and
+-- crit immunity granted by talents in Cata.
 StatCaps.CAPS_BY_FLAVOR = {
     VANILLA = {
         MELEE_HIT = 9.0, RANGED_HIT = 9.0, SPELL_HIT = 16.0,

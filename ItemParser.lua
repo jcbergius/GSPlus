@@ -18,7 +18,10 @@ ItemParser.REGEN_WHILE_CASTING_MP5_PER_PERCENT = 0.5
 -- Rating-per-1% conversions for vanilla-style percent effects, per client
 -- flavor. Vanilla has no ratings at all, so percents are stored as TBC-scale
 -- pseudo-ratings to keep the weight tables uniform across flavors.
--- WRATH values are level 80, CATA level 85 (verify when those clients ship).
+-- WRATH (level 80) and CATA (level 85) values are the documented combat
+-- rating system conversions, as confirmed throughout Wrath/Cata Classic.
+-- (CATA BLOCK is retained only for old-world items; block rating itself was
+-- removed in patch 4.0.1.)
 ItemParser.RATING_PER_PERCENT_BY_FLAVOR = {
     VANILLA = {
         HIT = 15.77, SPELL_HIT = 12.62, CRIT = 22.08, SPELL_CRIT = 22.08,

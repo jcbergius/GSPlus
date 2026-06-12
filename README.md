@@ -497,11 +497,17 @@ The addon is built to follow Anniversary realms through expansions:
 - API differences are guarded throughout (`GetTalentTabInfo` signatures,
   `UnitDefense`/`GetExpertise` existence, `Settings` vs Interface Options).
 
-When a new flavor's client actually ships, the checklist is small: bump the
-Interface number in its TOC, verify the three flavor tables above against
-live values, and give Mastery real per-spec weights (it currently aliases
-crit as a placeholder). Wrath/Cata numbers in the tables today are
-first-pass estimates and marked as such in comments.
+The Wrath and Cata values are not guesses: both expansions already ran as
+Classic servers (Wrath Classic through 3.4.3, Cata Classic on 4.4.x), so
+the rating conversions, hit/defense caps, and item budget curves in the
+flavor tables come from that documented data. The legacy GearScore formula
+is the actual wrath-era formula - an ilvl 264 chest scores 494, matching
+the GS numbers players remember from ICC (verified in the test suite).
+
+When a new flavor's client actually ships, the remaining checklist is
+small: bump the Interface number in its TOC, smoke-test in-game
+(TESTING.md), and give Mastery real per-spec weights for Cata (it
+currently aliases crit as a placeholder).
 
 ## Releasing (CurseForge / Wago)
 

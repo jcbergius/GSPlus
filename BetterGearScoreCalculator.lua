@@ -206,14 +206,18 @@ Calculator.WEIGHTED_COLOR_CAPS = {
 }
 
 -- The slot caps above are tuned for TBC endgame item budgets. Other flavors
--- scale them so score colors stay meaningful. VANILLA is calibrated against
--- level-60 epics; WRATH/CATA are first-pass estimates to revisit when those
--- clients ship.
+-- scale them so score colors stay meaningful. Scales are derived from the
+-- epic item budget curve ((ilvl - 91.45) / 0.65 above ilvl 120, the same
+-- curve the wrath-era GearScore formula encodes) at each expansion's
+-- endgame, relative to TBC's ~ilvl 150 (budget ~90):
+--   VANILLA ~ilvl 90: (90-26)/1.2 = 53   -> 53/90  = 0.60
+--   WRATH  ~ilvl 264: (264-91.45)/0.65 = 265 -> 265/90 = 2.95
+--   CATA   ~ilvl 410: (410-91.45)/0.65 = 490 -> 490/90 = 5.45
 Calculator.COLOR_REFERENCE_SCALE_BY_FLAVOR = {
     VANILLA = 0.60,
     TBC = 1.00,
-    WRATH = 2.10,
-    CATA = 4.20,
+    WRATH = 2.95,
+    CATA = 5.45,
     DEFAULT = 1.00,
 }
 

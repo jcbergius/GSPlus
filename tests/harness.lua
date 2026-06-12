@@ -380,7 +380,7 @@ BetterGearScore.GameVersion:Detect()
 BetterGearScore.StatCaps:InvalidateCache()
 check(BetterGearScore.GameVersion:GetFlavor() == "WRATH", "WRATH flavor detected")
 check(BetterGearScore.ItemParser:GetRatingPerPercent("HIT") == 32.79, "wrath level-80 hit rating conversion")
-check(BetterGearScore.Calculator:GetColorReferenceScale() == 2.10, "wrath color reference scale applied")
+check(BetterGearScore.Calculator:GetColorReferenceScale() == 2.95, "wrath color reference scale applied")
 
 combatRatingBonus[6] = 8.5  -- past the wrath 8% melee cap (below TBC's 9%)
 BetterGearScore.StatCaps:InvalidateCache()
@@ -388,6 +388,14 @@ check(BetterGearScore.StatCaps:GetWeightMultiplier("WARRIOR_DPS", "HIT") == 0.15
 
 check(BetterGearScore.ItemParser:NormalizeStatName("Mastery Rating") == "MASTERY", "mastery rating recognized")
 check(BetterGearScore.Weights:GetWeight("WARRIOR_DPS", "MASTERY") == 0.85, "MASTERY aliases CRITICAL weight")
+
+-- The legacy formula IS the wrath-era GearScore formula: an ilvl 264 epic
+-- chest must score 494, the per-slot value behind the famous ~5.9k ICC GS.
+local iccChestLink = "|cffa335ee|Hitem:1008::::::::80:::::|h[Sanctified Chestguard]|h|r"
+fakeItems[iccChestLink] = { name = "Sanctified Chestguard", equipLoc = "INVTYPE_CHEST", ilvl = 264 }
+fakeTooltips[iccChestLink] = { "Sanctified Chestguard", "Chest", "Plate", "+200 Stamina" }
+check(BetterGearScore.LegacyGearScore:GetItemScore(iccChestLink, "WARRIOR") == 494,
+    "legacy GS matches real wrath GearScore for ilvl 264 chest")
 
 WOW_PROJECT_ID = WOW_PROJECT_CLASSIC
 BetterGearScore.GameVersion:Detect()
