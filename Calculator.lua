@@ -74,6 +74,7 @@ Calculator.NON_SCORING_STAT_KEYS = {
     UNSCORED_EQUIP_EFFECT = true,
     UNSCORED_SET_BONUS_EFFECT = true,
     EMPTY_SOCKETS = true,
+    INCOMPLETE_SCAN = true,
 }
 
 -- Per-slot, per-role weighted score references used ONLY for coloring

@@ -64,6 +64,12 @@ function UnitTooltip:AddScoreToTooltip(tooltip)
 
     if entry then
         self:AppendEntryLines(tooltip, entry)
+
+        -- Partial entries (items weren't server-cached during the scan)
+        -- under-count; silently refresh while showing what we have.
+        if entry.partial and not UnitIsUnit(unit, "player") then
+            GSPlus.Inspect:QueueUnitInspect(unit)
+        end
     else
         -- Queue a silent inspect; if it completes while the tooltip is still
         -- up, OnScoreUpdated appends the result live.
@@ -90,6 +96,10 @@ function UnitTooltip:AppendEntryLines(tooltip, entry)
 
     if GSPlus.Options:Get("showLegacyGearScore") and entry.legacy and entry.legacy > 0 then
         tooltip:AddDoubleLine("GearScore (legacy)", tostring(math.floor(entry.legacy)), 0.6, 0.6, 0.6, 0.8, 0.8, 0.8)
+    end
+
+    if entry.partial then
+        tooltip:AddLine("|cff888888Some items still loading; score may rise.|r")
     end
 
     if entry.source and entry.source ~= "self" then

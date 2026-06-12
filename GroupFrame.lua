@@ -257,10 +257,14 @@ function GroupFrame:RequestMissingScores()
     GSPlus.Comms:RequestScores()
 
     for _, unit in ipairs(self:GetGroupUnits()) do
-        if not UnitIsUnit(unit, "player")
-            and not GSPlus.PlayerCache:GetByUnit(unit)
-            and (not CanInspect or CanInspect(unit)) then
-            GSPlus.Inspect:QueueUnitInspect(unit)
+        if not UnitIsUnit(unit, "player") and (not CanInspect or CanInspect(unit)) then
+            local entry = GSPlus.PlayerCache:GetByUnit(unit)
+
+            -- Re-inspect partial entries too: their items weren't fully
+            -- server-cached during the first scan and under-count.
+            if not entry or entry.partial then
+                GSPlus.Inspect:QueueUnitInspect(unit)
+            end
         end
     end
 

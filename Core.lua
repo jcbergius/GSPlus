@@ -2,7 +2,7 @@
 
 GSPlus = GSPlus or {}
 
-GSPlus.VERSION = "2.2.0"
+GSPlus.VERSION = "2.2.1"
 GSPlus.ItemParser = GSPlus.ItemParser or {}
 GSPlus.Calculator = GSPlus.Calculator or {}
 GSPlus.Weights = GSPlus.Weights or {}
@@ -113,12 +113,30 @@ function GSPlus:OnEvent(event, ...)
         self:InvalidateCaches()
         self:RequestRefresh()
     elseif event == "GET_ITEM_INFO_RECEIVED" then
-        -- Only refresh if we previously failed to parse an item because the
-        -- server had not sent its data yet. Otherwise this event is noise.
-        if self.ItemParser and self.ItemParser.sawUncachedItem then
-            self.ItemParser.sawUncachedItem = nil
-            self:InvalidateCaches()
-            self:RequestRefresh()
+        -- Only react if we previously failed to parse an item because the
+        -- server had not sent its data yet - and batch the reaction: this
+        -- event fires once per arriving item (a fresh inspect triggers a
+        -- storm of them), and invalidating/recomputing per event causes
+        -- visible frame hitches.
+        if self.ItemParser and self.ItemParser.sawUncachedItem and not self.itemInfoFlushPending then
+            self.itemInfoFlushPending = true
+
+            local function flush()
+                GSPlus.itemInfoFlushPending = false
+
+                if GSPlus.ItemParser then
+                    GSPlus.ItemParser.sawUncachedItem = nil
+                end
+
+                GSPlus:InvalidateCaches()
+                GSPlus:RefreshUI()
+            end
+
+            if C_Timer and C_Timer.After then
+                C_Timer.After(0.5, flush)
+            else
+                flush()
+            end
         end
     end
 end

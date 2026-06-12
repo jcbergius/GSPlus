@@ -465,7 +465,7 @@ TEST_UNITS.target = { name = "Bob", guid = "guid-bob", isPlayer = true, class = 
 notifyInspectCalls = 0
 check(GSPlus.Inspect:QueueUnitInspect("target"), "inspect queued")
 check(notifyInspectCalls == 1, "NotifyInspect called once")
-GSPlus.Inspect:OnInspectReady("guid-bob")
+GSPlus.Inspect:HandleInspectReady("guid-bob")
 local bobEntry = GSPlus.PlayerCache:Get("Bob")
 check(bobEntry ~= nil and bobEntry.source == "inspect" and bobEntry.profileKey == "MAGE_DPS", "inspect cached with talent profile")
 check(GSPlus.Inspect:QueueUnitInspect("target") == false, "re-inspect blocked by cooldown")
@@ -748,6 +748,44 @@ check(math.abs(GSPlus.Calculator:GetScoreRatio(refSelfScore, fswMax) - 1.0) < 0.
 
 local tankRef = GSPlus.Calculator:GetWeightedColorReferenceForItem("WARRIOR_TANK", "ChestSlot", betterChestLink)
 check(tankRef > 0, "tank reference derived from reference gear (" .. string.format("%.0f", tankRef) .. ")")
+
+-- 22a. Partial tooltip scans (playtest: spell power vanished from items,
+-- hunters cratered on inspect): a near-empty scan must never be cached
+local ghostLink = "|cffa335ee|Hitem:2030::::::::70:::::|h[Ghost Mantle]|h|r"
+fakeItems[ghostLink] = { name = "Ghost Mantle", equipLoc = "INVTYPE_SHOULDER" }
+fakeTooltips[ghostLink] = { "Ghost Mantle" }  -- server data not loaded: name only
+GSPlus.ItemParser.sawUncachedItem = nil
+local ghostStats = GSPlus.ItemParser:ParseItemStats(ghostLink)
+check(ghostStats.INCOMPLETE_SCAN == 1, "near-empty scan flagged incomplete")
+check(GSPlus.ItemParser.statsCache[ghostLink] == nil, "incomplete scan never cached")
+check(GSPlus.ItemParser.sawUncachedItem == true, "incomplete scan triggers retry flag")
+
+-- once the data 'arrives', the same link parses and caches normally
+fakeTooltips[ghostLink] = { "Ghost Mantle", "Shoulder", "+20 Intellect",
+    "Equip: Increases damage and healing done by magical spells and effects by up to 30." }
+local ghostStats2 = GSPlus.ItemParser:ParseItemStats(ghostLink)
+check(ghostStats2.SPELLPOWER == 30 and not ghostStats2.INCOMPLETE_SCAN,
+    "re-scan after data arrives picks up the equip line")
+check(GSPlus.ItemParser.statsCache[ghostLink] ~= nil, "complete scan cached")
+
+-- hard-wrapped equip text (embedded newline) still parses
+local wrapStats = {}
+GSPlus.ItemParser:ParseTooltipLine(
+    "Equip: Increases damage and healing done\nby magical spells and effects by up to 44.", wrapStats)
+check(wrapStats.SPELLPOWER == 44, "newline-wrapped equip line parses")
+
+-- 22b. Partial inspect entries refresh themselves
+local partialLink = "|cffa335ee|Hitem:2031::::::::70:::::|h[Unloaded Blade]|h|r"
+fakeItems[partialLink] = { name = "Unloaded Blade", equipLoc = "INVTYPE_WEAPONMAINHAND" }
+fakeTooltips[partialLink] = { "Unloaded Blade" }
+equipped.MainHandSlot = partialLink
+TEST_UNITS.partyx = { name = "Dave", guid = "guid-dave", isPlayer = true, class = "WARRIOR" }
+local daveEntry = GSPlus.Inspect:BuildUnitEntry("partyx", "inspect")
+check(daveEntry and daveEntry.partial == true, "entry with unloaded item flagged partial")
+GSPlus.Inspect:StoreUnitEntry("partyx", "guid-dave", daveEntry)
+check(GSPlus.Inspect.lastAttempt["guid-dave"] == nil, "partial entry clears inspect cooldown for retry")
+equipped.MainHandSlot = swordLink
+GSPlus:InvalidateCaches()
 
 -- 22. Linear weighted score: breakdown rows add up to the total exactly
 local chestStats = GSPlus.ItemParser:ParseItemStats(chestLink)

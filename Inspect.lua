@@ -145,7 +145,10 @@ function Inspect:CalculateUnitScore(unit, profileKey)
             itemCount = itemCount + 1
             emptySockets = emptySockets + (stats.EMPTY_SOCKETS or 0)
 
-            if statBudgetScore <= 0 and weaponBudgetScore <= 0 then
+            -- INCOMPLETE_SCAN: server hadn't sent the item's tooltip data,
+            -- so green equip effects (spell power, attack power, weapon
+            -- lines) are missing and the score is an undercount.
+            if stats.INCOMPLETE_SCAN or (statBudgetScore <= 0 and weaponBudgetScore <= 0) then
                 missingItems = missingItems + 1
             end
         end
@@ -182,6 +185,9 @@ function Inspect:BuildUnitEntry(unit, source)
         time = time(),
         itemCount = result.itemCount,
         missingItems = result.missingItems,
+        -- Partial entries are shown (better than nothing) but flagged so
+        -- tooltips/group rows trigger a fresh inspect once data arrives.
+        partial = result.missingItems > 0,
         missingEnchants = GSPlus.ItemParser:CountMissingEnchants(unit),
         emptySockets = result.emptySockets,
     }
@@ -323,7 +329,36 @@ function Inspect:FindUnitByGuid(guid)
     return nil
 end
 
+-- Defer the actual scoring one frame: scoring scans many item tooltips
+-- synchronously, and doing it inside the INSPECT_READY event competes with
+-- the Blizzard inspect UI and any open tooltips rendering this frame.
 function Inspect:OnInspectReady(guid)
+    if C_Timer and C_Timer.After then
+        C_Timer.After(0, function()
+            GSPlus.Inspect:HandleInspectReady(guid)
+        end)
+    else
+        self:HandleInspectReady(guid)
+    end
+end
+
+-- Stores the unit's entry and, when items weren't fully loaded yet,
+-- clears the retry cooldown so the next hover/refresh re-inspects.
+function Inspect:StoreUnitEntry(unit, guid, entry)
+    if not entry then
+        return
+    end
+
+    GSPlus.PlayerCache:SetForUnit(unit, entry)
+
+    if entry.partial and guid then
+        self.lastAttempt[guid] = nil
+    end
+
+    self:NotifyScoreUpdated(guid, UnitName(unit), entry)
+end
+
+function Inspect:HandleInspectReady(guid)
     local request = self.current
 
     if not request or (guid and request.guid and guid ~= request.guid) then
@@ -332,12 +367,7 @@ function Inspect:OnInspectReady(guid)
         local unit = self:FindUnitByGuid(guid)
 
         if unit and UnitIsPlayer(unit) and not UnitIsUnit(unit, "player") then
-            local entry = self:BuildUnitEntry(unit, "inspect")
-
-            if entry then
-                GSPlus.PlayerCache:SetForUnit(unit, entry)
-                self:NotifyScoreUpdated(guid, UnitName(unit), entry)
-            end
+            self:StoreUnitEntry(unit, guid, self:BuildUnitEntry(unit, "inspect"))
         end
 
         return
@@ -352,12 +382,7 @@ function Inspect:OnInspectReady(guid)
     end
 
     if unit and UnitExists(unit) and UnitIsPlayer(unit) then
-        local entry = self:BuildUnitEntry(unit, "inspect")
-
-        if entry then
-            GSPlus.PlayerCache:SetForUnit(unit, entry)
-            self:NotifyScoreUpdated(request.guid, UnitName(unit), entry)
-        end
+        self:StoreUnitEntry(unit, request.guid, self:BuildUnitEntry(unit, "inspect"))
     end
 
     -- Only release inspect data if the Blizzard inspect window isn't using it.

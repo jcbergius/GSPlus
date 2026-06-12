@@ -245,6 +245,11 @@ ItemParser.statsCache = ItemParser.statsCache or {}
 ItemParser.statsCacheCount = ItemParser.statsCacheCount or 0
 ItemParser.STATS_CACHE_LIMIT = 500
 
+-- A real equippable item's tooltip always has at least name + slot/stat
+-- lines. Fewer scanned lines means the server hadn't sent the item's
+-- tooltip data yet, even though GetItemInfo already answered.
+ItemParser.MIN_COMPLETE_TOOLTIP_LINES = 3
+
 function ItemParser:ParseItemStats(itemLink)
     if not itemLink then
         return {}
@@ -267,7 +272,7 @@ function ItemParser:ParseItemStats(itemLink)
 
     local stats = {}
 
-    self:ScanTooltipStats(itemLink, stats)
+    local scannedLines = self:ScanTooltipStats(itemLink, stats) or 0
 
     local itemStats = GetItemStats(itemLink)
 
@@ -279,6 +284,16 @@ function ItemParser:ParseItemStats(itemLink)
                 self:AddStat(stats, internalStat, value)
             end
         end
+    end
+
+    -- Partial tooltip: GetItemStats may have given base stats but green
+    -- equip effects are still missing (this is how items lose their spell
+    -- power / attack power / weapon lines). Return what we have for display
+    -- but NEVER cache it, and flag for a retry once item data arrives.
+    if scannedLines < self.MIN_COMPLETE_TOOLTIP_LINES then
+        stats.INCOMPLETE_SCAN = 1
+        self.sawUncachedItem = true
+        return stats
     end
 
     if self.statsCacheCount >= self.STATS_CACHE_LIMIT then
@@ -342,15 +357,20 @@ function ItemParser:CleanTooltipText(text)
 
     text = string.gsub(text, "|c%x%x%x%x%x%x%x%x", "")
     text = string.gsub(text, "|r", "")
+    -- Collapse embedded newlines/double spaces so hard-wrapped effect text
+    -- still matches single-line patterns.
+    text = string.gsub(text, "%s+", " ")
     text = string.gsub(text, "^%s+", "")
     text = string.gsub(text, "%s+$", "")
 
     return text
 end
 
+-- Returns the number of lines the scanner produced so callers can detect
+-- partial tooltips (server data not fully loaded yet).
 function ItemParser:ScanTooltipStats(itemLink, stats)
     if not itemLink then
-        return
+        return 0
     end
 
     local scannerName = "GSPlusTooltipScanner"
@@ -364,7 +384,9 @@ function ItemParser:ScanTooltipStats(itemLink, stats)
     scanner:ClearLines()
     scanner:SetHyperlink(itemLink)
 
-    for i = 1, scanner:NumLines() do
+    local numLines = scanner:NumLines() or 0
+
+    for i = 1, numLines do
         local leftLine = _G[scannerName .. "TextLeft" .. i]
         local rightLine = _G[scannerName .. "TextRight" .. i]
 
@@ -383,6 +405,8 @@ function ItemParser:ScanTooltipStats(itemLink, stats)
     self:FinalizeWeaponStats(stats)
 
     scanner:Hide()
+
+    return numLines
 end
 
 ItemParser.SOCKET_COLOR_NAMES = {
