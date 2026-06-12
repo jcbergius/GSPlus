@@ -151,14 +151,29 @@ ItemParser.WEAPON_SKILL_MAPPING = {
     ["Two-Handed Swords"] = "WEAPON_SKILL",
 }
 
+-- Parsed stats are cached by item link (links include enchants and gems, so
+-- the mapping is stable). Treat returned tables as read-only.
+ItemParser.statsCache = ItemParser.statsCache or {}
+ItemParser.statsCacheCount = ItemParser.statsCacheCount or 0
+ItemParser.STATS_CACHE_LIMIT = 500
+
 function ItemParser:ParseItemStats(itemLink)
     if not itemLink then
         return {}
     end
 
+    local cached = self.statsCache[itemLink]
+
+    if cached then
+        return cached
+    end
+
     local itemName = GetItemInfo(itemLink)
 
     if not itemName then
+        -- Item data not yet available from the server. Do not cache the empty
+        -- result; Core retries after GET_ITEM_INFO_RECEIVED.
+        self.sawUncachedItem = true
         return {}
     end
 
@@ -177,6 +192,14 @@ function ItemParser:ParseItemStats(itemLink)
             end
         end
     end
+
+    if self.statsCacheCount >= self.STATS_CACHE_LIMIT then
+        self.statsCache = {}
+        self.statsCacheCount = 0
+    end
+
+    self.statsCache[itemLink] = stats
+    self.statsCacheCount = self.statsCacheCount + 1
 
     return stats
 end

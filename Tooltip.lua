@@ -271,6 +271,12 @@ function Tooltip:AddDetailedBreakdown(tooltip, stats, profileKey, slotKey, itemL
 end
 
 function Tooltip:AddGearScoreToTooltip(tooltip)
+    -- OnTooltipSetItem can fire more than once for the same tooltip (e.g.
+    -- recipes); the flag is cleared in OnTooltipCleared.
+    if tooltip.bgsScoreAdded then
+        return
+    end
+
     local itemLink = GetTooltipItemLink(tooltip)
 
     if not itemLink then
@@ -292,10 +298,26 @@ function Tooltip:AddGearScoreToTooltip(tooltip)
 
     local hasActiveSetBonuses = self:HasAnyStats(setBonusStats)
 
+    tooltip.bgsScoreAdded = true
+
     self:AddCompactGearScore(tooltip, profileKey, rawScore, weightedScore, maxBudgetScore, hasActiveSetBonuses)
     self:AddDetailedBreakdown(tooltip, stats, profileKey, nil, itemLink, setBonusStats)
 
     tooltip:Show()
+end
+
+function Tooltip:HookTooltip(tooltipFrame)
+    if not tooltipFrame or not tooltipFrame.HookScript then
+        return
+    end
+
+    tooltipFrame:HookScript("OnTooltipSetItem", function(tooltip)
+        BetterGearScore.Tooltip:AddGearScoreToTooltip(tooltip)
+    end)
+
+    tooltipFrame:HookScript("OnTooltipCleared", function(tooltip)
+        tooltip.bgsScoreAdded = nil
+    end)
 end
 
 function Tooltip:HookTooltips()
@@ -303,17 +325,10 @@ function Tooltip:HookTooltips()
         return
     end
 
-    if GameTooltip then
-        GameTooltip:HookScript("OnTooltipSetItem", function(tooltip)
-            BetterGearScore.Tooltip:AddGearScoreToTooltip(tooltip)
-        end)
-    end
-
-    if ItemRefTooltip then
-        ItemRefTooltip:HookScript("OnTooltipSetItem", function(tooltip)
-            BetterGearScore.Tooltip:AddGearScoreToTooltip(tooltip)
-        end)
-    end
+    self:HookTooltip(GameTooltip)
+    self:HookTooltip(ItemRefTooltip)
+    self:HookTooltip(ShoppingTooltip1)
+    self:HookTooltip(ShoppingTooltip2)
 
     self.hooked = true
 end

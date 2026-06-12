@@ -502,8 +502,18 @@ function Calculator:CalculateItemScore(itemLink, profileKey, slotKey)
     return budgetScore, weightedScore, stats, statBudgetScore, weaponBudgetScore, maxWeightedScore
 end
 
+-- The total score is cached until equipment or talents change (see Core.lua)
+-- so frequent callers like the character pane tooltip stay cheap.
+function Calculator:InvalidateCache()
+    self.scoreCache = nil
+end
+
 function Calculator:CalculateTotalBetterGearScore(profileKey)
     profileKey = profileKey or BetterGearScore.Profiles:GetSelectedProfile()
+
+    if self.scoreCache and self.scoreCache.profileKey == profileKey then
+        return self.scoreCache
+    end
 
     local equippedItems = BetterGearScore.ItemParser:GetEquippedItems()
 
@@ -562,7 +572,7 @@ function Calculator:CalculateTotalBetterGearScore(profileKey)
         }
     end
 
-    return {
+    local result = {
         profileKey = profileKey,
         profileName = BetterGearScore.Profiles:GetProfileDisplayName(profileKey),
         totalRawScore = totalRawScore,
@@ -573,6 +583,10 @@ function Calculator:CalculateTotalBetterGearScore(profileKey)
         setBonusRawScore = setBonusRawScore,
         setBonusWeightedScore = setBonusWeightedScore,
     }
+
+    self.scoreCache = result
+
+    return result
 end
 
 function Calculator:GetPlayerClass()

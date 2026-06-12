@@ -1,7 +1,7 @@
 ## Interface: 20504
 ## Title: Better Gear Score
 ## Author: Jonathan Bergius
-## Version: 1.0.1
+## Version: 1.1.0
 ## Notes: Calculates role-aware gear score from equipped item stat budgets
 ## SavedVariables: BetterGearScoreSavedVars
 
@@ -15,4 +15,5 @@ BetterGearScoreCalculator.lua
 CharacterPaneUI.lua
 UI.lua
 Tooltip.lua
+Inspect.lua
 Commands.lua

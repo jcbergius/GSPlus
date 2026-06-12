@@ -116,37 +116,43 @@ function Profiles:GetProfileDisplayName(profileKey)
     return self.PROFILE_NAMES[profileKey] or profileKey or "Unknown"
 end
 
+Profiles.SORTED_PROFILE_KEYS = {
+    "WARRIOR_DPS",
+    "WARRIOR_TANK",
+
+    "PALADIN_DPS",
+    "PALADIN_TANK",
+    "PALADIN_HEALER",
+
+    "HUNTER_DPS",
+    "ROGUE_DPS",
+
+    "PRIEST_HEALER",
+    "PRIEST_DPS",
+
+    "SHAMAN_ELEMENTAL",
+    "SHAMAN_ENHANCEMENT",
+    "SHAMAN_HEALER",
+
+    "MAGE_DPS",
+    "WARLOCK_DPS",
+
+    "DRUID_FERAL",
+    "DRUID_TANK",
+    "DRUID_BALANCE",
+    "DRUID_RESTO",
+}
+
+function Profiles:IsUsingManualProfile()
+    BetterGearScoreSavedVars = BetterGearScoreSavedVars or {}
+
+    return BetterGearScoreSavedVars.useManualProfile == true
+end
+
 function Profiles:PrintAvailableProfiles()
     print("|cff00ff00Available BetterGearScore profiles:|r")
 
-    local sortedProfiles = {
-        "WARRIOR_DPS",
-        "WARRIOR_TANK",
-
-        "PALADIN_DPS",
-        "PALADIN_TANK",
-        "PALADIN_HEALER",
-
-        "HUNTER_DPS",
-        "ROGUE_DPS",
-
-        "PRIEST_HEALER",
-        "PRIEST_DPS",
-
-        "SHAMAN_ELEMENTAL",
-        "SHAMAN_ENHANCEMENT",
-        "SHAMAN_HEALER",
-
-        "MAGE_DPS",
-        "WARLOCK_DPS",
-
-        "DRUID_FERAL",
-        "DRUID_TANK",
-        "DRUID_BALANCE",
-        "DRUID_RESTO",
-    }
-
-    for _, profileKey in ipairs(sortedProfiles) do
+    for _, profileKey in ipairs(self.SORTED_PROFILE_KEYS) do
         local displayName = self.PROFILE_NAMES[profileKey]
 
         if displayName and BetterGearScore.Weights.PROFILE_WEIGHTS[profileKey] then

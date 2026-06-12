@@ -38,10 +38,22 @@ Unlike simple item-level or raw-stat scoring, Better Gear Score attempts to valu
 - **Equipped Gear Window**
   - Displays total weighted gear score.
   - Shows raw and weighted totals.
-  - Lists equipped items and their individual contribution.
+  - Lists equipped items in slot order with their individual contribution.
+  - Includes a profile dropdown for quick manual overrides.
+
+- **Character Pane Score**
+  - Shows your current score directly on the character pane.
+
+- **Inspect Scoring**
+  - `/bgs target` scores the gear of the player you are targeting (inspect range required).
+  - Uses their inspected talents to pick a role profile when available.
+
+- **Performance Friendly**
+  - Item stats, set bonuses, and totals are cached and only recalculated when your equipment or talents change.
+  - Equipment-swap event bursts are debounced into a single refresh.
 
 - **Chat Commands**
-  - Quick access to score, UI, detected role, and available profiles.
+  - Quick access to score, UI, detected role, available profiles, inspect scoring, and an item scan debugging command.
 
 ## Installation
 
@@ -142,7 +154,19 @@ Returns profile selection to automatic talent detection.
 /bgs profile warrior_tank
 ```
 
-Manually overrides the profile. This is mostly useful for testing or edge cases.
+Manually overrides the profile. This is mostly useful for testing or edge cases. The profile dropdown in the gear window (`/bgs show`) does the same thing.
+
+```text
+/bgs target
+```
+
+Scores the gear of your current target (must be a player in inspect range).
+
+```text
+/bgs scan [Item Link]
+```
+
+Prints the stats Better Gear Score detected on a linked item, plus its budget and weighted scores. Shift-click an item into the command to link it.
 
 ## Automatic Role Detection
 
@@ -273,9 +297,12 @@ StatWeights.lua
 Profiles.lua
 TalentDetector.lua
 ItemParser.lua
+SetBonuses.lua
 BetterGearScoreCalculator.lua
+CharacterPaneUI.lua
 UI.lua
 Tooltip.lua
+Inspect.lua
 Commands.lua
 README.md
 ```
@@ -298,16 +325,25 @@ README.md
   - Reads talent trees and maps the dominant tree to a scoring profile.
 
 - **ItemParser.lua**
-  - Reads equipped items, parses item stats, and scans tooltip equip effects.
+  - Reads equipped items, parses item stats, and scans tooltip equip effects. Results are cached per item link.
+
+- **SetBonuses.lua**
+  - Detects active set bonuses on equipped gear and converts them into stats.
 
 - **BetterGearScoreCalculator.lua**
-  - Calculates raw and weighted gear scores.
+  - Calculates raw and weighted gear scores. The total score is cached until equipment or talents change.
+
+- **CharacterPaneUI.lua**
+  - Displays the score on the character pane.
 
 - **UI.lua**
-  - Creates and updates the Better Gear Score window.
+  - Creates and updates the Better Gear Score window, including the profile dropdown.
 
 - **Tooltip.lua**
-  - Adds Better Gear Score information to item tooltips.
+  - Adds Better Gear Score information to item tooltips, including comparison tooltips.
+
+- **Inspect.lua**
+  - Scores inspected players for `/bgs target`.
 
 - **Commands.lua**
   - Registers and handles slash commands.
@@ -388,10 +424,9 @@ The tooltip should show a higher raw stat budget than just the visible base stat
 - Better tooltip parsing coverage for more Classic item effects.
 - Localization support for non-English clients.
 - Smarter Feral Druid tank vs DPS detection based on equipped gear.
-- Optional profile dropdown in the UI.
 - Better support for weapon DPS and weapon-specific scoring.
 - More detailed item breakdowns in the UI.
-- Export/debug command for detected item stats.
+- Show inspected players' scores directly on the inspect frame.
 
 ## License
 

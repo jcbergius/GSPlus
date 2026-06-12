@@ -60,17 +60,34 @@ TalentDetector.CLASS_TREE_PROFILES = {
     },
 }
 
-function TalentDetector:GetTalentPoints()
+-- Classic/TBC clients return (name, texture, pointsSpent, fileName) while
+-- Wrath-style clients return (id, name, description, texture, pointsSpent).
+-- Detect the signature by type so role detection works on both.
+function TalentDetector:GetTalentTabNameAndPoints(tabIndex, isInspect)
+    if not GetTalentTabInfo then
+        return nil, 0
+    end
+
+    local r1, r2, r3, r4, r5 = GetTalentTabInfo(tabIndex, isInspect)
+
+    if type(r1) == "string" then
+        return r1, tonumber(r3) or 0
+    end
+
+    return r2, tonumber(r5) or 0
+end
+
+function TalentDetector:GetTalentPoints(isInspect)
     local points = {}
 
     if not GetNumTalentTabs or not GetTalentTabInfo then
         return points
     end
 
-    local numTabs = GetNumTalentTabs()
+    local numTabs = GetNumTalentTabs(isInspect) or 0
 
     for tabIndex = 1, numTabs do
-        local _, name, _, _, pointsSpent = GetTalentTabInfo(tabIndex)
+        local name, pointsSpent = self:GetTalentTabNameAndPoints(tabIndex, isInspect)
         points[tabIndex] = {
             name = name,
             points = pointsSpent or 0,
@@ -131,6 +148,6 @@ function TalentDetector:PrintDetectedProfile()
 
     for tabIndex = 1, #points do
         local data = points[tabIndex]
-        print(tabIndex .. ". " .. data.name .. ": " .. data.points)
+        print(tabIndex .. ". " .. (data.name or ("Tree " .. tabIndex)) .. ": " .. (data.points or 0))
     end
 end

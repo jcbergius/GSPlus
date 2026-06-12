@@ -2,7 +2,7 @@
 
 BetterGearScore = BetterGearScore or {}
 
-BetterGearScore.VERSION = "1.0.1"
+BetterGearScore.VERSION = "1.1.0"
 BetterGearScore.ItemParser = BetterGearScore.ItemParser or {}
 BetterGearScore.Calculator = BetterGearScore.Calculator or {}
 BetterGearScore.Weights = BetterGearScore.Weights or {}
@@ -13,6 +13,7 @@ BetterGearScore.TalentDetector = BetterGearScore.TalentDetector or {}
 BetterGearScore.Profiles = BetterGearScore.Profiles or {}
 BetterGearScore.CharacterPaneUI = BetterGearScore.CharacterPaneUI or {}
 BetterGearScore.SetBonuses = BetterGearScore.SetBonuses or {}
+BetterGearScore.Inspect = BetterGearScore.Inspect or {}
 
 function BetterGearScore:Initialize()
     BetterGearScoreSavedVars = BetterGearScoreSavedVars or {}
@@ -21,6 +22,16 @@ function BetterGearScore:Initialize()
 
     if self.CharacterPaneUI and self.CharacterPaneUI.Initialize then
         self.CharacterPaneUI:Initialize()
+    end
+end
+
+function BetterGearScore:InvalidateCaches()
+    if self.SetBonuses and self.SetBonuses.InvalidateCache then
+        self.SetBonuses:InvalidateCache()
+    end
+
+    if self.Calculator and self.Calculator.InvalidateCache then
+        self.Calculator:InvalidateCache()
     end
 end
 
@@ -36,6 +47,7 @@ function BetterGearScore:RegisterEvents()
     self.frame:RegisterEvent("PLAYER_EQUIPMENT_CHANGED")
     self.frame:RegisterEvent("CHARACTER_POINTS_CHANGED")
     self.frame:RegisterEvent("PLAYER_TALENT_UPDATE")
+    self.frame:RegisterEvent("GET_ITEM_INFO_RECEIVED")
 
     self.frame:SetScript("OnEvent", function(_, event, ...)
         BetterGearScore:OnEvent(event, ...)
@@ -50,12 +62,41 @@ function BetterGearScore:OnEvent(event, ...)
             self:Initialize()
         end
     elseif event == "PLAYER_LOGIN" or event == "PLAYER_ENTERING_WORLD" then
-        self:RefreshUI()
+        self:InvalidateCaches()
+        self:RequestRefresh()
     elseif event == "PLAYER_EQUIPMENT_CHANGED"
         or event == "CHARACTER_POINTS_CHANGED"
         or event == "PLAYER_TALENT_UPDATE" then
-        self:RefreshUI()
+        self:InvalidateCaches()
+        self:RequestRefresh()
+    elseif event == "GET_ITEM_INFO_RECEIVED" then
+        -- Only refresh if we previously failed to parse an item because the
+        -- server had not sent its data yet. Otherwise this event is noise.
+        if self.ItemParser and self.ItemParser.sawUncachedItem then
+            self.ItemParser.sawUncachedItem = nil
+            self:InvalidateCaches()
+            self:RequestRefresh()
+        end
     end
+end
+
+-- Equipment swaps fire one event per slot; collapse bursts into one refresh.
+function BetterGearScore:RequestRefresh()
+    if not (C_Timer and C_Timer.After) then
+        self:RefreshUI()
+        return
+    end
+
+    if self.refreshPending then
+        return
+    end
+
+    self.refreshPending = true
+
+    C_Timer.After(0.1, function()
+        BetterGearScore.refreshPending = false
+        BetterGearScore:RefreshUI()
+    end)
 end
 
 function BetterGearScore:RefreshUI()

@@ -182,6 +182,9 @@ function CharacterPaneUI:HookCharacterFrame()
     end
 end
 
+-- Equipment and talent changes are handled by Core's debounced RefreshUI,
+-- which calls CharacterPaneUI:Update(). This frame only ensures the character
+-- frame hooks exist once the relevant frames have been created.
 function CharacterPaneUI:CreateEventFrame()
     if self.eventFrame then
         return
@@ -190,9 +193,6 @@ function CharacterPaneUI:CreateEventFrame()
     local eventFrame = CreateFrame("Frame")
     eventFrame:RegisterEvent("PLAYER_LOGIN")
     eventFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
-    eventFrame:RegisterEvent("PLAYER_EQUIPMENT_CHANGED")
-    eventFrame:RegisterEvent("CHARACTER_POINTS_CHANGED")
-    eventFrame:RegisterEvent("PLAYER_TALENT_UPDATE")
 
     eventFrame:SetScript("OnEvent", function()
         BetterGearScore.CharacterPaneUI:HookCharacterFrame()
