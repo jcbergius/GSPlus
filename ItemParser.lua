@@ -874,7 +874,88 @@ function ItemParser:ParseEquipTooltipLine(text, stats)
     return true
 end
 
+-- Proc trinkets ("Your harmful spells have a 10% chance to increase your
+-- spell haste rating by 320 for 6 sec.", Quagmirran's Eye etc.) are valued
+-- at estimated average uptime instead of being left unscored. Neither the
+-- trigger rate nor the internal cooldown is on the tooltip, so the model
+-- assumes one trigger every 2 seconds and the typical TBC trinket ICD:
+--   uptime = duration / (assumed ICD + expected time to proc)
+-- Quagmirran's Eye: 6 / (40 + 1/(0.10 x 0.5)) = 10% uptime -> 32 haste,
+-- in line with community average-value estimates.
+ItemParser.PROC_TRIGGER_RATE_PER_SECOND = 0.5
+ItemParser.PROC_ASSUMED_COOLDOWN_SECONDS = 40
+ItemParser.PROC_DEFAULT_CHANCE_PERCENT = 15
+ItemParser.PROC_MAX_UPTIME = 0.35
+
+function ItemParser:EstimateProcUptime(chancePercent, durationSeconds)
+    local chance = (tonumber(chancePercent) or self.PROC_DEFAULT_CHANCE_PERCENT) / 100
+    local duration = tonumber(durationSeconds) or 0
+
+    if chance <= 0 or duration <= 0 then
+        return 0
+    end
+
+    local timeToProc = 1 / (chance * self.PROC_TRIGGER_RATE_PER_SECOND)
+    local uptime = duration / (self.PROC_ASSUMED_COOLDOWN_SECONDS + timeToProc)
+
+    if uptime > self.PROC_MAX_UPTIME then
+        uptime = self.PROC_MAX_UPTIME
+    end
+
+    return uptime
+end
+
+function ItemParser:ParseProcEffect(text, stats)
+    if not string.find(text, "chance to") then
+        return false
+    end
+
+    local chance, statName, value, duration
+
+    chance, statName, value, duration = string.match(
+        text, "(%d+%.?%d*)%% chance to increase your ([%a%s]+) by (%d+) for (%d+) sec")
+
+    if not statName then
+        statName, value, duration = string.match(
+            text, "chance to increase your ([%a%s]+) by (%d+) for (%d+) sec")
+    end
+
+    if not statName then
+        chance, value, statName, duration = string.match(
+            text, "(%d+%.?%d*)%% chance to grants? you (%d+) ([%a%s]+) for (%d+) sec")
+    end
+
+    if not statName then
+        value, statName, duration = string.match(
+            text, "chance to grants? you (%d+) ([%a%s]+) for (%d+) sec")
+    end
+
+    if not statName or not value or not duration then
+        return false
+    end
+
+    local internalStat = self:NormalizeStatName(statName)
+
+    if not internalStat then
+        return false
+    end
+
+    local uptime = self:EstimateProcUptime(chance, duration)
+
+    if uptime <= 0 then
+        return false
+    end
+
+    self:AddStackingStat(stats, internalStat, tonumber(value) * uptime)
+
+    return true
+end
+
 function ItemParser:ParseEffectText(text, stats, stacking)
+    if self:ParseProcEffect(text, stats) then
+        return true
+    end
+
     if self:ParseGenericHealingSpellDamageEffect(text, stats, stacking) then
         return true
     end

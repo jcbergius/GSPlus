@@ -787,6 +787,46 @@ check(GSPlus.Inspect.lastAttempt["guid-dave"] == nil, "partial entry clears insp
 equipped.MainHandSlot = swordLink
 GSPlus:InvalidateCaches()
 
+-- 22c. Proc trinkets valued at estimated uptime (Quagmirran's Eye etc.)
+local quagLink = "|cffa335ee|Hitem:2040::::::::70:::::|h[Quagmirran's Eye]|h|r"
+fakeItems[quagLink] = { name = "Quagmirran's Eye", equipLoc = "INVTYPE_TRINKET" }
+fakeTooltips[quagLink] = {
+    "Quagmirran's Eye", "Trinket",
+    "Equip: Your harmful spells have a 10% chance to increase your spell haste rating by 320 for 6 sec.",
+}
+local quagStats = GSPlus.ItemParser:ParseItemStats(quagLink)
+-- uptime = 6 / (40 + 1/(0.10 * 0.5)) = 0.10 -> 320 * 0.10 = 32 haste
+check(quagStats.HASTE and math.abs(quagStats.HASTE - 32.0) < 0.01,
+    "Quagmirran's Eye proc valued at uptime (got " .. tostring(quagStats.HASTE) .. ")")
+check(not quagStats.UNSCORED_EQUIP_EFFECT, "stat proc no longer flagged unscored")
+
+local dstLink = "|cffa335ee|Hitem:2041::::::::70:::::|h[Dragonspine Trophy]|h|r"
+fakeItems[dstLink] = { name = "Dragonspine Trophy", equipLoc = "INVTYPE_TRINKET" }
+fakeTooltips[dstLink] = {
+    "Dragonspine Trophy", "Trinket",
+    "Equip: Your melee and ranged attacks have a chance to increase your haste rating by 325 for 10 secs.",
+}
+local dstStats = GSPlus.ItemParser:ParseItemStats(dstLink)
+-- no stated chance: default 15% -> uptime = 10 / (40 + 13.33) = 0.1875 -> 60.9
+check(dstStats.HASTE and math.abs(dstStats.HASTE - 60.94) < 0.01,
+    "chance-less proc uses default chance (got " .. tostring(dstStats.HASTE) .. ")")
+
+local grantLink = "|cffa335ee|Hitem:2042::::::::70:::::|h[Healing Charm]|h|r"
+fakeItems[grantLink] = { name = "Healing Charm", equipLoc = "INVTYPE_TRINKET" }
+fakeTooltips[grantLink] = {
+    "Healing Charm", "Trinket",
+    "Equip: Your healing spells have a 10% chance to grant you 212 healing for 10 sec.",
+}
+local grantStats = GSPlus.ItemParser:ParseItemStats(grantLink)
+-- uptime = 10 / (40 + 20) = 0.1667 -> 35.3 healing
+check(grantStats.HEALING and math.abs(grantStats.HEALING - 35.33) < 0.01,
+    "grant-you proc wording parsed (got " .. tostring(grantStats.HEALING) .. ")")
+
+-- damage procs (no stat-for-duration shape) remain honestly unscored
+local procDmg = {}
+GSPlus.ItemParser:ParseTooltipLine("Equip: Your attacks have a 5% chance to deal 95 Shadow damage to the target.", procDmg)
+check(procDmg.UNSCORED_EQUIP_EFFECT == 1 and not procDmg.HASTE, "damage procs stay unscored")
+
 -- 22. Linear weighted score: breakdown rows add up to the total exactly
 local chestStats = GSPlus.ItemParser:ParseItemStats(chestLink)
 local rows2, rowTotal = GSPlus.Tooltip:BuildStatContributionRows(chestStats, "SHAMAN_HEALER")

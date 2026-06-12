@@ -212,7 +212,7 @@ Raw stat budget:
 18 + 42 + 14 + 7 = 81
 ```
 
-### Weighted Gear Score
+### The gs+ Score
 
 The weighted score is a linear sum: each stat is converted to its item
 budget equivalent, multiplied by the role profile's weight, and added up.
@@ -296,8 +296,14 @@ rating formats and the vanilla-era formats, including:
   effects (counted at a fraction of face value)
 - Negative stats (`-10 Stamina`) are tracked and never add to the score
 
-Equip effects the parser cannot value (procs, threat, utility) are flagged,
-and the tooltip breakdown discloses that the item has unscored effects.
+Stat-buff proc trinkets (e.g. Quagmirran's Eye: "Your harmful spells have
+a 10% chance to increase your spell haste rating by 320 for 6 sec.") are
+valued at an estimated average uptime, modeled on the typical TBC trinket
+internal cooldown - documented in `ItemParser.lua` and tunable there.
+
+Equip effects the parser cannot value (damage procs, threat, utility) are
+flagged, and the tooltip breakdown discloses that the item has unscored
+effects.
 
 ## Role Profiles
 

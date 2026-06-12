@@ -29,7 +29,7 @@ Leave script errors on for the whole pass - any Lua error popup is a failure.
 - [ ] Open the character pane (`C`). The **gs+** score shows, positioned
       sensibly (not overlapping stats or buttons). *If misplaced, note the
       offset - it's set in `CharacterPaneUI.lua` (`73, 254`).*
-- [ ] Hover it: tooltip shows profile, weighted score, and the
+- [ ] Hover it: tooltip shows profile, the gs+ Score, and the
       click/right-click hints (budget/legacy lines only if enabled).
 - [ ] **The profile shown matches your actual spec** - the single most
       important check. Test specifically on a HEALER (e.g. Resto Shaman):
@@ -63,7 +63,7 @@ in `/gs` first for this section.
 - [ ] Hover a recipe or container item repeatedly: no duplicate
       gs+ sections.
 - [ ] If your character is at/near hit cap: an orange note appears under
-      the For You line on hit items - but the Weighted Score itself must
+      the For You line on hit items - but the gs+ Score itself must
       NOT change as you cross the cap.
 
 ## 4. Other players (2 min)
