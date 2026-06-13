@@ -265,58 +265,69 @@ function Inspect:QueueUnitInspect(unit)
     return true
 end
 
+-- Schedules a single deferred ProcessQueue. Guarded so repeated callers
+-- (rapid hovers, several queued units while blocked/throttled) can't stack
+-- overlapping retry timers.
+function Inspect:ScheduleDrain(delay)
+    if self.drainScheduled then
+        return
+    end
+
+    if not (C_Timer and C_Timer.After) then
+        return
+    end
+
+    self.drainScheduled = true
+
+    C_Timer.After(delay, function()
+        GSPlus.Inspect.drainScheduled = false
+        GSPlus.Inspect:ProcessQueue()
+    end)
+end
+
 function Inspect:ProcessQueue()
     if self.current then
         return
     end
 
-    local request = table.remove(self.queue, 1)
-
-    if not request then
+    if #self.queue == 0 then
         return
     end
 
-    -- Unit tokens can change meaning (target switched, raid roster moved);
-    -- only proceed if the token still points at the same player.
-    if request.guid and UnitGUID and UnitGUID(request.unit) ~= request.guid then
-        local resolved = self:FindUnitByGuid(request.guid)
-
-        if not resolved then
-            self:ProcessQueue()
-            return
-        end
-
-        request.unit = resolved
-    end
-
-    if CanInspect and not CanInspect(request.unit) then
-        self:ProcessQueue()
-        return
-    end
-
-    -- Don't start a background inspect that would collide with the player's
-    -- manual inspect or fire during combat; put the request back and retry.
+    -- Gate before consuming the queue so a blocked/throttled state doesn't
+    -- churn the head in and out; defer with a single guarded timer instead.
     if self:IsBackgroundInspectBlocked() then
-        table.insert(self.queue, 1, request)
-
-        if C_Timer and C_Timer.After then
-            C_Timer.After(1.0, function()
-                GSPlus.Inspect:ProcessQueue()
-            end)
-        end
-
+        self:ScheduleDrain(1.0)
         return
     end
 
-    -- Respect the client's NotifyInspect throttle: if we fired too recently,
-    -- wait out the remainder instead of having this request silently dropped.
     local sinceLast = time() - (self.lastNotify or 0)
 
-    if sinceLast < self.MIN_NOTIFY_INTERVAL and C_Timer and C_Timer.After then
-        table.insert(self.queue, 1, request)
-        C_Timer.After(self.MIN_NOTIFY_INTERVAL - sinceLast, function()
-            GSPlus.Inspect:ProcessQueue()
-        end)
+    if sinceLast < self.MIN_NOTIFY_INTERVAL then
+        self:ScheduleDrain(self.MIN_NOTIFY_INTERVAL - sinceLast)
+        return
+    end
+
+    local request = table.remove(self.queue, 1)
+
+    -- Unit tokens can change meaning (target switched, raid roster moved);
+    -- only proceed if the token still points at the same player. Skip
+    -- invalid/uninspectable requests and move to the next without recursing.
+    while request do
+        if request.guid and UnitGUID and UnitGUID(request.unit) ~= request.guid then
+            request.unit = self:FindUnitByGuid(request.guid)
+        end
+
+        local unit = request.unit
+
+        if unit and (not CanInspect or CanInspect(unit)) then
+            break
+        end
+
+        request = table.remove(self.queue, 1)
+    end
+
+    if not request then
         return
     end
 

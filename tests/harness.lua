@@ -292,10 +292,18 @@ for _, line in ipairs(printed) do
     if string.find(line, "is ready") then welcomeCount = welcomeCount + 1 end
 end
 check(welcomeCount == 1, "welcome message printed exactly once")
+-- INSPECT_READY listener must exist after init, not only after a lazy
+-- background inspect (so the inspect window works with tooltips disabled)
+check(GSPlus.Inspect.eventFrame ~= nil, "inspect events registered at init")
 
 -- 2. Single slash command opens options
 SlashCmdList["GSPlus"]("")
 check(optionsPanelOpened > 0, "/gs opens the options panel")
+
+-- 2b. /gs debug prints diagnostics without erroring
+printed = {}
+SlashCmdList["GSPlus"]("debug")
+check(#printed > 0 and string.find(printed[1], "gs+ debug", 1, true), "/gs debug prints diagnostics")
 
 -- 3. Item parsing regressions
 local stats = GSPlus.ItemParser:ParseItemStats(chestLink)
@@ -900,7 +908,13 @@ notifyInspectCalls = 0
 GSPlus.Inspect:QueueUnitInspect("target")
 check(notifyInspectCalls == 0 and GSPlus.Inspect.current == nil,
     "throttle defers a too-soon inspect rather than firing/dropping it")
+-- only one drain timer is scheduled no matter how many requests pile up
+GSPlus.Inspect:QueueUnitInspect("farguy")
+check(GSPlus.Inspect.drainScheduled == true, "blocked/throttled drain uses a single guarded timer")
 GSPlus.Inspect.MIN_NOTIFY_INTERVAL = 0
+GSPlus.Inspect.queue = {}
+GSPlus.Inspect.drainScheduled = false
+GSPlus.Inspect.current = nil
 
 -- uncached items proactively request a data load (recovery from blank gs)
 itemLoadRequests = 0

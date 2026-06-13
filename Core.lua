@@ -2,7 +2,7 @@
 
 GSPlus = GSPlus or {}
 
-GSPlus.VERSION = "2.4.1"
+GSPlus.VERSION = "2.4.2"
 GSPlus.ItemParser = GSPlus.ItemParser or {}
 GSPlus.Calculator = GSPlus.Calculator or {}
 GSPlus.Weights = GSPlus.Weights or {}
@@ -36,6 +36,13 @@ function GSPlus:Initialize()
         print("|cff00ff00gs+|r is ready. Your score is on your character pane"
             .. " (click it for details, right-click for group scores)."
             .. " Display settings: Interface Options or |cff00ff00/gs|r.")
+    end
+
+    -- Register the INSPECT_READY listener up front so the inspect window
+    -- score works even if no background inspect (mouseover/group) ever runs
+    -- to lazily register it - e.g. when unit tooltips are disabled.
+    if self.Inspect and self.Inspect.RegisterEvents then
+        self.Inspect:RegisterEvents()
     end
 
     if self.CharacterPaneUI and self.CharacterPaneUI.Initialize then

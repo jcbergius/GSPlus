@@ -1,7 +1,7 @@
 ## Interface: 11507
 ## Title: gs+
 ## Author: Jonathan Bergius
-## Version: 2.4.1
+## Version: 2.4.2
 ## Notes: Role-aware gear scores for you, your group, and everyone you mouse over - zero configuration
 ## SavedVariables: GSPlusSavedVars
 ## X-Category: Inventory
