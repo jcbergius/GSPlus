@@ -2,7 +2,7 @@
 
 GSPlus = GSPlus or {}
 
-GSPlus.VERSION = "2.4.0"
+GSPlus.VERSION = "2.4.1"
 GSPlus.ItemParser = GSPlus.ItemParser or {}
 GSPlus.Calculator = GSPlus.Calculator or {}
 GSPlus.Weights = GSPlus.Weights or {}
@@ -42,7 +42,9 @@ function GSPlus:Initialize()
         self.CharacterPaneUI:Initialize()
     end
 
-    if IsAddOnLoaded and IsAddOnLoaded("Blizzard_InspectUI")
+    local isAddOnLoaded = (C_AddOns and C_AddOns.IsAddOnLoaded) or IsAddOnLoaded
+
+    if isAddOnLoaded and isAddOnLoaded("Blizzard_InspectUI")
         and self.InspectPaneUI and self.InspectPaneUI.Initialize then
         self.InspectPaneUI:Initialize()
     end
@@ -131,6 +133,17 @@ function GSPlus:OnEvent(event, ...)
 
                 GSPlus:InvalidateCaches()
                 GSPlus:RefreshUI()
+
+                -- Newly-loaded items may belong to a player whose score we
+                -- captured partially; refresh those surfaces too.
+                if GSPlus.GroupFrame and GSPlus.GroupFrame.IsVisible
+                    and GSPlus.GroupFrame:IsVisible() then
+                    GSPlus.GroupFrame:Update()
+                end
+
+                if GSPlus.InspectPaneUI and GSPlus.InspectPaneUI.Update then
+                    GSPlus.InspectPaneUI:Update()
+                end
             end
 
             if C_Timer and C_Timer.After then

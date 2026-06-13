@@ -10,9 +10,30 @@ local Inspect = GSPlus.Inspect
 Inspect.INSPECT_TIMEOUT = 2.5
 Inspect.RETRY_COOLDOWN = 10
 Inspect.QUEUE_STEP_DELAY = 0.3
+-- The client allows only one inspect in flight and throttles NotifyInspect
+-- to roughly 1.5s; fire no faster than this so requests aren't dropped.
+Inspect.MIN_NOTIFY_INTERVAL = 1.5
 
 Inspect.queue = Inspect.queue or {}
 Inspect.lastAttempt = Inspect.lastAttempt or {}
+Inspect.lastNotify = Inspect.lastNotify or 0
+
+-- Background inspects must never fight the player's own inspecting. Skip
+-- queueing while the Blizzard inspect window is open (its NotifyInspect and
+-- ours collide and one is dropped) or while in combat (inspect is
+-- unreliable then). The inspect window's own unit is still captured
+-- opportunistically from Blizzard's INSPECT_READY in HandleInspectReady.
+function Inspect:IsBackgroundInspectBlocked()
+    if InspectFrame and InspectFrame:IsShown() then
+        return true
+    end
+
+    if InCombatLockdown and InCombatLockdown() then
+        return true
+    end
+
+    return false
+end
 
 function Inspect:RegisterEvents()
     if self.eventFrame then
@@ -206,6 +227,10 @@ function Inspect:QueueUnitInspect(unit)
         return false
     end
 
+    if self:IsBackgroundInspectBlocked() then
+        return false
+    end
+
     local guid = UnitGUID and UnitGUID(unit) or nil
 
     if guid then
@@ -269,7 +294,34 @@ function Inspect:ProcessQueue()
         return
     end
 
+    -- Don't start a background inspect that would collide with the player's
+    -- manual inspect or fire during combat; put the request back and retry.
+    if self:IsBackgroundInspectBlocked() then
+        table.insert(self.queue, 1, request)
+
+        if C_Timer and C_Timer.After then
+            C_Timer.After(1.0, function()
+                GSPlus.Inspect:ProcessQueue()
+            end)
+        end
+
+        return
+    end
+
+    -- Respect the client's NotifyInspect throttle: if we fired too recently,
+    -- wait out the remainder instead of having this request silently dropped.
+    local sinceLast = time() - (self.lastNotify or 0)
+
+    if sinceLast < self.MIN_NOTIFY_INTERVAL and C_Timer and C_Timer.After then
+        table.insert(self.queue, 1, request)
+        C_Timer.After(self.MIN_NOTIFY_INTERVAL - sinceLast, function()
+            GSPlus.Inspect:ProcessQueue()
+        end)
+        return
+    end
+
     self.current = request
+    self.lastNotify = time()
 
     if request.guid then
         self.lastAttempt[request.guid] = time()
@@ -301,6 +353,13 @@ function Inspect:FindUnitByGuid(guid)
     end
 
     local candidates = { "mouseover", "target", "focus" }
+
+    -- The Blizzard inspect window may target a unit we aren't otherwise
+    -- pointing at (inspected via dropdown); include it so we can capture
+    -- the data its NotifyInspect produced.
+    if InspectFrame and InspectFrame.unit then
+        candidates[#candidates + 1] = InspectFrame.unit
+    end
 
     for _, unit in ipairs(candidates) do
         if UnitExists(unit) and UnitGUID(unit) == guid then
@@ -385,10 +444,9 @@ function Inspect:HandleInspectReady(guid)
         self:StoreUnitEntry(unit, request.guid, self:BuildUnitEntry(unit, "inspect"))
     end
 
-    -- Only release inspect data if the Blizzard inspect window isn't using it.
-    if ClearInspectPlayer and not (InspectFrame and InspectFrame:IsShown()) then
-        ClearInspectPlayer()
-    end
+    -- Intentionally NOT calling ClearInspectPlayer(): it corrupts the
+    -- Blizzard inspect UI and collides with other inspect addons. Leaving
+    -- the data resident is harmless and far more reliable.
 
     if C_Timer and C_Timer.After then
         C_Timer.After(self.QUEUE_STEP_DELAY, function()

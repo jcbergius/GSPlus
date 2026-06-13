@@ -113,6 +113,12 @@ function UnitGUID(unit) local u = TEST_UNITS[unit]; return u and u.guid end
 function UnitName(unit) local u = TEST_UNITS[unit]; return u and u.name end
 function CanInspect(unit) return TEST_UNITS[unit] ~= nil end
 function NotifyInspect(unit) notifyInspectCalls = notifyInspectCalls + 1 end
+local inCombat = false
+function InCombatLockdown() return inCombat end
+local clearInspectCalls = 0
+function ClearInspectPlayer() clearInspectCalls = clearInspectCalls + 1 end
+local itemLoadRequests = 0
+C_Item = { RequestLoadItemDataByID = function() itemLoadRequests = itemLoadRequests + 1 end }
 function IsShiftKeyDown() return true end
 function IsInRaid() return false end
 function IsInGroup() return inGroup end
@@ -260,6 +266,11 @@ for _, file in ipairs(tocOrder) do
     local chunk = assert(loadfile(ADDON_DIR .. "/" .. file))
     chunk()
 end
+
+-- The NotifyInspect throttle uses second-resolution time() which a fast
+-- test run can't advance; disable it for the baseline and test the throttle
+-- logic explicitly in its own section.
+GSPlus.Inspect.MIN_NOTIFY_INTERVAL = 0
 
 -- Tests ------------------------------------------------------------------------
 local failures = 0
@@ -498,6 +509,11 @@ check(GSPlus.InspectPaneUI.scoreText.text ~= nil
     and string.find(GSPlus.InspectPaneUI.scoreText.text, "|c") ~= nil, "inspect pane shows Bob's score")
 GSPlus.InspectPaneUI:OnScoreUpdated("guid-bob")
 check(GSPlus.InspectPaneUI.frame:IsShown(), "inspect pane visible after score update")
+
+-- HandleInspectReady must NOT call ClearInspectPlayer (breaks Blizzard inspect)
+check(clearInspectCalls == 0, "ClearInspectPlayer never called")
+
+InspectFrame:Hide()
 
 -- 11. Character pane is the click hub
 local paneFrame = GSPlus.CharacterPaneUI.frame
@@ -852,6 +868,46 @@ fakeTooltips[dmcLink] = {
 local dmcStats = GSPlus.ItemParser:ParseItemStats(dmcLink)
 check(dmcStats.ATTACKPOWER == 100 and dmcStats.SPELLPOWER == 70,
     "Darkmoon Card: Crusade override provides both AP and spell power")
+
+-- 22e. Inspect reliability guards (the "can't inspect half the time" fixes)
+TEST_UNITS.farguy = { name = "Far", guid = "guid-far", isPlayer = true, class = "ROGUE" }
+
+-- background inspect blocked while the Blizzard inspect window is open
+InspectFrame:Show()
+GSPlus.Inspect.lastAttempt["guid-far"] = nil
+check(GSPlus.Inspect:QueueUnitInspect("farguy") == false, "no background inspect while inspect frame open")
+InspectFrame:Hide()
+
+-- background inspect blocked in combat
+inCombat = true
+check(GSPlus.Inspect:QueueUnitInspect("farguy") == false, "no background inspect in combat")
+inCombat = false
+
+-- with both clear, the inspect queues again
+GSPlus.Inspect.lastAttempt["guid-far"] = nil
+GSPlus.Inspect.current = nil
+notifyInspectCalls = 0
+check(GSPlus.Inspect:QueueUnitInspect("farguy"), "inspect queues when not blocked")
+check(notifyInspectCalls == 1, "NotifyInspect fired once when not blocked")
+GSPlus.Inspect:HandleInspectReady("guid-far")
+
+-- the NotifyInspect throttle defers a too-soon request instead of dropping it
+GSPlus.Inspect.MIN_NOTIFY_INTERVAL = 1.5
+GSPlus.Inspect.lastNotify = time()
+GSPlus.Inspect.current = nil
+GSPlus.Inspect.lastAttempt["guid-bob"] = nil
+notifyInspectCalls = 0
+GSPlus.Inspect:QueueUnitInspect("target")
+check(notifyInspectCalls == 0 and GSPlus.Inspect.current == nil,
+    "throttle defers a too-soon inspect rather than firing/dropping it")
+GSPlus.Inspect.MIN_NOTIFY_INTERVAL = 0
+
+-- uncached items proactively request a data load (recovery from blank gs)
+itemLoadRequests = 0
+local blankLink = "|cffa335ee|Hitem:9001::::::::70:::::|h[Unseen Relic]|h|r"
+fakeItems[blankLink] = nil  -- GetItemInfo returns nil: item not in cache
+GSPlus.ItemParser:ParseItemStats(blankLink)
+check(itemLoadRequests >= 1, "uncached item triggers a data load request")
 
 -- 22. Linear weighted score: breakdown rows add up to the total exactly
 local chestStats = GSPlus.ItemParser:ParseItemStats(chestLink)

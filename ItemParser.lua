@@ -265,8 +265,10 @@ function ItemParser:ParseItemStats(itemLink)
 
     if not itemName then
         -- Item data not yet available from the server. Do not cache the empty
-        -- result; Core retries after GET_ITEM_INFO_RECEIVED.
+        -- result; ask the client to load it so GET_ITEM_INFO_RECEIVED fires
+        -- and Core re-scores.
         self.sawUncachedItem = true
+        self:RequestItemLoad(itemLink)
         return {}
     end
 
@@ -306,6 +308,7 @@ function ItemParser:ParseItemStats(itemLink)
     if scannedLines < self.MIN_COMPLETE_TOOLTIP_LINES then
         stats.INCOMPLETE_SCAN = 1
         self.sawUncachedItem = true
+        self:RequestItemLoad(itemLink)
         return stats
     end
 
@@ -445,6 +448,25 @@ ItemParser.ENCHANTABLE_SLOT_KEYS = {
 
 function ItemParser:GetItemId(itemLink)
     return tonumber(string.match(itemLink or "", "item:(%d+)"))
+end
+
+-- Ask the client to load an item's full data so GET_ITEM_INFO_RECEIVED
+-- fires and the item can be re-scored. Without this, an item the local
+-- cache has never seen (common when inspecting strangers) may never load
+-- on its own, leaving it permanently blank.
+function ItemParser:RequestItemLoad(itemLink)
+    local itemId = self:GetItemId(itemLink)
+
+    if not itemId then
+        return
+    end
+
+    if C_Item and C_Item.RequestLoadItemDataByID then
+        C_Item.RequestLoadItemDataByID(itemId)
+    elseif GetItemInfo then
+        -- On older clients, GetItemInfo itself kicks off the async load.
+        GetItemInfo(itemLink)
+    end
 end
 
 function ItemParser:GetEnchantId(itemLink)
