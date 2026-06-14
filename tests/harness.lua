@@ -1773,6 +1773,36 @@ end)()
 end)()
 
 ;(function()
+    -- 59b. A shield-wearing paladin/warrior is never gear-resolved to DPS, even
+    -- when talents are unreadable and the gear otherwise looks DPS-ish.
+    TEST_UNITS.shieldpal = { name = "Shieldy", guid = "guid-shieldy", isPlayer = true, class = "PALADIN" }
+    local savedEqSh = {}
+    for k, v in pairs(equipped) do savedEqSh[k] = v end
+    for _, k in ipairs(allSlotKeys) do equipped[k] = nil end
+    local function p(slot, id, equipLoc, lines)
+        local link = "|cffa335ee|Hitem:" .. id .. "::::::::70:::::|h[S" .. id .. "]|h|r"
+        fakeItems[link] = { name = "S" .. id, equipLoc = equipLoc }
+        fakeTooltips[link] = lines
+        equipped[slot] = link
+    end
+    -- strength plate (looks DPS) + a shield with NO defense (just stamina)
+    p("ChestSlot", 6601, "INVTYPE_CHEST", { "S", "Plate", "1300 Armor", "+40 Strength", "+30 Stamina" })
+    p("LegsSlot", 6602, "INVTYPE_LEGS", { "S", "Plate", "1200 Armor", "+38 Strength", "+28 Stamina" })
+    p("SecondaryHandSlot", 6603, "INVTYPE_SHIELD", { "S", "Shield", "3000 Armor", "+35 Stamina" })
+    talentTabs = { { name = "Holy", points = 0 }, { name = "Protection", points = 0 }, { name = "Retribution", points = 0 } }
+    GSPlus:InvalidateCaches()
+    GSPlus.ItemParser:InvalidateStatsCache()
+    check(GSPlus.ItemParser:HasShieldEquipped("shieldpal"), "shield detected on the unit")
+    check(GSPlus.Inspect:GetUnitProfile("shieldpal") ~= "PALADIN_DPS",
+        "shield-wearing paladin not resolved to DPS (got " .. tostring(GSPlus.Inspect:GetUnitProfile("shieldpal")) .. ")")
+    talentTabs = { { name = "Arms", points = 5 }, { name = "Fury", points = 3 }, { name = "Protection", points = 41 } }
+    for _, k in ipairs(allSlotKeys) do equipped[k] = nil end
+    for k, v in pairs(savedEqSh) do equipped[k] = v end
+    GSPlus:InvalidateCaches()
+    GSPlus.ItemParser:InvalidateStatsCache()
+end)()
+
+;(function()
     -- 60. CONSISTENCY: the self/comms scorer (CalculateTotalGSPlus) and the
     -- inspect scorer (CalculateUnitScore) must produce the SAME number for the
     -- SAME gear - otherwise a player's mouseover (comms) score differs from

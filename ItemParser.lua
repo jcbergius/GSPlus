@@ -603,6 +603,22 @@ end
 -- choosing a tank profile.
 ItemParser.TANK_GEAR_DEFENSE_MIN = 20
 
+-- A paladin or warrior holding a shield is a tank (or, for paladins, a healer)
+-- - never a two-hander DPS spec. A strong, reliable role signal independent of
+-- whether talents could be read.
+function ItemParser:HasShieldEquipped(unit)
+    unit = unit or "player"
+
+    local slotId = GetInventorySlotInfo("SecondaryHandSlot")
+    local itemLink = slotId and GetInventoryItemLink(unit, slotId)
+
+    if not itemLink then
+        return false
+    end
+
+    return select(9, GetItemInfo(itemLink)) == "INVTYPE_SHIELD"
+end
+
 function ItemParser:GetTankStatTotal(unit)
     unit = unit or "player"
 

@@ -231,8 +231,36 @@ function Inspect:GetUnitProfile(unit)
     return GSPlus.Profiles:GetDefaultProfileForClass(classFileName)
 end
 
+-- A shield rules out the 2H DPS specs for plate classes; drop them so a
+-- shield-wearing paladin/warrior is never gear-resolved to DPS.
+function Inspect:FilterProfilesByWeaponType(profileKeys, classFileName, unit)
+    if classFileName ~= "PALADIN" and classFileName ~= "WARRIOR" then
+        return profileKeys
+    end
+
+    if not (GSPlus.ItemParser and GSPlus.ItemParser.HasShieldEquipped
+        and GSPlus.ItemParser:HasShieldEquipped(unit)) then
+        return profileKeys
+    end
+
+    local filtered = {}
+
+    for _, key in ipairs(profileKeys) do
+        if GSPlus.Calculator:GetProfileColorCapGroup(key) ~= "PHYSICAL_DPS" then
+            filtered[#filtered + 1] = key
+        end
+    end
+
+    if #filtered > 0 then
+        return filtered
+    end
+
+    return profileKeys
+end
+
 function Inspect:ResolveUnitProfileByGear(unit, classFileName)
-    local profileKeys = GSPlus.TalentDetector:GetClassProfiles(classFileName)
+    local profileKeys = self:FilterProfilesByWeaponType(
+        GSPlus.TalentDetector:GetClassProfiles(classFileName), classFileName, unit)
 
     if #profileKeys == 0 then
         return nil
