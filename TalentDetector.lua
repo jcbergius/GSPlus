@@ -69,6 +69,47 @@ TalentDetector.CLASS_TREE_PROFILES = {
     },
 }
 
+-- English talent-tree names per class, in the standard tab order, parallel to
+-- CLASS_TREE_PROFILES. The inspect talent API can return tabs in a different
+-- ORDER than this (a 45/11/5 holy paladin can read its 45 Holy points at tab
+-- index 3), so role resolution maps by the dominant tree's NAME, which is
+-- order-independent, and only falls back to the index when the name is unknown
+-- (non-English clients).
+TalentDetector.CLASS_TREE_NAMES = {
+    WARRIOR = { "Arms", "Fury", "Protection" },
+    PALADIN = { "Holy", "Protection", "Retribution" },
+    HUNTER = { "Beast Mastery", "Marksmanship", "Survival" },
+    ROGUE = { "Assassination", "Combat", "Subtlety" },
+    PRIEST = { "Discipline", "Holy", "Shadow" },
+    SHAMAN = { "Elemental", "Enhancement", "Restoration" },
+    MAGE = { "Arcane", "Fire", "Frost" },
+    WARLOCK = { "Affliction", "Demonology", "Destruction" },
+    DRUID = { "Balance", "Feral Combat", "Restoration" },
+    DEATHKNIGHT = { "Blood", "Frost", "Unholy" },
+}
+
+-- Profile for a talent tree identified by NAME (order-independent).
+function TalentDetector:ProfileForTreeName(className, treeName)
+    if not treeName or treeName == "" then
+        return nil
+    end
+
+    local names = self.CLASS_TREE_NAMES[className]
+    local profiles = self.CLASS_TREE_PROFILES[className]
+
+    if not names or not profiles then
+        return nil
+    end
+
+    for i, n in ipairs(names) do
+        if n == treeName then
+            return profiles[i]
+        end
+    end
+
+    return nil
+end
+
 -- GetTalentTabInfo's returns vary by client:
 --   A: (name, texture, pointsSpent, fileName)            - Classic-style
 --   B: (id, name, description, texture, pointsSpent)     - Wrath-style
@@ -109,6 +150,50 @@ function TalentDetector:GetTalentTabNameAndPoints(tabIndex, isInspect)
     end
 
     return name, points
+end
+
+-- Reads the inspected unit's dominant talent tree. On TBC/Classic the inspect
+-- points from GetTalentTabInfo(tab, true) are unreliable (they can echo the
+-- VIEWER's own talents), so - like LibClassicInspector - we sum each tab's
+-- talent ranks via GetTalentInfo(tab, talent, true). The inspect APIs take no
+-- unit argument: they read the LAST inspected unit, so the caller must invoke
+-- this only right after that unit's INSPECT_READY. Falls back to the tab-info
+-- points when the per-talent API is unavailable (older clients / tests).
+function TalentDetector:GetInspectDominantTree()
+    local numTabs = (GetNumTalentTabs and GetNumTalentTabs(true)) or 3
+    local haveRankApi = GetTalentInfo and GetNumTalents
+    local bestIndex, bestPoints, totalPoints = nil, -1, 0
+
+    for tabIndex = 1, numTabs do
+        local tabPoints = 0
+
+        if haveRankApi then
+            local count = GetNumTalents(tabIndex, true, false) or 0
+
+            for talentIndex = 1, count do
+                local rank = select(5, GetTalentInfo(tabIndex, talentIndex, true, false, 1))
+                tabPoints = tabPoints + (tonumber(rank) or 0)
+            end
+        else
+            local _, points = self:GetTalentTabNameAndPoints(tabIndex, true)
+            tabPoints = points or 0
+        end
+
+        totalPoints = totalPoints + tabPoints
+
+        if tabPoints > bestPoints then
+            bestPoints = tabPoints
+            bestIndex = tabIndex
+        end
+    end
+
+    if not bestIndex or totalPoints == 0 then
+        return nil, 0
+    end
+
+    local bestName = (self:GetTalentTabNameAndPoints(bestIndex, true))
+
+    return bestIndex, totalPoints, bestName
 end
 
 function TalentDetector:GetTalentPoints(isInspect)

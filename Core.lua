@@ -146,6 +146,15 @@ function GSPlus:OnEvent(event, ...)
                 end
 
                 GSPlus:InvalidateCaches()
+
+                -- Newly-loaded item data: actively re-score the players we
+                -- already track so a score captured from half-loaded gear
+                -- converges to the right number without a /reload. Re-rendering
+                -- alone (RefreshUI) would keep showing the stale cached entry.
+                if GSPlus.Inspect and GSPlus.Inspect.RescoreResolvableUnits then
+                    GSPlus.Inspect:RescoreResolvableUnits()
+                end
+
                 GSPlus:RefreshUI()
 
                 -- Newly-loaded items may belong to a player whose score we

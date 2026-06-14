@@ -300,6 +300,17 @@ function ItemParser:InvalidateStatsCache()
     self.statsCacheCount = 0
 end
 
+-- Drop a single item's cached parse so the next scan re-reads its tooltip.
+-- Used by the post-inspect verification pass: an item's green equip lines can
+-- still be a beat behind even when the client reports it cached, so the first
+-- scan undercounts; re-scanning shortly after recovers the missing stats.
+function ItemParser:InvalidateItem(itemLink)
+    if itemLink and self.statsCache[itemLink] then
+        self.statsCache[itemLink] = nil
+        self.statsCacheCount = math.max(0, self.statsCacheCount - 1)
+    end
+end
+
 -- A real equippable item's tooltip always has at least name + slot/stat
 -- lines. Fewer scanned lines means the server hadn't sent the item's
 -- tooltip data yet, even though GetItemInfo already answered.
@@ -319,12 +330,14 @@ function ItemParser:ParseItemStats(itemLink)
     local itemName = GetItemInfo(itemLink)
 
     if not itemName then
-        -- Item data not yet available from the server. Do not cache the empty
-        -- result; ask the client to load it so GET_ITEM_INFO_RECEIVED fires
-        -- and Core re-scores.
+        -- Item data not yet available from the server. Do not cache the result;
+        -- ask the client to load it so GET_ITEM_INFO_RECEIVED fires and Core
+        -- re-scores. Flag INCOMPLETE_SCAN so a unit scored while this item is
+        -- still loading counts as partial (shown as "...") instead of being
+        -- silently scored as zero and frozen at a wrong, "complete" total.
         self.sawUncachedItem = true
         self:RequestItemLoad(itemLink)
-        return {}
+        return { INCOMPLETE_SCAN = 1 }
     end
 
     local stats = {}
@@ -602,6 +615,9 @@ end
 -- unambiguous tank stats so role detection can require them before ever
 -- choosing a tank profile.
 ItemParser.TANK_GEAR_DEFENSE_MIN = 20
+-- Defense RATING is itemized only by tanks (to reach the uncrittable cap), so
+-- it's the cleanest tank signal: real tanks carry hundreds, non-tanks ~zero.
+ItemParser.TANK_DEFENSE_RATING_MIN = 60
 
 -- A paladin or warrior holding a shield is a tank (or, for paladins, a healer)
 -- - never a two-hander DPS spec. A strong, reliable role signal independent of
@@ -632,6 +648,26 @@ function ItemParser:GetTankStatTotal(unit)
             local stats = self:ParseItemStats(itemLink)
             total = total + (stats.DEFENSE or 0) + (stats.DODGE or 0)
                 + (stats.PARRY or 0) + (stats.BLOCK or 0)
+        end
+    end
+
+    return total
+end
+
+-- Total defense RATING across the unit's gear. A tank-only stat, so it cleanly
+-- separates tanks (hundreds) from everyone else (~0), independent of the
+-- unreliable inspect talent API.
+function ItemParser:GetDefenseRatingTotal(unit)
+    unit = unit or "player"
+
+    local total = 0
+
+    for _, slotInfo in ipairs(self.EQUIPMENT_SLOTS) do
+        local slotId = GetInventorySlotInfo(slotInfo.key)
+        local itemLink = slotId and GetInventoryItemLink(unit, slotId)
+
+        if itemLink then
+            total = total + (self:ParseItemStats(itemLink).DEFENSE or 0)
         end
     end
 
@@ -675,6 +711,10 @@ function ItemParser:ParseTooltipLine(text, stats)
     end
 
     if self:ParseEquipTooltipLine(text, stats) then
+        return
+    end
+
+    if self:ParseChanceOnHitTooltipLine(text, stats) then
         return
     end
 
@@ -875,12 +915,50 @@ end
 function ItemParser:ParseStatChunks(text, stats, stacking)
     local parsedAny = false
 
-    for sign, value, statName in string.gmatch(text, "([%+%-])(%d+)%s+([^%+%-]+)") do
-        statName = string.gsub(statName, "%s+and%s*$", "")
-        statName = string.gsub(statName, "%s*$", "")
+    -- Break the line into "and"-separated clauses so a secondary stat that
+    -- lacks a +/- sign (gem "+5 Defense Rating and 2 mana per 5 sec") is still
+    -- parsed. A clause may still hold several signed chunks: "+5 Parry Rating
+    -- and +4 Defense Rating" splits cleanly, while "+10 Stamina +5 Intellect"
+    -- stays one clause and is covered by the signed gmatch below.
+    local clauses = {}
+    local rest = text
 
-        if self:AddTextStat(stats, statName, tonumber(sign .. value), stacking) then
-            parsedAny = true
+    while true do
+        local andStart, andEnd = string.find(rest, "%s+and%s+")
+
+        if not andStart then
+            clauses[#clauses + 1] = rest
+            break
+        end
+
+        clauses[#clauses + 1] = string.sub(rest, 1, andStart - 1)
+        rest = string.sub(rest, andEnd + 1)
+    end
+
+    for _, clause in ipairs(clauses) do
+        local matchedSigned = false
+
+        for sign, value, statName in string.gmatch(clause, "([%+%-])(%d+)%s+([^%+%-]+)") do
+            statName = string.gsub(statName, "%s+and%s*$", "")
+            statName = string.gsub(statName, "%s*$", "")
+
+            if self:AddTextStat(stats, statName, tonumber(sign .. value), stacking) then
+                parsedAny = true
+                matchedSigned = true
+            end
+        end
+
+        if not matchedSigned then
+            -- Unsigned secondary clause, e.g. "2 mana per 5 sec".
+            local value, statName = string.match(clause, "^%s*(%d+)%s+(.+)$")
+
+            if value and statName then
+                statName = string.gsub(statName, "%s*$", "")
+
+                if self:AddTextStat(stats, statName, tonumber(value), stacking) then
+                    parsedAny = true
+                end
+            end
         end
     end
 
@@ -991,6 +1069,14 @@ function ItemParser:ParseBaseTooltipStatLine(text, stats)
         return true
     end
 
+    -- A shield's innate block value renders as a bare "<N> Block" line.
+    local shieldBlockValue = string.match(text, "^(%d+)%s+Block$")
+
+    if shieldBlockValue then
+        self:AddStat(stats, "BLOCK_VALUE", shieldBlockValue)
+        return true
+    end
+
     if self:ParseAllStatsLine(text, stats, false) then
         return true
     end
@@ -1032,11 +1118,33 @@ ItemParser.USE_DEFAULT_COOLDOWN_SECONDS = 120
 ItemParser.USE_MAX_UPTIME = 0.5
 
 function ItemParser:ParseUseCooldownSeconds(text)
-    local value, unit = string.match(text, "%((%d+%.?%d*)%s*([%a]+)[^%)]*[Cc]ooldown%)")
+    -- Prefer the parenthetical cooldown clause so a compound time
+    -- ("(1 Min 30 Secs Cooldown)" -> 90s) is summed in full and the effect's
+    -- own "for N sec" duration is never mistaken for the cooldown.
+    local cdClause = string.match(text, "%(([^%)]*[Cc]ooldown[^%)]*)%)")
 
-    if not value then
-        value, unit = string.match(text, "(%d+%.?%d*)%s*([%a]+)%s*[Cc]ooldown")
+    if cdClause then
+        local total, found = 0, false
+
+        for value, unit in string.gmatch(cdClause, "(%d+%.?%d*)%s*([%a]+)") do
+            local u = string.lower(unit)
+
+            if string.find(u, "min", 1, true) then
+                total = total + tonumber(value) * 60
+                found = true
+            elseif string.find(u, "sec", 1, true) then
+                total = total + tonumber(value)
+                found = true
+            end
+        end
+
+        if found then
+            return total
+        end
     end
+
+    -- No parenthetical: take the single number+unit right before "cooldown".
+    local value, unit = string.match(text, "(%d+%.?%d*)%s*([%a]+)%s*[Cc]ooldown")
 
     if not value then
         return nil
@@ -1157,6 +1265,71 @@ function ItemParser:ParseEquipTooltipLine(text, stats)
     if not self:ParseEffectText(equipText, stats, true) then
         -- Unrecognized equip effect (proc, utility, threat, etc.): flag it
         -- so the tooltip breakdown can disclose that something isn't scored.
+        self:AddStackingStat(stats, "UNSCORED_EQUIP_EFFECT", 1)
+    end
+
+    return true
+end
+
+-- Chance-on-hit weapon procs ("Chance on hit: Increases your attack power by
+-- 200 for 10 sec") have no stated rate - it is a hidden PPM, ~1 for these
+-- weapons - so a sustained buff is valued at uptime = duration * PPM / 60.
+-- One-shot "next attack" buffs (World Breaker: crit rating on the next swing)
+-- have no sustained duration and cannot be fairly valued, so they are flagged
+-- unscored and disclosed in the breakdown rather than guessed at.
+ItemParser.CHANCE_ON_HIT_PPM = 1.0
+ItemParser.CHANCE_ON_HIT_MAX_UPTIME = 0.30
+
+function ItemParser:EstimateChanceOnHitUptime(durationSeconds)
+    local duration = tonumber(durationSeconds) or 0
+
+    if duration <= 0 then
+        return 0
+    end
+
+    local uptime = duration * self.CHANCE_ON_HIT_PPM / 60
+
+    if uptime > self.CHANCE_ON_HIT_MAX_UPTIME then
+        uptime = self.CHANCE_ON_HIT_MAX_UPTIME
+    end
+
+    return uptime
+end
+
+function ItemParser:ParseChanceOnHitEffect(effectText, stats)
+    local statName, value, duration =
+        string.match(effectText, "[Ii]ncreases your ([%a%s]+) by (%d+) for (%d+) sec")
+
+    if not statName then
+        statName, value, duration =
+            string.match(effectText, "[Ii]ncreases ([%a%s]+) by (%d+) for (%d+) sec")
+    end
+
+    if statName and value and duration then
+        local internalStat = self:NormalizeStatName(statName)
+
+        if internalStat then
+            local uptime = self:EstimateChanceOnHitUptime(duration)
+
+            if uptime > 0 then
+                self:AddStackingStat(stats, internalStat, tonumber(value) * uptime)
+                return true
+            end
+        end
+    end
+
+    return false
+end
+
+function ItemParser:ParseChanceOnHitTooltipLine(text, stats)
+    local effectText = string.match(text, "^Chance on [Hh]it:%s*(.+)$")
+
+    if not effectText then
+        return false
+    end
+
+    if not self:ParseChanceOnHitEffect(effectText, stats) then
+        -- Unmodellable one-shot / utility proc: disclose instead of dropping.
         self:AddStackingStat(stats, "UNSCORED_EQUIP_EFFECT", 1)
     end
 

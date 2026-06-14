@@ -12,7 +12,7 @@ PlayerCache.MAX_ENTRIES = 300
 -- Bumped whenever scoring or role-detection logic changes. On a mismatch the
 -- persisted cache is wiped so stale numbers/roles from an older build can't
 -- survive a /reload or relog - everyone is simply re-inspected fresh.
-PlayerCache.CACHE_VERSION = 3
+PlayerCache.CACHE_VERSION = 4
 
 function PlayerCache:GetStore()
     GSPlusSavedVars = GSPlusSavedVars or {}
@@ -164,9 +164,17 @@ end
 -- The colorized weighted score for display, or a greyed loading indicator
 -- when the entry's gear has not fully loaded yet, so a misleading partial
 -- total is never shown as a number.
+-- An inspected score is only "final" once it is fully loaded (not partial) AND
+-- confirmed by the post-inspect verification pass (confirmed ~= false). A score
+-- that is still climbing as item data resolves is held back so the user never
+-- sees an undercounted number - only "...".
+function PlayerCache:IsScoreFinal(entry)
+    return entry ~= nil and not entry.partial and entry.confirmed ~= false
+end
+
 function PlayerCache:FormatScore(entry)
-    if not entry or entry.partial then
-        return "|cff888888...|r"
+    if not self:IsScoreFinal(entry) then
+        return "|cff888888Loading...|r"
     end
 
     return GSPlus.Calculator:ColorizeScore(entry.weighted or 0, entry.max or 0)

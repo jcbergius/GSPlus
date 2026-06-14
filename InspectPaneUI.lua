@@ -75,9 +75,9 @@ function InspectPaneUI:ShowTooltip(owner)
     if entry then
         GameTooltip:AddDoubleLine("gs+", GSPlus.PlayerCache:FormatScore(entry), 1, 1, 1, 1, 1, 1)
 
-        if entry.partial then
-            -- Gear still loading: no role or numbers until the score is final
-            -- (a role guessed from partial gear can be wrong).
+        if not GSPlus.PlayerCache:IsScoreFinal(entry) then
+            -- Gear still loading or score not yet confirmed: no role or numbers
+            -- until final (a role guessed from partial gear can be wrong).
             GameTooltip:AddLine("Waiting for all gear to load before scoring.", 0.6, 0.6, 0.6)
         else
             GameTooltip:AddLine("Profile: " .. GSPlus.Profiles:GetProfileDisplayName(entry.profileKey), 1, 1, 1)
@@ -120,7 +120,7 @@ function InspectPaneUI:Update()
 
     self.scoreText:SetText(GSPlus.PlayerCache:FormatScore(entry))
 
-    if not entry or entry.partial then
+    if not GSPlus.PlayerCache:IsScoreFinal(entry) then
         -- No data yet, or gear still loading: keep requesting until complete
         -- so the loading indicator resolves into a real score. (Blizzard's
         -- own NotifyInspect usually covers the first case.)

@@ -65,9 +65,9 @@ function UnitTooltip:AddScoreToTooltip(tooltip)
     if entry then
         self:AppendEntryLines(tooltip, entry)
 
-        -- Partial entries (items weren't server-cached during the scan)
-        -- under-count; silently refresh while showing what we have.
-        if entry.partial and not UnitIsUnit(unit, "player") then
+        -- Not yet final (items still loading, or score not confirmed by the
+        -- verification pass): refresh in the background while showing "...".
+        if not GSPlus.PlayerCache:IsScoreFinal(entry) and not UnitIsUnit(unit, "player") then
             GSPlus.Inspect:QueueUnitInspect(unit)
         end
     else
@@ -77,7 +77,7 @@ function UnitTooltip:AddScoreToTooltip(tooltip)
 
         if queued then
             self.waitingGuid = UnitGUID and UnitGUID(unit) or nil
-            tooltip:AddDoubleLine("gs+", "inspecting...", 0, 1, 0, 0.6, 0.6, 0.6)
+            tooltip:AddDoubleLine("gs+", "Loading...", 0, 1, 0, 0.6, 0.6, 0.6)
         end
     end
 
@@ -86,22 +86,19 @@ end
 
 function UnitTooltip:AppendEntryLines(tooltip, entry)
     local rightText = GSPlus.PlayerCache:FormatScore(entry)
+    local final = GSPlus.PlayerCache:IsScoreFinal(entry)
 
     -- Show the role only once the score is final; a role guessed from
     -- partially-loaded gear can be wrong (e.g. DPS plate read as a tank).
-    if not entry.partial then
+    if final then
         rightText = rightText .. " |cff888888("
             .. GSPlus.Profiles:GetProfileDisplayName(entry.profileKey) .. ")|r"
     end
 
     tooltip:AddDoubleLine("gs+", rightText, 0, 1, 0, 1, 1, 1)
 
-    if not entry.partial and GSPlus.Options:Get("showLegacyGearScore") and entry.legacy and entry.legacy > 0 then
+    if final and GSPlus.Options:Get("showLegacyGearScore") and entry.legacy and entry.legacy > 0 then
         tooltip:AddDoubleLine("GearScore (legacy)", tostring(math.floor(entry.legacy)), 0.6, 0.6, 0.6, 0.8, 0.8, 0.8)
-    end
-
-    if entry.partial then
-        tooltip:AddLine("|cff888888Gear still loading; score hidden until complete.|r")
     end
 end
 

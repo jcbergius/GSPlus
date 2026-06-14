@@ -734,11 +734,13 @@ GSPlus:InvalidateCaches()
 check(GSPlus.TalentDetector:GetDetectedProfile() == "SHAMAN_HEALER",
     "resto shaman in healing gear detected without talents (gear fallback)")
 
--- Inspected units get the same fallback
+-- Inspected units are profiled from their talent spec (restoration -> healer)
 TEST_UNITS.focus = { name = "Carol", guid = "guid-carol", isPlayer = true, class = "SHAMAN" }
+talentTabs = { { name = "Elemental", points = 0 }, { name = "Enhancement", points = 0 }, { name = "Restoration", points = 40 } }
 local carolEntry = GSPlus.Inspect:BuildUnitEntry("focus", "inspect")
 check(carolEntry and carolEntry.profileKey == "SHAMAN_HEALER",
-    "inspected shaman in healing gear profiled by gear fallback")
+    "inspected shaman profiled from talent spec (resto -> healer)")
+talentTabs = { { name = "Elemental", points = 0 }, { name = "Enhancement", points = 0 }, { name = "Restoration", points = 0 } }
 
 -- restore state
 equipped.HeadSlot = nil
@@ -1024,8 +1026,13 @@ fakeTooltips[palLegs] = {
 TEST_UNITS.paltank = { name = "Meteor", guid = "guid-meteor", isPlayer = true, class = "PALADIN" }
 local savedTabs27 = talentTabs
 talentTabs = { { name = "Holy", points = 0 }, { name = "Protection", points = 41 }, { name = "Retribution", points = 0 } }
+local savedEqPT27 = {}
+for k, v in pairs(equipped) do savedEqPT27[k] = v end
+for _, k in ipairs(allSlotKeys) do equipped[k] = nil end
 GSPlus:InvalidateCaches()
 check(GSPlus.Inspect:GetUnitProfile("paltank") == "PALADIN_TANK", "inspected paladin resolves to PALADIN_TANK")
+for k, v in pairs(savedEqPT27) do equipped[k] = v end
+GSPlus:InvalidateCaches()
 
 GSPlus.Options:Set("showItemTooltip", true)
 GSPlus.Options:Set("showTooltipBreakdown", true)
@@ -1094,9 +1101,9 @@ GSPlus:InvalidateCaches()
 
 -- 30. The total gs+ number is hidden (loading indicator) until gear is fully
 -- loaded, and shown once complete. (report C)
-check(GSPlus.PlayerCache:FormatScore({ partial = true, weighted = 500, max = 600 }) == "|cff888888...|r",
+check(GSPlus.PlayerCache:FormatScore({ partial = true, weighted = 500, max = 600 }) == "|cff888888Loading...|r",
     "partial entry shows a loading indicator, not a number")
-check(GSPlus.PlayerCache:FormatScore(nil) == "|cff888888...|r", "missing entry shows a loading indicator")
+check(GSPlus.PlayerCache:FormatScore(nil) == "|cff888888Loading...|r", "missing entry shows a loading indicator")
 check(string.find(GSPlus.PlayerCache:FormatScore({ weighted = 500, max = 600 }), "500", 1, true) ~= nil,
     "complete entry shows the score number")
 
@@ -1354,16 +1361,14 @@ local apiKeyCount = 0
 for _ in pairs(GSPlus.ItemParser.STAT_MAPPING) do apiKeyCount = apiKeyCount + 1 end
 check(apiKeyCount >= 30, "STAT_MAPPING generated comprehensively (" .. apiKeyCount .. " keys)")
 
--- 43. A plate DPS player whose talents are unreadable must NOT be gear-
--- resolved as a tank just because stamina/armor plate looks tanky to a ratio
--- comparison. A tank profile requires actual defense/avoidance on the gear.
+-- 43. Gear has the FINAL say on the tank axis. With no defense gear the talent
+-- spec stands (Retribution -> DPS); with real tank defense gear the unit reads
+-- as tank even when the (leaked/cross-faction) talent slot says otherwise.
 TEST_UNITS.platedps = { name = "Plati", guid = "guid-plati", isPlayer = true, class = "PALADIN" }
 local savedTabsT = talentTabs
 local savedEquipT = {}
 for k, v in pairs(equipped) do savedEquipT[k] = v end
 for _, k in ipairs(allSlotKeys) do equipped[k] = nil end
--- stamina/armor/strength plate, NO defense/dodge/parry/block (DPS or still-
--- loading gear); a naive ratio comparison would call this a tank.
 local function platePiece(id, name, equipLoc, slot)
     local link = "|cffa335ee|Hitem:" .. id .. "::::::::70:::::|h[" .. name .. "]|h|r"
     fakeItems[link] = { name = name, equipLoc = equipLoc }
@@ -1373,19 +1378,20 @@ end
 platePiece(7001, "Plate Chest", "INVTYPE_CHEST", "ChestSlot")
 platePiece(7002, "Plate Legs", "INVTYPE_LEGS", "LegsSlot")
 platePiece(7003, "Plate Head", "INVTYPE_HEAD", "HeadSlot")
-talentTabs = { { name = "Holy", points = 0 }, { name = "Protection", points = 0 }, { name = "Retribution", points = 0 } }
+talentTabs = { { name = "Holy", points = 0 }, { name = "Protection", points = 0 }, { name = "Retribution", points = 41 } }
 GSPlus:InvalidateCaches()
 GSPlus.ItemParser:InvalidateStatsCache()
-check(GSPlus.Inspect:GetUnitProfile("platedps") ~= "PALADIN_TANK",
-    "plate gear without defense is not resolved as a tank (got " .. tostring(GSPlus.Inspect:GetUnitProfile("platedps")) .. ")")
+check(GSPlus.Inspect:GetUnitProfile("platedps") == "PALADIN_DPS",
+    "ret talents + no-defense gear -> DPS (got " .. tostring(GSPlus.Inspect:GetUnitProfile("platedps")) .. ")")
 
--- ...but add real tank stats (defense + dodge) and it correctly reads as tank.
+-- Equip real tank gear (defense rating). Even with the WRONG (leaked)
+-- Retribution talents still set, the defense rating forces PALADIN_TANK -
+-- the Bonkelve / Lightvee / Troy fix (talent slot leaked the wrong player).
 for _, k in ipairs(allSlotKeys) do equipped[k] = nil end
 local function tankPiece(id, name, equipLoc, slot)
     local link = "|cffa335ee|Hitem:" .. id .. "::::::::70:::::|h[" .. name .. "]|h|r"
     fakeItems[link] = { name = name, equipLoc = equipLoc }
-    fakeTooltips[link] = { name, "Plate", "1600 Armor", "+50 Stamina",
-        "+40 Defense Rating", "+30 Dodge Rating", "+25 Parry Rating" }
+    fakeTooltips[link] = { name, "Plate", "1600 Armor", "+50 Stamina", "+30 Defense Rating" }
     equipped[slot] = link
 end
 tankPiece(7011, "Guard Chest", "INVTYPE_CHEST", "ChestSlot")
@@ -1394,7 +1400,8 @@ tankPiece(7013, "Guard Head", "INVTYPE_HEAD", "HeadSlot")
 GSPlus:InvalidateCaches()
 GSPlus.ItemParser:InvalidateStatsCache()
 check(GSPlus.Inspect:GetUnitProfile("platedps") == "PALADIN_TANK",
-    "plate gear with real defense/avoidance reads as tank (got " .. tostring(GSPlus.Inspect:GetUnitProfile("platedps")) .. ")")
+    "tank defense gear overrides a wrong/leaked talent spec -> tank (got "
+    .. tostring(GSPlus.Inspect:GetUnitProfile("platedps")) .. ")")
 
 talentTabs = savedTabsT
 for _, k in ipairs(allSlotKeys) do equipped[k] = nil end
@@ -1466,12 +1473,12 @@ end
 holyPiece(8101, "Holy Helm", "INVTYPE_HEAD", "HeadSlot", 120, 40)
 holyPiece(8102, "Holy Chest", "INVTYPE_CHEST", "ChestSlot", 150, 50)
 holyPiece(8103, "Holy Legs", "INVTYPE_LEGS", "LegsSlot", 140, 47)
-talentTabs = { { name = "Holy", points = 0 }, { name = "Protection", points = 0 }, { name = "Retribution", points = 0 } }
+talentTabs = { { name = "Holy", points = 41 }, { name = "Protection", points = 0 }, { name = "Retribution", points = 0 } }
 GSPlus:InvalidateCaches()
 GSPlus.ItemParser:InvalidateStatsCache()
 check(GSPlus.ItemParser:GetTankStatTotal("holypal") == 0, "healing gear carries no tank stats")
 check(GSPlus.Inspect:GetUnitProfile("holypal") == "PALADIN_HEALER",
-    "holy paladin healing gear resolves to PALADIN_HEALER (got " .. tostring(GSPlus.Inspect:GetUnitProfile("holypal")) .. ")")
+    "holy talents resolve to PALADIN_HEALER (got " .. tostring(GSPlus.Inspect:GetUnitProfile("holypal")) .. ")")
 talentTabs = savedTabsH
 for _, k in ipairs(allSlotKeys) do equipped[k] = nil end
 for k, v in pairs(savedEquipH) do equipped[k] = v end
@@ -1533,11 +1540,11 @@ wtPiece(9502, "TankChest", "INVTYPE_CHEST", "ChestSlot",
       "Equip: Increases defense rating by 33." })
 wtPiece(9503, "TankLegs", "INVTYPE_LEGS", "LegsSlot",
     { "TankLegs", "Plate", "1257 Armor", "+39 Stamina", "+8 Defense Rating", "+15 Block Rating" })
-talentTabs = { { name = "Arms", points = 0 }, { name = "Fury", points = 0 }, { name = "Protection", points = 0 } }
+talentTabs = { { name = "Arms", points = 0 }, { name = "Fury", points = 0 }, { name = "Protection", points = 48 } }
 GSPlus:InvalidateCaches()
 GSPlus.ItemParser:InvalidateStatsCache()
 check(GSPlus.Inspect:GetUnitProfile("wartank") == "WARRIOR_TANK",
-    "warrior tank gear resolves to WARRIOR_TANK (got " .. tostring(GSPlus.Inspect:GetUnitProfile("wartank")) .. ")")
+    "protection talents resolve to WARRIOR_TANK (got " .. tostring(GSPlus.Inspect:GetUnitProfile("wartank")) .. ")")
 talentTabs = savedTabsW2
 for _, k in ipairs(allSlotKeys) do equipped[k] = nil end
 for k, v in pairs(savedEquipW2) do equipped[k] = v end
@@ -1789,12 +1796,12 @@ end)()
     p("ChestSlot", 6601, "INVTYPE_CHEST", { "S", "Plate", "1300 Armor", "+40 Strength", "+30 Stamina" })
     p("LegsSlot", 6602, "INVTYPE_LEGS", { "S", "Plate", "1200 Armor", "+38 Strength", "+28 Stamina" })
     p("SecondaryHandSlot", 6603, "INVTYPE_SHIELD", { "S", "Shield", "3000 Armor", "+35 Stamina" })
-    talentTabs = { { name = "Holy", points = 0 }, { name = "Protection", points = 0 }, { name = "Retribution", points = 0 } }
+    talentTabs = { { name = "Holy", points = 41 }, { name = "Protection", points = 0 }, { name = "Retribution", points = 0 } }
     GSPlus:InvalidateCaches()
     GSPlus.ItemParser:InvalidateStatsCache()
     check(GSPlus.ItemParser:HasShieldEquipped("shieldpal"), "shield detected on the unit")
-    check(GSPlus.Inspect:GetUnitProfile("shieldpal") ~= "PALADIN_DPS",
-        "shield-wearing paladin not resolved to DPS (got " .. tostring(GSPlus.Inspect:GetUnitProfile("shieldpal")) .. ")")
+    check(GSPlus.Inspect:GetUnitProfile("shieldpal") == "PALADIN_HEALER",
+        "holy talents read as healer regardless of str-plate gear (got " .. tostring(GSPlus.Inspect:GetUnitProfile("shieldpal")) .. ")")
     talentTabs = { { name = "Arms", points = 5 }, { name = "Fury", points = 3 }, { name = "Protection", points = 41 } }
     for _, k in ipairs(allSlotKeys) do equipped[k] = nil end
     for k, v in pairs(savedEqSh) do equipped[k] = v end
@@ -1862,6 +1869,325 @@ end)()
     check(#UIErrorsFrame.messages == 1,
         "inspect out-of-range error swallowed during our checks, shown otherwise")
 end)()
+
+
+;(function()
+    -- 62. Shield innate "<N> Block" base line + equip block value stack.
+    local shieldLink = "|cffa335ee|Hitem:2050::::::::70:::::|h[Aegis]|h|r"
+    fakeItems[shieldLink] = { name = "Aegis of the Sunbird", equipLoc = "INVTYPE_SHIELD" }
+    fakeTooltips[shieldLink] = { "Aegis of the Sunbird", "Off Hand", "3806 Armor", "86 Block",
+        "+27 Stamina", "Equip: Increases defense rating by 19.",
+        "Equip: Increases the block value of your shield by 29." }
+    local sh = GSPlus.ItemParser:ParseItemStats(shieldLink)
+    check(sh.BLOCK_VALUE == 115, "shield base block (86) + equip block (29) = 115 (got "
+        .. tostring(sh.BLOCK_VALUE) .. ")")
+end)()
+
+;(function()
+    -- 63. Mixed compound gem: "+5 Defense Rating and 2 mana per 5 sec".
+    local helmLink = "|cffa335ee|Hitem:2051::::::::70:::::|h[Eternium Greathelm]|h|r"
+    fakeItems[helmLink] = { name = "Eternium Greathelm", equipLoc = "INVTYPE_HEAD" }
+    fakeTooltips[helmLink] = { "Eternium Greathelm", "Head", "1178 Armor", "+31 Strength", "+48 Stamina",
+        "+5 Parry Rating and +4 Defense Rating", "+5 Defense Rating and 2 mana per 5 sec.",
+        "Equip: Increases defense rating by 34." }
+    local h = GSPlus.ItemParser:ParseItemStats(helmLink)
+    check(h.MP5 == 2, "MP5 from mixed compound gem clause (got " .. tostring(h.MP5) .. ")")
+    check(h.DEFENSE == 43, "defense sums equip 34 + gem 4 + gem 5 = 43 (got " .. tostring(h.DEFENSE) .. ")")
+end)()
+
+;(function()
+    -- 64. Compound cooldown "1 Min 30 Secs" sums to 90s; on-use dodge valued at uptime.
+    local cd = GSPlus.ItemParser:ParseUseCooldownSeconds(
+        "Increases dodge rating by 192 for 10 sec. (1 Min 30 Secs Cooldown)")
+    check(cd == 90, "'1 Min 30 Secs Cooldown' parses to 90s (got " .. tostring(cd) .. ")")
+    local charmLink = "|cffa335ee|Hitem:2052::::::::70:::::|h[Charm]|h|r"
+    fakeItems[charmLink] = { name = "Charm of Alacrity", equipLoc = "INVTYPE_TRINKET" }
+    fakeTooltips[charmLink] = { "Charm of Alacrity", "Trinket", "Unique",
+        "Use: Increases dodge rating by 192 for 10 sec. (1 Min 30 Secs Cooldown)" }
+    local c = GSPlus.ItemParser:ParseItemStats(charmLink)
+    check(c.DODGE and math.abs(c.DODGE - (192 * 10 / 90)) < 0.01,
+        "on-use dodge valued at 10/90 uptime (got " .. tostring(c.DODGE) .. ")")
+end)()
+
+;(function()
+    -- 65. Chance-on-hit: sustained buff valued at PPM uptime; one-shot "next
+    -- attack" buff is disclosed unscored, never silently dropped.
+    local axeLink = "|cffa335ee|Hitem:2053::::::::70:::::|h[Test Axe]|h|r"
+    fakeItems[axeLink] = { name = "Test Axe", equipLoc = "INVTYPE_2HWEAPON" }
+    fakeTooltips[axeLink] = { "Test Axe", "Two-Hand", "100 - 200 Damage", "Speed 3.60", "+40 Strength",
+        "Chance on hit: Increases your attack power by 200 for 10 sec." }
+    local axe = GSPlus.ItemParser:ParseItemStats(axeLink)
+    check(axe.ATTACKPOWER and axe.ATTACKPOWER > 0,
+        "sustained chance-on-hit adds attack power at uptime (got " .. tostring(axe.ATTACKPOWER) .. ")")
+
+    local wbLink = "|cffa335ee|Hitem:2054::::::::70:::::|h[World Breaker]|h|r"
+    fakeItems[wbLink] = { name = "World Breaker", equipLoc = "INVTYPE_2HWEAPON" }
+    fakeTooltips[wbLink] = { "World Breaker", "Two-Hand", "371 - 558 Damage", "Speed 3.70",
+        "+50 Strength", "+51 Stamina",
+        "Chance on hit: Increases the critical strike rating of your next attack made within 4 seconds by 900." }
+    local wb = GSPlus.ItemParser:ParseItemStats(wbLink)
+    check(wb.UNSCORED_EQUIP_EFFECT == 1, "one-shot chance-on-hit flagged unscored, not dropped")
+    check(not wb.CRITICAL, "one-shot proc does not inflate a real crit stat")
+end)()
+
+;(function()
+    -- 66. CACHE SELF-HEAL: an item whose data has not loaded (GetItemInfo nil)
+    -- must flag INCOMPLETE_SCAN (not score as zero into a "complete" total), and
+    -- once the data arrives RescoreResolvableUnits converges the cached entry.
+    local unknownLink = "|cffa335ee|Hitem:299999::::::::70:::::|h[Unknown]|h|r"
+    -- intentionally NOT in fakeItems => GetItemInfo returns nil
+    local us = GSPlus.ItemParser:ParseItemStats(unknownLink)
+    check(us.INCOMPLETE_SCAN == 1, "item with no server data flagged INCOMPLETE_SCAN")
+    check(GSPlus.ItemParser.statsCache[unknownLink] == nil, "unloaded item never cached")
+
+    -- A unit holding it scores partial (shown as '...'), never a frozen wrong total.
+    local savedMH = equipped.MainHandSlot
+    local healLink = "|cffa335ee|Hitem:2060::::::::70:::::|h[Loadme Wand]|h|r"
+    equipped.MainHandSlot = healLink
+    fakeItems[healLink] = { name = "Loadme Wand", equipLoc = "INVTYPE_WEAPONMAINHAND" }
+    fakeTooltips[healLink] = { "Loadme Wand" }  -- name-only: not yet loaded
+    TEST_UNITS.target = { name = "Heala", guid = "guid-heala", isPlayer = true, class = "MAGE" }
+    GSPlus.ItemParser:InvalidateStatsCache()
+    local e1 = GSPlus.Inspect:BuildUnitEntry("target", "inspect")
+    check(e1 and e1.partial == true, "unit with unloaded item is partial, not a final number")
+    GSPlus.Inspect:StoreUnitEntry("target", "guid-heala", e1)
+
+    -- data arrives -> rescore converges to a complete, higher score with no /reload
+    fakeTooltips[healLink] = { "Loadme Wand", "Main Hand", "+20 Intellect",
+        "Equip: Increases damage and healing done by magical spells and effects by up to 100." }
+    GSPlus.ItemParser:InvalidateStatsCache()
+    GSPlus.Inspect:RescoreResolvableUnits()
+    local e2 = GSPlus.PlayerCache:GetByUnit("target")
+    check(e2 and not e2.partial, "rescore-on-load clears partial without /reload")
+    local fresh = GSPlus.Inspect:BuildUnitEntry("target", "inspect")
+    check(e2 and fresh and e2.weighted > 0 and math.abs(e2.weighted - fresh.weighted) < 0.01,
+        "converged cached score matches a complete recompute (no /reload)")
+
+    equipped.MainHandSlot = savedMH
+    TEST_UNITS.target = nil
+    GSPlus:InvalidateCaches()
+    GSPlus.ItemParser:InvalidateStatsCache()
+end)()
+
+
+
+;(function()
+    -- 67. First-hover never shows a wrong number. An item whose equip line lags
+    -- (client reports it cached, so the entry is non-partial) would score too
+    -- low; the score is held as provisional "..." until a verification re-scan
+    -- confirms it stopped rising, and only then is the number revealed. An
+    -- already-confirmed number is never flickered back to "..." on re-inspect.
+    local savedMH = equipped.MainHandSlot
+    local lagLink = "|cffa335ee|Hitem:2070::::::::70:::::|h[Laggard Blade]|h|r"
+    fakeItems[lagLink] = { name = "Laggard Blade", equipLoc = "INVTYPE_WEAPONMAINHAND" }
+    fakeTooltips[lagLink] = { "Laggard Blade", "Main Hand", "100 - 200 Damage", "Speed 1.80",
+        "+20 Intellect" }
+    equipped.MainHandSlot = lagLink
+    TEST_UNITS.target = { name = "Laggy", guid = "guid-laggy", isPlayer = true, class = "MAGE" }
+    GSPlus.ItemParser:InvalidateStatsCache()
+
+    GSPlus.Inspect:CommitInspectEntry("target", "guid-laggy",
+        GSPlus.Inspect:BuildUnitEntry("target", "inspect"))
+    local prov = GSPlus.PlayerCache:GetByUnit("target")
+    check(prov and prov.confirmed == false, "first inspect is provisional (shown as '...')")
+    check(not GSPlus.PlayerCache:IsScoreFinal(prov), "provisional score is not displayed as a number")
+    local w1 = prov.weighted
+
+    fakeTooltips[lagLink] = { "Laggard Blade", "Main Hand", "100 - 200 Damage", "Speed 1.80",
+        "+20 Intellect", "Equip: Increases damage and healing done by magical spells and effects by up to 200." }
+    GSPlus.Inspect:VerifyRescore("guid-laggy")
+    local rising = GSPlus.PlayerCache:GetByUnit("target")
+    check(rising and rising.confirmed == false and rising.weighted > w1,
+        string.format("still-climbing score stays provisional (%.1f -> %.1f, hidden)", w1, rising.weighted or 0))
+
+    GSPlus.Inspect:VerifyRescore("guid-laggy")
+    local finalE = GSPlus.PlayerCache:GetByUnit("target")
+    check(finalE and finalE.confirmed == true, "number revealed only once the score stops rising")
+    check(GSPlus.PlayerCache:IsScoreFinal(finalE), "confirmed score is displayed as a number")
+    local w2 = finalE.weighted
+
+    GSPlus.Inspect:CommitInspectEntry("target", "guid-laggy",
+        GSPlus.Inspect:BuildUnitEntry("target", "inspect"))
+    local reinspect = GSPlus.PlayerCache:GetByUnit("target")
+    check(reinspect and reinspect.confirmed == true
+        and GSPlus.PlayerCache:IsScoreFinal(reinspect)
+        and math.abs(reinspect.weighted - w2) < 0.01,
+        "re-inspect keeps the confirmed number on screen (no '...' flicker)")
+
+    equipped.MainHandSlot = savedMH
+    TEST_UNITS.target = nil
+    GSPlus.Inspect.verifyState["guid-laggy"] = nil
+    GSPlus:InvalidateCaches()
+    GSPlus.ItemParser:InvalidateStatsCache()
+end)()
+
+
+
+;(function()
+    -- 68. Spell power is a primary threat stat for prot paladins, so the
+    -- PALADIN_TANK color reference WEAPON carries spell power. A strong caster
+    -- weapon (Gladiator's Gavel, 239 SP) is therefore good-but-not-red instead
+    -- of clamping red, while a tank weapon with NO spell power scores poorly for
+    -- a paladin tank. Warrior-tank colors are unaffected (they weight SP at 0).
+    local gav = "|cffa335ee|Hitem:34211:::|h[Gladiator's Gavel]|h|r"
+    fakeItems[gav] = { name = "Gladiator's Gavel", equipLoc = "INVTYPE_WEAPONMAINHAND", ilvl = 133, rarity = 4 }
+    fakeTooltips[gav] = { "Gladiator's Gavel", "Main Hand", "22 - 111 Damage", "Speed 1.60",
+        "+28 Stamina", "+18 Intellect", "+40 Spell Damage and Healing", "Requires Level 70",
+        "Equip: Improves your resilience rating by 18.",
+        "Equip: Increases damage and healing done by magical spells and effects by up to 199." }
+    local plain = "|cffa335ee|Hitem:30097:::|h[Plain Tank Mace]|h|r"
+    fakeItems[plain] = { name = "Plain Tank Mace", equipLoc = "INVTYPE_WEAPONMAINHAND", ilvl = 159, rarity = 4 }
+    fakeTooltips[plain] = { "Plain Tank Mace", "Main Hand", "60 - 130 Damage", "Speed 1.80",
+        "+40 Stamina", "+25 Defense Rating", "+35 Block Value", "Requires Level 70" }
+
+    local function ratio(link, prof)
+        GSPlus.ItemParser:InvalidateStatsCache()
+        GSPlus.Calculator.referenceCache = nil
+        GSPlus.Calculator:InvalidateCache()
+        local st = GSPlus.ItemParser:ParseItemStats(link)
+        local w = GSPlus.Calculator:CalculateWeightedScore(st, prof, "MainHandSlot", link)
+        local ref = GSPlus.Calculator:GetWeightedColorReferenceForItem(prof, "MainHandSlot", link)
+        return w / ref
+    end
+
+    local gavRatio = ratio(gav, "PALADIN_TANK")
+    check(gavRatio < 0.90, string.format("caster weapon not red on paladin tank (ratio %.2f)", gavRatio))
+    check(gavRatio > 0.40, string.format("spell power weapon still rated highly for threat (ratio %.2f)", gavRatio))
+
+    -- the reference weapon now carries spell power, so a no-SP tank weapon is a
+    -- weak paladin-tank weapon (proves the reference is SP-based, not survival-only)
+    check(ratio(plain, "PALADIN_TANK") < gavRatio,
+        "a tank weapon without spell power scores below a spell power weapon for paladin tank")
+
+    -- warrior tank weights SP at 0, so the SP on the reference must not move its colors
+    local warRatio = ratio(plain, "WARRIOR_TANK")
+    check(warRatio > 0.40, string.format("warrior-tank weapon color unaffected by SP reference (ratio %.2f)", warRatio))
+
+    GSPlus.Calculator:InvalidateCache()
+end)()
+
+
+
+;(function()
+    -- 69. Role is TALENT-based, never gear-guessed. With inspect talents
+    -- unreadable, the unit reports low confidence and its entry is provisional
+    -- ("...") and retried - even full tank gear is NOT called a tank from gear.
+    TEST_UNITS.notal = { name = "Mystery", guid = "guid-mystery", isPlayer = true, class = "PALADIN" }
+    local savedEq = {}
+    for k, v in pairs(equipped) do savedEq[k] = v end
+    for _, k in ipairs(allSlotKeys) do equipped[k] = nil end
+    local link = "|cffa335ee|Hitem:6700::::::::70:::::|h[Plate]|h|r"
+    fakeItems[link] = { name = "Plate", equipLoc = "INVTYPE_CHEST" }
+    fakeTooltips[link] = { "Plate", "Plate", "1500 Armor", "+50 Stamina",
+        "+40 Defense Rating", "+30 Dodge Rating" }  -- unmistakably tank gear
+    equipped.ChestSlot = link
+    talentTabs = { { name = "Holy", points = 0 }, { name = "Protection", points = 0 }, { name = "Retribution", points = 0 } }
+    GSPlus:InvalidateCaches()
+    GSPlus.ItemParser:InvalidateStatsCache()
+    local _, confident = GSPlus.Inspect:GetUnitProfile("notal")
+    check(confident == false, "unreadable talents report low role confidence (no gear guess)")
+    local e = GSPlus.Inspect:BuildUnitEntry("notal", "inspect")
+    check(e and e.partial == true, "unknown-role entry is provisional even on full tank gear")
+
+    talentTabs = { { name = "Arms", points = 5 }, { name = "Fury", points = 3 }, { name = "Protection", points = 41 } }
+    for _, k in ipairs(allSlotKeys) do equipped[k] = nil end
+    for k, v in pairs(savedEq) do equipped[k] = v end
+    TEST_UNITS.notal = nil
+    GSPlus:InvalidateCaches()
+    GSPlus.ItemParser:InvalidateStatsCache()
+end)()
+
+
+
+;(function()
+    -- 70. Inspect spec is read by SUMMING talent ranks (GetTalentInfo) - the
+    -- reliable inspect API on TBC - and cached per GUID at the unit's
+    -- INSPECT_READY, so later passes never re-read the no-unit inspect API
+    -- (which would return another player's spec and also cost ~90 calls/hover).
+    local savedGTI, savedGNT = GetTalentInfo, GetNumTalents
+    local ranks = { [1] = { 0 }, [2] = { 5, 5, 5, 3 }, [3] = { 0 } }  -- tab2 = 18 pts
+    GetNumTalents = function(tab) return #ranks[tab] end
+    GetTalentInfo = function(tab, idx) return "T", "tex", 1, 1, ranks[tab][idx] or 0, 5 end
+
+    local bi, tp = GSPlus.TalentDetector:GetInspectDominantTree()
+    check(bi == 2 and tp == 18,
+        "dominant tree summed from talent ranks (got " .. tostring(bi) .. "," .. tostring(tp) .. ")")
+
+    TEST_UNITS.specpal = { name = "Spec", guid = "guid-spec", isPlayer = true, class = "PALADIN" }
+    local savedEq70 = {}
+    for k, v in pairs(equipped) do savedEq70[k] = v end
+    for _, k in ipairs(allSlotKeys) do equipped[k] = nil end
+    GSPlus.Inspect.roleByGuid["guid-spec"] = GSPlus.Inspect:ReadTalentProfile("specpal")
+    check(GSPlus.Inspect.roleByGuid["guid-spec"] == "PALADIN_TANK", "protection ranks resolve to PALADIN_TANK")
+
+    ranks = { [1] = { 5, 5, 5, 5 }, [2] = { 0 }, [3] = { 0 } }  -- talents now read as holy
+    check(GSPlus.Inspect:GetUnitProfile("specpal") == "PALADIN_TANK",
+        "cached role is reused, not re-read from the inspect API")
+
+    GetTalentInfo, GetNumTalents = savedGTI, savedGNT
+    GSPlus.Inspect.roleByGuid["guid-spec"] = nil
+    for k, v in pairs(savedEq70) do equipped[k] = v end
+    TEST_UNITS.specpal = nil
+end)()
+
+
+
+;(function()
+    -- 71. Role maps by talent-tree NAME, not tab index. The inspect API on this
+    -- client can return tabs in a non-standard ORDER: a 45/11/5 holy paladin
+    -- reads its 45 Holy points at tab index 3 (Holyjony, /gs spec). The fixed
+    -- index map would call index 3 "Retribution" -> DPS; the NAME at index 3 is
+    -- "Holy" -> healer, which is correct.
+    local saved = talentTabs
+    talentTabs = {
+        { name = "Retribution", points = 5 },
+        { name = "Protection", points = 11 },
+        { name = "Holy", points = 45 },
+    }
+    TEST_UNITS.revpal = { name = "Rev", guid = "guid-rev", isPlayer = true, class = "PALADIN" }
+    GSPlus:InvalidateCaches()
+    check(GSPlus.Inspect:ReadTalentProfile("revpal") == "PALADIN_HEALER",
+        "reversed tabs: 45 Holy at index 3 maps to PALADIN_HEALER by name (got "
+        .. tostring(GSPlus.Inspect:ReadTalentProfile("revpal")) .. ")")
+    talentTabs = saved
+    TEST_UNITS.revpal = nil
+    GSPlus:InvalidateCaches()
+end)()
+
+
+
+;(function()
+    -- 72. Gear override resolves a FALSE tank too: if the talent slot leaked a
+    -- Protection spec onto a player wearing healing gear (no defense rating),
+    -- the real role is recovered from gear -> healer, not tank.
+    TEST_UNITS.fakeprot = { name = "Fakeprot", guid = "guid-fakeprot", isPlayer = true, class = "PALADIN" }
+    local savedEq = {}
+    for k, v in pairs(equipped) do savedEq[k] = v end
+    for _, k in ipairs(allSlotKeys) do equipped[k] = nil end
+    local function healPiece(id, name, equipLoc, slot)
+        local link = "|cffa335ee|Hitem:" .. id .. "::::::::70:::::|h[" .. name .. "]|h|r"
+        fakeItems[link] = { name = name, equipLoc = equipLoc, ilvl = 120 }
+        fakeTooltips[link] = { name, "+30 Intellect",
+            "Equip: Increases healing done by up to 120 and damage done by up to 40 for all magical spells and effects.",
+            "Equip: Restores 8 mana per 5 sec." }
+        equipped[slot] = link
+    end
+    healPiece(7201, "H Chest", "INVTYPE_CHEST", "ChestSlot")
+    healPiece(7202, "H Legs", "INVTYPE_LEGS", "LegsSlot")
+    healPiece(7203, "H Head", "INVTYPE_HEAD", "HeadSlot")
+    GSPlus.Inspect.roleByGuid["guid-fakeprot"] = "PALADIN_TANK"  -- leaked tank spec
+    GSPlus:InvalidateCaches()
+    GSPlus.ItemParser:InvalidateStatsCache()
+    check(GSPlus.Inspect:GetUnitProfile("fakeprot") == "PALADIN_HEALER",
+        "leaked tank talents + healing gear resolves to healer (got "
+        .. tostring(GSPlus.Inspect:GetUnitProfile("fakeprot")) .. ")")
+    GSPlus.Inspect.roleByGuid["guid-fakeprot"] = nil
+    for k, v in pairs(savedEq) do equipped[k] = v end
+    TEST_UNITS.fakeprot = nil
+    GSPlus:InvalidateCaches()
+    GSPlus.ItemParser:InvalidateStatsCache()
+end)()
+
 
 realPrint(failures == 0 and "ALL TESTS PASSED" or (failures .. " TEST(S) FAILED"))
 os.exit(failures == 0 and 0 or 1)

@@ -194,7 +194,7 @@ function GroupFrame:SetRow(row, data)
     if entry then
         row.scoreText:SetText(GSPlus.PlayerCache:FormatScore(entry))
 
-        if entry.partial then
+        if not GSPlus.PlayerCache:IsScoreFinal(entry) then
             row.detailText:SetText("|cff888888Gear still loading...|r")
             return
         end
@@ -262,7 +262,7 @@ function GroupFrame:RequestMissingScores()
 
             -- Re-inspect partial entries too: their items weren't fully
             -- server-cached during the first scan and under-count.
-            if not entry or entry.partial then
+            if not GSPlus.PlayerCache:IsScoreFinal(entry) then
                 GSPlus.Inspect:QueueUnitInspect(unit)
             end
         end

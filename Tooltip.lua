@@ -443,16 +443,21 @@ function Tooltip:GetInspectContext(tooltip)
         return nil
     end
 
-    local profileKey = GSPlus.Inspect and GSPlus.Inspect.GetUnitProfile
-        and GSPlus.Inspect:GetUnitProfile(unit)
+    local profileKey, roleConfident
+
+    if GSPlus.Inspect and GSPlus.Inspect.GetUnitProfile then
+        profileKey, roleConfident = GSPlus.Inspect:GetUnitProfile(unit)
+    end
 
     if not profileKey then
         return nil
     end
 
-    local complete = true
+    -- Role known only when talents are readable; until then the inspected item
+    -- is scored as "inspecting..." rather than under a guessed role.
+    local complete = roleConfident ~= false
 
-    if GSPlus.Inspect.IsUnitGearComplete then
+    if complete and GSPlus.Inspect.IsUnitGearComplete then
         complete = GSPlus.Inspect:IsUnitGearComplete(unit)
     end
 

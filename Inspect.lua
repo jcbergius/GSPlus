@@ -14,7 +14,25 @@ Inspect.QUEUE_STEP_DELAY = 0.3
 -- to roughly 1.5s; fire no faster than this so requests aren't dropped.
 Inspect.MIN_NOTIFY_INTERVAL = 1.5
 
+-- A freshly inspected score is shown as "..." (provisional) until a re-scan
+-- confirms it has stopped climbing - item tooltips / set bonuses can resolve a
+-- beat after INSPECT_READY even when the client reports the item cached, so the
+-- first scan can be an undercount. Scores only ever rise as data finishes
+-- loading, so once a re-scan no longer beats the best seen, the number is final
+-- and revealed. The user therefore never sees a wrong FIRST number. An already-
+-- confirmed number is never flickered back to "..." on a later re-inspect; it is
+-- swapped in place once the new reading converges.
+Inspect.VERIFY_DELAY = 0.5
+Inspect.VERIFY_MAX_PASSES = 4
+Inspect.VERIFY_EPSILON = 0.5
+Inspect.verifyState = Inspect.verifyState or {}
+
 Inspect.queue = Inspect.queue or {}
+-- Resolved role per player GUID, captured at that unit's INSPECT_READY (when the
+-- no-unit inspect talent API is current for them). Reused by the verification/
+-- tooltip passes so they never re-read talents for the wrong unit, and so item
+-- hovers on the inspect window stay cheap.
+Inspect.roleByGuid = Inspect.roleByGuid or {}
 Inspect.lastAttempt = Inspect.lastAttempt or {}
 Inspect.lastNotify = Inspect.lastNotify or 0
 
@@ -179,56 +197,88 @@ function Inspect:IsUnitGearComplete(unit)
     return sawItem
 end
 
--- Picks a profile for the inspected unit from their talents when the client
--- exposes inspect talents, otherwise falls back to their class default.
-function Inspect:GetUnitProfile(unit)
+-- Reads the inspected unit's talent spec NOW and maps it to a profile. Must be
+-- called while that unit's inspect data is current (right after its
+-- INSPECT_READY), because the inspect talent API takes no unit argument.
+-- Returns nil when the talents aren't readable.
+function Inspect:ReadTalentProfile(unit)
     local _, classFileName = UnitClass(unit)
     local detector = GSPlus.TalentDetector
+    local bestIndex, totalPoints, bestName = detector:GetInspectDominantTree()
 
-    local bestIndex = nil
-    local bestPoints = -1
-    local totalPoints = 0
+    if not bestIndex or totalPoints == 0 then
+        return nil
+    end
 
-    if GetNumTalentTabs and GetTalentTabInfo then
-        local numTabs = GetNumTalentTabs(true) or 0
+    -- Map by the dominant tree's NAME (order-independent), falling back to the
+    -- index only when the name isn't recognized (non-English clients).
+    local classProfiles = detector.CLASS_TREE_PROFILES[classFileName]
+    local profileKey = detector:ProfileForTreeName(classFileName, bestName)
+        or (classProfiles and classProfiles[bestIndex])
 
-        for tabIndex = 1, numTabs do
-            local _, points = detector:GetTalentTabNameAndPoints(tabIndex, true)
+    if profileKey and GSPlus.Weights.PROFILE_WEIGHTS[profileKey] then
+        -- Role comes from the talent spec. Gear is consulted only to split feral
+        -- cat (DPS) vs bear (tank), which share one talent tree.
+        return self:DisambiguateUnitProfileByGear(unit, profileKey)
+    end
 
-            totalPoints = totalPoints + (points or 0)
+    return nil
+end
 
-            if points and points > bestPoints then
-                bestIndex = tabIndex
-                bestPoints = points
-            end
+-- Role for an inspected unit. Prefers the spec captured at that unit's own
+-- INSPECT_READY (Inspect.roleByGuid); otherwise reads talents fresh. The second
+-- return is confidence: false means the talents weren't readable, so the caller
+-- keeps the entry provisional ("...") and retries rather than guess from gear.
+function Inspect:GetUnitProfile(unit)
+    local guid = UnitGUID and UnitGUID(unit) or nil
+    local profile, confident
+
+    if guid and self.roleByGuid[guid] then
+        profile, confident = self.roleByGuid[guid], true
+    else
+        local p = self:ReadTalentProfile(unit)
+
+        if p then
+            profile, confident = p, true
+        else
+            profile, confident = GSPlus.Profiles:GetDefaultProfileForClass(select(2, UnitClass(unit))), false
         end
     end
 
-    if bestIndex and totalPoints > 0 then
-        local classProfiles = detector.CLASS_TREE_PROFILES[classFileName]
-        local profileKey = classProfiles and classProfiles[bestIndex]
+    -- Gear has the FINAL say on the tank axis. The inspect talent API returns
+    -- the wrong/stale player under contention and nothing cross-faction, but
+    -- defense rating is unit-bound, reliable, and a tank-only stat.
+    return self:ApplyGearRoleOverride(unit, profile, confident)
+end
 
-        if profileKey and GSPlus.Weights.PROFILE_WEIGHTS[profileKey] then
-            return self:DisambiguateUnitProfileByGear(unit, profileKey)
-        end
+-- A plate class carrying real defense rating IS tanking, whatever the talent
+-- read claims; one with none is NOT, so a talent read that says "tank" with no
+-- defense gear (a leaked spec) is resolved back to the real role from gear.
+function Inspect:ApplyGearRoleOverride(unit, profile, confident)
+    if not self:IsUnitGearComplete(unit) then
+        return profile, confident
     end
 
-    -- Inspect talents unreadable: infer the role from their gear instead of
-    -- defaulting (which would score e.g. a Resto Shaman as Elemental) - but
-    -- ONLY when the gear has fully loaded. A role guessed from half-loaded
-    -- gear is unreliable (DPS plate looks like a tank before its crit/hit/
-    -- weapon load in), so while items are still arriving we return the class
-    -- default and let a later, complete inspect set the real role. The entry
-    -- is flagged partial meanwhile, so no number or role is shown yet.
-    if self:IsUnitGearComplete(unit) then
+    local _, classFileName = UnitClass(unit)
+
+    if classFileName ~= "WARRIOR" and classFileName ~= "PALADIN" then
+        return profile, confident
+    end
+
+    local tankKey = (classFileName == "WARRIOR") and "WARRIOR_TANK" or "PALADIN_TANK"
+    local defense = GSPlus.ItemParser:GetDefenseRatingTotal(unit)
+
+    if defense >= GSPlus.ItemParser.TANK_DEFENSE_RATING_MIN then
+        return tankKey, true
+    elseif profile == tankKey then
         local gearProfile = self:ResolveUnitProfileByGear(unit, classFileName)
 
         if gearProfile then
-            return gearProfile
+            return gearProfile, true
         end
     end
 
-    return GSPlus.Profiles:GetDefaultProfileForClass(classFileName)
+    return profile, confident
 end
 
 -- A shield rules out the 2H DPS specs for plate classes; drop them so a
@@ -258,6 +308,8 @@ function Inspect:FilterProfilesByWeaponType(profileKeys, classFileName, unit)
     return profileKeys
 end
 
+-- Best-fit profile from the equipped gear's stat budget (used to resolve the
+-- non-tank role, and as the whole signal when talents are unreadable).
 function Inspect:ResolveUnitProfileByGear(unit, classFileName)
     local profileKeys = self:FilterProfilesByWeaponType(
         GSPlus.TalentDetector:GetClassProfiles(classFileName), classFileName, unit)
@@ -291,12 +343,8 @@ function Inspect:ResolveUnitProfileByGear(unit, classFileName)
         end
     end
 
-    -- Tank is decided by whether the gear carries defense / avoidance (the
-    -- stats only tanks itemize), in BOTH directions: tank gear -> the tank
-    -- profile, anything else -> the best non-tank fit. DPS and tank plate
-    -- share strength/stamina/armor, so a weighted ratio alone confuses them.
     if bestTankKey
-        and GSPlus.ItemParser:GetTankStatTotal(unit) >= GSPlus.ItemParser.TANK_GEAR_DEFENSE_MIN then
+        and GSPlus.ItemParser:GetDefenseRatingTotal(unit) >= GSPlus.ItemParser.TANK_DEFENSE_RATING_MIN then
         return bestTankKey
     end
 
@@ -383,7 +431,7 @@ function Inspect:CalculateUnitScore(unit, profileKey)
 end
 
 function Inspect:BuildUnitEntry(unit, source)
-    local profileKey = self:GetUnitProfile(unit)
+    local profileKey, roleConfident = self:GetUnitProfile(unit)
     local result = self:CalculateUnitScore(unit, profileKey)
 
     if result.itemCount == 0 then
@@ -405,7 +453,11 @@ function Inspect:BuildUnitEntry(unit, source)
         missingItems = result.missingItems,
         -- Partial entries are shown (better than nothing) but flagged so
         -- tooltips/group rows trigger a fresh inspect once data arrives.
-        partial = result.missingItems > 0,
+        partial = result.missingItems > 0 or not roleConfident,
+        -- Inspected scores start unconfirmed; the verification pass reveals the
+        -- number once it stops rising. (Self/comms entries omit this and show
+        -- immediately.)
+        confirmed = false,
         missingEnchants = GSPlus.ItemParser:CountMissingEnchants(unit),
         emptySockets = result.emptySockets,
     }
@@ -623,6 +675,26 @@ end
 -- synchronously, and doing it inside the INSPECT_READY event competes with
 -- the Blizzard inspect UI and any open tooltips rendering this frame.
 function Inspect:OnInspectReady(guid)
+    -- CRITICAL: read the inspected unit's talents RIGHT NOW, synchronously,
+    -- inside the event. The inspect talent API has no unit argument and is
+    -- overwritten by the very next NotifyInspect from anyone - our own queue,
+    -- the Blizzard inspect frame, or another inspect addon (TacoTip). The
+    -- scoring is deferred a frame (below) to avoid competing with tooltip
+    -- rendering, but by then the talent slot may already hold a DIFFERENT
+    -- player. Capturing the role here, the instant the server delivered THIS
+    -- guid's data, is the only point it is reliably theirs.
+    if guid then
+        local unit = self:FindUnitByGuid(guid)
+
+        if unit and UnitIsPlayer(unit) and not UnitIsUnit(unit, "player") then
+            local role = self:ReadTalentProfile(unit)
+
+            if role then
+                self.roleByGuid[guid] = role
+            end
+        end
+    end
+
     if C_Timer and C_Timer.After then
         C_Timer.After(0, function()
             GSPlus.Inspect:HandleInspectReady(guid)
@@ -676,7 +748,9 @@ function Inspect:HandleInspectReady(guid)
         local unit = self:FindUnitByGuid(guid)
 
         if unit and UnitIsPlayer(unit) and not UnitIsUnit(unit, "player") then
-            self:StoreUnitEntry(unit, guid, self:BuildUnitEntry(unit, "inspect"))
+            -- Role was captured synchronously in OnInspectReady (above); here we
+            -- only score, reusing the cached role.
+            self:CommitInspectEntry(unit, guid, self:BuildUnitEntry(unit, "inspect"))
         end
 
         return
@@ -691,7 +765,8 @@ function Inspect:HandleInspectReady(guid)
     end
 
     if unit and UnitExists(unit) and UnitIsPlayer(unit) then
-        self:StoreUnitEntry(unit, request.guid, self:BuildUnitEntry(unit, "inspect"))
+        -- Role was captured synchronously in OnInspectReady; here we only score.
+        self:CommitInspectEntry(unit, request.guid, self:BuildUnitEntry(unit, "inspect"))
     end
 
     -- Intentionally NOT calling ClearInspectPlayer(): it corrupts the
@@ -705,6 +780,211 @@ function Inspect:HandleInspectReady(guid)
     else
         self:ProcessQueue()
     end
+end
+
+-- Re-score every already-tracked player we can currently resolve, overwriting
+-- their cached entry with a freshly computed one. Called after newly arrived
+-- item data invalidates the stats cache, so a score captured from half-loaded
+-- gear converges to the correct number on its own - no /reload. Only reads
+-- inspect data already resident (no new NotifyInspect), and StoreUnitEntry's
+-- no-downgrade keeps the better entry if a re-scan is still partial.
+function Inspect:RescoreResolvableUnits()
+    local seen = {}
+
+    local function rescore(unit)
+        if not unit or not UnitExists(unit) or not UnitIsPlayer(unit) then
+            return
+        end
+
+        if UnitIsUnit(unit, "player") then
+            return
+        end
+
+        local guid = UnitGUID and UnitGUID(unit) or nil
+
+        if guid then
+            if seen[guid] then
+                return
+            end
+
+            seen[guid] = true
+        end
+
+        -- Only refresh players we already track AND whose score isn't final
+        -- yet. A confirmed score's items are already fully loaded, so re-scoring
+        -- it on every item-load event is wasted work that caused hover lag.
+        local existing = GSPlus.PlayerCache:GetByUnit(unit)
+
+        if not existing or GSPlus.PlayerCache:IsScoreFinal(existing) then
+            return
+        end
+
+        self:CommitInspectEntry(unit, guid, self:BuildUnitEntry(unit, "inspect"))
+    end
+
+    rescore("mouseover")
+    rescore("target")
+    rescore("focus")
+
+    if InspectFrame and InspectFrame.unit then
+        rescore(InspectFrame.unit)
+    end
+
+    if IsInRaid and IsInRaid() then
+        for i = 1, (GetNumGroupMembers and GetNumGroupMembers() or 0) do
+            rescore("raid" .. i)
+        end
+    elseif IsInGroup and IsInGroup() then
+        for i = 1, 4 do
+            rescore("party" .. i)
+        end
+    end
+end
+
+-- All inspect results funnel through here. Guarantees the user never sees an
+-- undercounted FIRST number: a score with nothing trustworthy already on screen
+-- is revealed as provisional "..." and then verified upward; a score we have
+-- ALREADY confirmed stays on screen and is swapped in place once a re-verify
+-- converges (never flickered back to "...").
+function Inspect:CommitInspectEntry(unit, guid, entry)
+    if not entry then
+        return
+    end
+
+    if entry.partial then
+        -- Missing item data: no-downgrade path shows "..." and retries.
+        self:StoreUnitEntry(unit, guid, entry)
+        return
+    end
+
+    local existing = GSPlus.PlayerCache:GetByUnit(unit)
+    local haveConfirmed = existing and existing.confirmed and not existing.partial
+
+    if not haveConfirmed then
+        -- Nothing trustworthy on screen yet: show provisional "..." (entry
+        -- carries confirmed=false) so the user sees loading, then verify upward.
+        entry.confirmed = false
+        self:StoreUnitEntry(unit, guid, entry)
+        self:NotifyScoreUpdated(guid, UnitName(unit), entry)
+    end
+
+    self:BeginVerify(guid, entry)
+end
+
+-- Start (or restart) the convergence loop, tracking the best reading so far.
+function Inspect:BeginVerify(guid, entry)
+    if not guid or not entry then
+        return
+    end
+
+    self.verifyState[guid] = { passes = 0, best = entry }
+
+    if not (C_Timer and C_Timer.After) then
+        -- No scheduler (older client/tests without a timer): accept as final.
+        self:FinalizeVerify(guid)
+        return
+    end
+
+    self:ScheduleVerify(guid)
+end
+
+function Inspect:ScheduleVerify(guid)
+    if not (C_Timer and C_Timer.After) then
+        return
+    end
+
+    C_Timer.After(self.VERIFY_DELAY, function()
+        GSPlus.Inspect:VerifyRescore(guid)
+    end)
+end
+
+-- Re-read the unit's gear from scratch (its item tooltips may have finished
+-- loading since) and decide whether the score has converged.
+function Inspect:VerifyRescore(guid)
+    local state = self.verifyState[guid]
+
+    if not state then
+        return
+    end
+
+    local unit = self:FindUnitByGuid(guid)
+
+    if not unit or not UnitExists(unit) or not UnitIsPlayer(unit) or UnitIsUnit(unit, "player") then
+        -- Can't re-read (gone/out of range): finalize so it isn't stuck on "...".
+        self:FinalizeVerify(guid)
+        return
+    end
+
+    local ItemParser = GSPlus.ItemParser
+
+    for _, slotInfo in ipairs(ItemParser.EQUIPMENT_SLOTS) do
+        local slotId = GetInventorySlotInfo(slotInfo.key)
+        local itemLink = slotId and GetInventoryItemLink(unit, slotId)
+
+        if itemLink then
+            ItemParser:InvalidateItem(itemLink)
+        end
+    end
+
+    local entry = self:BuildUnitEntry(unit, "inspect")
+
+    if not entry then
+        self:FinalizeVerify(guid)
+        return
+    end
+
+    if entry.partial then
+        -- Gear fell out of cache mid-verify: hand to the no-downgrade path.
+        self:StoreUnitEntry(unit, guid, entry)
+        self.verifyState[guid] = nil
+        return
+    end
+
+    state.passes = state.passes + 1
+
+    local rising = (entry.weighted or 0) > (state.best.weighted or 0) + self.VERIFY_EPSILON
+
+    if rising then
+        state.best = entry
+
+        -- Keep a provisional "..." entry fresh, but never overwrite an already-
+        -- confirmed on-screen number while still climbing.
+        local shown = GSPlus.PlayerCache:GetByUnit(unit)
+
+        if not (shown and shown.confirmed) then
+            entry.confirmed = false
+            GSPlus.PlayerCache:SetForUnit(unit, entry)
+        end
+    end
+
+    if not rising or state.passes >= self.VERIFY_MAX_PASSES then
+        self:FinalizeVerify(guid)
+        return
+    end
+
+    self:ScheduleVerify(guid)
+end
+
+-- Commit the best reading as the confirmed, displayable score.
+function Inspect:FinalizeVerify(guid)
+    local state = self.verifyState[guid]
+    self.verifyState[guid] = nil
+
+    if not state or not state.best then
+        return
+    end
+
+    local unit = self:FindUnitByGuid(guid)
+
+    if not unit or not UnitExists(unit) then
+        return
+    end
+
+    local best = state.best
+    best.confirmed = true
+
+    GSPlus.PlayerCache:SetForUnit(unit, best)
+    self:NotifyScoreUpdated(guid, UnitName(unit), best)
 end
 
 function Inspect:NotifyScoreUpdated(guid, name, entry)
