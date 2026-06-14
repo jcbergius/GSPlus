@@ -2189,5 +2189,38 @@ end)()
 end)()
 
 
+
+;(function()
+    -- 73. PALADIN_TANK gs+ is normalized to the other tanks: its threat stats
+    -- (spellpower/intellect/mp5) no longer push its total above a warrior tank's
+    -- for equivalent BiS gear.
+    local C = GSPlus.Calculator
+    local equipLocs = { "INVTYPE_HEAD", "INVTYPE_NECK", "INVTYPE_SHOULDER", "INVTYPE_CLOAK",
+        "INVTYPE_CHEST", "INVTYPE_WRIST", "INVTYPE_HAND", "INVTYPE_WAIST", "INVTYPE_LEGS",
+        "INVTYPE_FEET", "INVTYPE_FINGER", "INVTYPE_TRINKET", "INVTYPE_WEAPONMAINHAND", "INVTYPE_SHIELD" }
+
+    local function bisTotal(prof)
+        local t = 0
+        for _, el in ipairs(equipLocs) do
+            local rs = GSPlus.ReferenceGear:GetStats("TANK", el)
+            if rs then
+                local w = C:CalculateWeightedStatScore(rs, prof)
+                if rs.WEAPON_DPS and rs.WEAPON_DPS > 0 then
+                    w = w + C:CalculateWeaponScore(rs, prof, "MainHandSlot", nil)
+                end
+                t = t + w
+            end
+        end
+        return t
+    end
+
+    C:InvalidateCache()
+    C.referenceCache = nil
+    local pal, war = bisTotal("PALADIN_TANK"), bisTotal("WARRIOR_TANK")
+    check(pal > 0 and war > 0 and math.abs(pal - war) / war < 0.10,
+        string.format("paladin-tank gs+ normalized to warrior-tank (pal=%.0f war=%.0f, within 10%%)", pal, war))
+end)()
+
+
 realPrint(failures == 0 and "ALL TESTS PASSED" or (failures .. " TEST(S) FAILED"))
 os.exit(failures == 0 and 0 or 1)

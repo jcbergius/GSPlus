@@ -213,13 +213,13 @@ Weights.PROFILE_WEIGHTS = {
     PALADIN_TANK = {
         STRENGTH = 0.40,
         AGILITY = 0.20,
-        -- Spell power is a PRIMARY threat stat for prot paladins in TBC
-        -- (Consecration, Holy Shield, Avenger's Shield, Seal/Judgement of
-        -- Righteousness, Retribution Aura all scale with it), so it is weighted
-        -- highly. The paladin-tank color reference carries spell power too (see
-        -- ReferenceGear TANK weapons) so this does not make spellpower gear read
-        -- as red - it just makes a tank weapon WITHOUT spell power score poorly.
-        INTELLECT = 0.55,
+        -- Spell power / intellect / mp5 are real prot-paladin THREAT stats, but
+        -- weighting them as high as tank survival stats inflated paladin-tank
+        -- gs+ above every other role (their gear carries these where warrior
+        -- tanks carry none). Tuned down so a prot paladin's total lines up with
+        -- a warrior tank's. Colour is unaffected: the paladin-tank reference
+        -- weapon also carries spell power, so the ratio scales with the weight.
+        INTELLECT = 0.35,
         STAMINA = 1.0,
         SPIRIT = 0.0,
 
@@ -228,7 +228,7 @@ Weights.PROFILE_WEIGHTS = {
         RANGED_ATTACKPOWER = 0.0,
         FERAL_ATTACKPOWER = 0.0,
 
-        SPELLPOWER = 0.70,
+        SPELLPOWER = 0.50,
         HEALING = 0.0,
 
         DEFENSE = 1.0,
@@ -243,7 +243,7 @@ Weights.PROFILE_WEIGHTS = {
         RESILIENCE = 0.65,
         WEAPON_SKILL = 0.40,
 
-        MP5 = 0.45,
+        MP5 = 0.30,
         HP5 = 0.15,
 
         ARCANE_RESISTANCE = 0.0,
