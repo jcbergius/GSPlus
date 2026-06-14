@@ -136,6 +136,13 @@ function GSPlus:OnEvent(event, ...)
 
                 if GSPlus.ItemParser then
                     GSPlus.ItemParser.sawUncachedItem = nil
+
+                    -- Drop item scans taken before this data arrived so they
+                    -- recompute fresh; keeps mouseover and inspect scores
+                    -- converging to the same final number.
+                    if GSPlus.ItemParser.InvalidateStatsCache then
+                        GSPlus.ItemParser:InvalidateStatsCache()
+                    end
                 end
 
                 GSPlus:InvalidateCaches()

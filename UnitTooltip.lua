@@ -85,28 +85,23 @@ function UnitTooltip:AddScoreToTooltip(tooltip)
 end
 
 function UnitTooltip:AppendEntryLines(tooltip, entry)
-    local coloredScore = GSPlus.Calculator:ColorizeScore(entry.weighted or 0, entry.max or 0)
-    local profileName = GSPlus.Profiles:GetProfileDisplayName(entry.profileKey)
+    local rightText = GSPlus.PlayerCache:FormatScore(entry)
 
-    tooltip:AddDoubleLine(
-        "gs+",
-        coloredScore .. " |cff888888(" .. profileName .. ")|r",
-        0, 1, 0, 1, 1, 1
-    )
+    -- Show the role only once the score is final; a role guessed from
+    -- partially-loaded gear can be wrong (e.g. DPS plate read as a tank).
+    if not entry.partial then
+        rightText = rightText .. " |cff888888("
+            .. GSPlus.Profiles:GetProfileDisplayName(entry.profileKey) .. ")|r"
+    end
 
-    if GSPlus.Options:Get("showLegacyGearScore") and entry.legacy and entry.legacy > 0 then
+    tooltip:AddDoubleLine("gs+", rightText, 0, 1, 0, 1, 1, 1)
+
+    if not entry.partial and GSPlus.Options:Get("showLegacyGearScore") and entry.legacy and entry.legacy > 0 then
         tooltip:AddDoubleLine("GearScore (legacy)", tostring(math.floor(entry.legacy)), 0.6, 0.6, 0.6, 0.8, 0.8, 0.8)
     end
 
     if entry.partial then
-        tooltip:AddLine("|cff888888Some items still loading; score may rise.|r")
-    end
-
-    if entry.source and entry.source ~= "self" then
-        tooltip:AddLine(
-            "|cff666666" .. GSPlus.PlayerCache:FormatSource(entry)
-            .. ", " .. GSPlus.PlayerCache:FormatAge(entry) .. "|r"
-        )
+        tooltip:AddLine("|cff888888Gear still loading; score hidden until complete.|r")
     end
 end
 
@@ -129,8 +124,16 @@ function UnitTooltip:OnScoreUpdated(guid, name, entry)
         return
     end
 
-    self:AppendEntryLines(GameTooltip, entry)
-    GameTooltip:Show()
+    -- Rebuild the tooltip so the live result REPLACES the "inspecting..."
+    -- placeholder rather than adding a second gs+ line. SetUnit clears the
+    -- tooltip and re-fires OnTooltipSetUnit, which re-runs AddScoreToTooltip
+    -- with the now-cached entry (one clean line).
+    if GameTooltip.SetUnit then
+        GameTooltip:SetUnit(unit)
+    else
+        self:AppendEntryLines(GameTooltip, entry)
+        GameTooltip:Show()
+    end
 end
 
 UnitTooltip:HookTooltips()

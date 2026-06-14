@@ -42,10 +42,12 @@ function CharacterPaneUI:Create()
 
     frame:ClearAllPoints()
 
-    if PaperDollFrame then
-        frame:SetPoint("BOTTOMLEFT", PaperDollFrame, "BOTTOMLEFT", 73, 254)
+    if CharacterFramePortrait then
+        frame:SetPoint("TOPLEFT", CharacterFramePortrait, "TOPLEFT", 64, -74)
+    elseif PaperDollFrame then
+        frame:SetPoint("TOPLEFT", PaperDollFrame, "TOPLEFT", 73, -236)
     elseif CharacterFrame then
-        frame:SetPoint("BOTTOMLEFT", CharacterFrame, "BOTTOMLEFT", 73, 254)
+        frame:SetPoint("TOPLEFT", CharacterFrame, "TOPLEFT", 73, -236)
     else
         frame:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
     end
@@ -132,10 +134,12 @@ function CharacterPaneUI:Reanchor()
     self.frame:SetFrameStrata("DIALOG")
     self.frame:SetFrameLevel(999)
 
-    if PaperDollFrame then
-        self.frame:SetPoint("BOTTOMLEFT", PaperDollFrame, "BOTTOMLEFT", 73, 254)
+    if CharacterFramePortrait then
+        self.frame:SetPoint("TOPLEFT", CharacterFramePortrait, "TOPLEFT", 64, -74)
+    elseif PaperDollFrame then
+        self.frame:SetPoint("TOPLEFT", PaperDollFrame, "TOPLEFT", 73, -236)
     elseif CharacterFrame then
-        self.frame:SetPoint("BOTTOMLEFT", CharacterFrame, "BOTTOMLEFT", 73, 254)
+        self.frame:SetPoint("TOPLEFT", CharacterFrame, "TOPLEFT", 73, -236)
     else
         self.frame:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
     end
@@ -159,6 +163,14 @@ function CharacterPaneUI:Update()
 
     if CharacterFrame and CharacterFrame:IsShown() and not self.frame:IsShown() then
         self.frame:Show()
+    end
+
+    -- Never show a number until the player's own gear has fully loaded; a
+    -- login-time partial scan would otherwise flash a wrong score.
+    if GSPlus.Inspect and GSPlus.Inspect.IsUnitGearComplete
+        and not GSPlus.Inspect:IsUnitGearComplete("player") then
+        self.scoreText:SetText("|cff888888...|r")
+        return
     end
 
     local data = GSPlus.Calculator:GetPlayerGSPlus()

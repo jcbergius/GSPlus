@@ -161,6 +161,13 @@ function Comms:RequestScores()
         return false
     end
 
+    -- No group channel means there is no one to ask; return before recording
+    -- the throttle timestamp so a request fired while solo doesn't silence
+    -- the first real request made just after joining a group.
+    if not self:GetChannel() then
+        return false
+    end
+
     local now = time()
 
     if (now - (self.lastRequest or 0)) < self.REQUEST_THROTTLE then

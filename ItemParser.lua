@@ -101,44 +101,72 @@ ItemParser.EQUIPMENT_SLOTS = {
     { key = "RangedSlot",        name = "Ranged" },
 }
 
-ItemParser.STAT_MAPPING = {
-    ITEM_MOD_STRENGTH_SHORT = "STRENGTH",
-    ITEM_MOD_AGILITY_SHORT = "AGILITY",
-    ITEM_MOD_INTELLECT_SHORT = "INTELLECT",
-    ITEM_MOD_STAMINA_SHORT = "STAMINA",
-    ITEM_MOD_SPIRIT_SHORT = "SPIRIT",
+-- Single source of truth: Blizzard's ITEM_MOD_* stat identifiers mapped to
+-- our internal stat keys. Both recognition paths are generated from this, so
+-- adding a stat once covers the structured API AND the tooltip text in every
+-- locale - no more per-string guessing or silently dropped stats.
+ItemParser.ITEM_MOD_STAT_MAP = {
+    STRENGTH = "STRENGTH",
+    AGILITY = "AGILITY",
+    INTELLECT = "INTELLECT",
+    STAMINA = "STAMINA",
+    SPIRIT = "SPIRIT",
+    HEALTH = "HEALTH",
+    MANA = "MANA",
 
-    ITEM_MOD_ARMOR = "ARMOR",
-    ITEM_MOD_EXTRA_ARMOR_SHORT = "ARMOR",
-    ITEM_MOD_ATTACK_POWER_SHORT = "ATTACKPOWER",
-    ITEM_MOD_RANGED_ATTACK_POWER_SHORT = "RANGED_ATTACKPOWER",
+    ATTACK_POWER = "ATTACKPOWER",
+    RANGED_ATTACK_POWER = "RANGED_ATTACKPOWER",
+    FERAL_ATTACK_POWER = "FERAL_ATTACKPOWER",
 
-    ITEM_MOD_SPELL_POWER_SHORT = "SPELLPOWER",
-    ITEM_MOD_HEALING_DONE_SHORT = "HEALING",
+    SPELL_POWER = "SPELLPOWER",
+    SPELL_DAMAGE_DONE = "SPELLPOWER",
+    SPELL_HEALING_DONE = "HEALING",
+    HEALING_DONE = "HEALING",
+    SPELL_PENETRATION = "SPELL_PENETRATION",
 
-    ITEM_MOD_DEFENSE_SKILL_RATING_SHORT = "DEFENSE",
-    ITEM_MOD_DODGE_RATING_SHORT = "DODGE",
-    ITEM_MOD_PARRY_RATING_SHORT = "PARRY",
-    ITEM_MOD_BLOCK_RATING_SHORT = "BLOCK",
-    ITEM_MOD_BLOCK_VALUE_SHORT = "BLOCK_VALUE",
-    ITEM_MOD_CRIT_RATING_SHORT = "CRITICAL",
-    ITEM_MOD_SPELL_CRIT_RATING_SHORT = "CRITICAL",
-    ITEM_MOD_HIT_RATING_SHORT = "HIT",
-    ITEM_MOD_SPELL_HIT_RATING_SHORT = "HIT",
-    ITEM_MOD_HASTE_RATING_SHORT = "HASTE",
-    ITEM_MOD_SPELL_HASTE_RATING_SHORT = "HASTE",
-    ITEM_MOD_EXPERTISE_RATING_SHORT = "EXPERTISE",
-    ITEM_MOD_RESILIENCE_RATING_SHORT = "RESILIENCE",
+    DEFENSE_SKILL_RATING = "DEFENSE",
+    DODGE_RATING = "DODGE",
+    PARRY_RATING = "PARRY",
+    BLOCK_RATING = "BLOCK",
+    BLOCK_VALUE = "BLOCK_VALUE",
 
-    ITEM_MOD_MANA_REGENERATION_SHORT = "MP5",
-    ITEM_MOD_MP5_SHORT = "MP5",
-    ITEM_MOD_HEALTH_REGEN_SHORT = "HP5",
+    CRIT_RATING = "CRITICAL",
+    CRIT_MELEE_RATING = "CRITICAL",
+    CRIT_RANGED_RATING = "CRITICAL",
+    CRIT_SPELL_RATING = "CRITICAL",
+    SPELL_CRIT_RATING = "CRITICAL",
 
-    -- Wrath/Cata stats; harmless on earlier clients where they never appear.
-    ITEM_MOD_MASTERY_RATING_SHORT = "MASTERY",
-    ITEM_MOD_ARMOR_PENETRATION_RATING_SHORT = "ARMOR_PENETRATION",
-    ITEM_MOD_SPELL_PENETRATION_SHORT = "SPELL_PENETRATION",
+    HIT_RATING = "HIT",
+    HIT_MELEE_RATING = "HIT",
+    HIT_RANGED_RATING = "HIT",
+    HIT_SPELL_RATING = "HIT",
+    SPELL_HIT_RATING = "HIT",
+
+    HASTE_RATING = "HASTE",
+    HASTE_MELEE_RATING = "HASTE",
+    HASTE_RANGED_RATING = "HASTE",
+    HASTE_SPELL_RATING = "HASTE",
+    SPELL_HASTE_RATING = "HASTE",
+
+    EXPERTISE_RATING = "EXPERTISE",
+    RESILIENCE_RATING = "RESILIENCE",
+    MASTERY_RATING = "MASTERY",
+    ARMOR_PENETRATION_RATING = "ARMOR_PENETRATION",
+
+    MANA_REGENERATION = "MP5",
+    MP5 = "MP5",
+    HEALTH_REGEN = "HP5",
+    HEALTH_REGENERATION = "HP5",
+
+    EXTRA_ARMOR = "ARMOR",
 }
+
+-- Keys exactly as GetItemStats returns them (ITEM_MOD_*_SHORT), generated from
+-- the canonical map above, plus the one non-_SHORT armor key.
+ItemParser.STAT_MAPPING = { ITEM_MOD_ARMOR = "ARMOR" }
+for itemModBase, internalStat in pairs(ItemParser.ITEM_MOD_STAT_MAP) do
+    ItemParser.STAT_MAPPING["ITEM_MOD_" .. itemModBase .. "_SHORT"] = internalStat
+end
 
 ItemParser.TEXT_STAT_MAPPING = {
     ["Strength"] = "STRENGTH",
@@ -213,6 +241,28 @@ ItemParser.TEXT_STAT_MAPPING = {
     ["Resistance"] = "ALL_RESISTANCE",
 }
 
+-- Register each stat's localized tooltip label (Blizzard's own
+-- ITEM_MOD_*_SHORT globals) so the tooltip-text path recognizes every stat the
+-- client knows about, in whatever locale is loaded - rather than relying on a
+-- hand-written English list. Static entries above win on conflict.
+function ItemParser:RegisterGlobalStatNames()
+    if not _G then
+        return
+    end
+
+    for itemModBase, internalStat in pairs(self.ITEM_MOD_STAT_MAP) do
+        local localized = _G["ITEM_MOD_" .. itemModBase .. "_SHORT"]
+
+        if type(localized) == "string" and localized ~= "" then
+            if self.TEXT_STAT_MAPPING[localized] == nil then
+                self.TEXT_STAT_MAPPING[localized] = internalStat
+            end
+        end
+    end
+end
+
+ItemParser:RegisterGlobalStatNames()
+
 ItemParser.WEAPON_SKILL_MAPPING = {
     ["Axe"] = "WEAPON_SKILL",
     ["Axes"] = "WEAPON_SKILL",
@@ -244,6 +294,11 @@ ItemParser.WEAPON_SKILL_MAPPING = {
 ItemParser.statsCache = ItemParser.statsCache or {}
 ItemParser.statsCacheCount = ItemParser.statsCacheCount or 0
 ItemParser.STATS_CACHE_LIMIT = 500
+
+function ItemParser:InvalidateStatsCache()
+    self.statsCache = {}
+    self.statsCacheCount = 0
+end
 
 -- A real equippable item's tooltip always has at least name + slot/stat
 -- lines. Fewer scanned lines means the server hadn't sent the item's
@@ -303,9 +358,13 @@ function ItemParser:ParseItemStats(itemLink)
 
     -- Partial tooltip: GetItemStats may have given base stats but green
     -- equip effects are still missing (this is how items lose their spell
-    -- power / attack power / weapon lines). Return what we have for display
-    -- but NEVER cache it, and flag for a retry once item data arrives.
-    if scannedLines < self.MIN_COMPLETE_TOOLTIP_LINES then
+    -- power / attack power / weapon lines). A line count alone misses this on
+    -- items with many base/socket lines - an unenchanted socketed item can
+    -- scan 10+ lines while its "Equip:" healing/spell power has not rendered
+    -- yet - so also require the client to confirm the item's data is cached.
+    -- Return what we have for display but NEVER cache it, and flag for a retry
+    -- once item data arrives.
+    if scannedLines < self.MIN_COMPLETE_TOOLTIP_LINES or not self:IsItemDataCached(itemLink) then
         stats.INCOMPLETE_SCAN = 1
         self.sawUncachedItem = true
         self:RequestItemLoad(itemLink)
@@ -450,6 +509,27 @@ function ItemParser:GetItemId(itemLink)
     return tonumber(string.match(itemLink or "", "item:(%d+)"))
 end
 
+-- True when the client holds the item's full data, not just enough to answer
+-- GetItemInfo. A tooltip scanned before this is true can be missing its green
+-- "Equip:" effect lines (spell power, healing, MP5, ...) even though it
+-- already has a name, slot, base stats and sockets - so the line-count check
+-- alone treats it as complete and caches the undercount permanently. When the
+-- API is unavailable (older clients) we assume cached and fall back to the
+-- line-count heuristic.
+function ItemParser:IsItemDataCached(itemLink)
+    if not (C_Item and C_Item.IsItemDataCachedByID) then
+        return true
+    end
+
+    local itemId = self:GetItemId(itemLink)
+
+    if not itemId then
+        return true
+    end
+
+    return C_Item.IsItemDataCachedByID(itemId) and true or false
+end
+
 -- Ask the client to load an item's full data so GET_ITEM_INFO_RECEIVED
 -- fires and the item can be re-scored. Without this, an item the local
 -- cache has never seen (common when inspecting strangers) may never load
@@ -514,6 +594,32 @@ function ItemParser:CountEmptySockets(unit)
     end
 
     return empty
+end
+
+-- Tanks are the only role that itemizes defense / avoidance; DPS plate and
+-- mail share strength, stamina and armor with tank gear, so a weighted-ratio
+-- comparison can misread a partially-loaded DPS set as a tank. This sums the
+-- unambiguous tank stats so role detection can require them before ever
+-- choosing a tank profile.
+ItemParser.TANK_GEAR_DEFENSE_MIN = 20
+
+function ItemParser:GetTankStatTotal(unit)
+    unit = unit or "player"
+
+    local total = 0
+
+    for _, slotInfo in ipairs(self.EQUIPMENT_SLOTS) do
+        local slotId = GetInventorySlotInfo(slotInfo.key)
+        local itemLink = slotId and GetInventoryItemLink(unit, slotId)
+
+        if itemLink then
+            local stats = self:ParseItemStats(itemLink)
+            total = total + (stats.DEFENSE or 0) + (stats.DODGE or 0)
+                + (stats.PARRY or 0) + (stats.BLOCK or 0)
+        end
+    end
+
+    return total
 end
 
 function ItemParser:ParseTooltipLine(text, stats)
@@ -609,6 +715,11 @@ function ItemParser:NormalizeStatName(statName)
     statName = string.gsub(statName, "%.$", "")
     statName = string.gsub(statName, "%s+", " ")
 
+    -- Gem lines can append a secondary clause with "&" (meta gems, e.g.
+    -- "+12 Agility & 3% Increased Critical Damage"); keep only the stat name.
+    statName = string.gsub(statName, "%s*&.*$", "")
+    statName = string.gsub(statName, "%s+$", "")
+
     local mapped = self.TEXT_STAT_MAPPING[statName]
 
     if mapped then
@@ -637,6 +748,13 @@ function ItemParser:NormalizeStatName(statName)
         return "HEALING"
     elseif lowerName == "spell damage" or lowerName == "spell power" or lowerName == "damage spells" or lowerName == "spell damage and healing" then
         return "SPELLPOWER"
+    elseif lowerName == "arcane damage" or lowerName == "fire damage" or lowerName == "frost damage"
+        or lowerName == "nature damage" or lowerName == "shadow damage" or lowerName == "holy damage"
+        or lowerName == "arcane spell damage" or lowerName == "fire spell damage" or lowerName == "frost spell damage"
+        or lowerName == "nature spell damage" or lowerName == "shadow spell damage" or lowerName == "holy spell damage" then
+        -- School-specific flat spell damage (caster wands etc.); valued like
+        -- school spell power so it counts for that caster.
+        return "SCHOOL_SPELLPOWER"
     elseif lowerName == "defense rating" or lowerName == "defense" then
         return "DEFENSE"
     elseif lowerName == "dodge rating" then
@@ -867,8 +985,12 @@ function ItemParser:ParseBaseTooltipStatLine(text, stats)
 
     local firstChar = string.sub(text, 1, 1)
 
+    -- Stack single-stat "+X Stat" lines (base stat AND single-stat gems look
+    -- identical here). The item's GetItemStats merge still dedupes via max:
+    -- the stacked tooltip total (base + gems) is always >= the gem-less base
+    -- GetItemStats reports, so it wins without double-counting.
     if firstChar == "+" and self:CountPlusSigns(text) == 1 then
-        return self:ParseStatChunks(text, stats, false)
+        return self:ParseStatChunks(text, stats, true)
     end
 
     -- Negative base stats, e.g. "-10 Stamina" on some vanilla items.
@@ -885,11 +1007,123 @@ function ItemParser:ParseSetBonusTooltipLine(text, stats)
     return false
 end
 
+-- On-use stat trinkets (Bloodlust Brooch: "Use: Increases attack power by
+-- 278 for 20 sec. (2 Mins Cooldown)") are valued at their average uptime
+-- (active duration / cooldown), the same idea the proc model uses. A 2-min
+-- cooldown is assumed when the tooltip omits one; uptime is capped so a very
+-- short cooldown can't dominate.
+ItemParser.USE_DEFAULT_COOLDOWN_SECONDS = 120
+ItemParser.USE_MAX_UPTIME = 0.5
+
+function ItemParser:ParseUseCooldownSeconds(text)
+    local value, unit = string.match(text, "%((%d+%.?%d*)%s*([%a]+)[^%)]*[Cc]ooldown%)")
+
+    if not value then
+        value, unit = string.match(text, "(%d+%.?%d*)%s*([%a]+)%s*[Cc]ooldown")
+    end
+
+    if not value then
+        return nil
+    end
+
+    value = tonumber(value)
+    unit = string.lower(unit or "")
+
+    if string.find(unit, "min", 1, true) then
+        return value * 60
+    end
+
+    -- "sec" / "secs" / "seconds"
+    return value
+end
+
+function ItemParser:UseEffectUptime(useText, duration)
+    duration = tonumber(duration) or 0
+
+    if duration <= 0 then
+        return 0
+    end
+
+    local cooldown = self:ParseUseCooldownSeconds(useText) or self.USE_DEFAULT_COOLDOWN_SECONDS
+
+    if not cooldown or cooldown <= 0 then
+        return 0
+    end
+
+    local uptime = duration / cooldown
+
+    if uptime > self.USE_MAX_UPTIME then
+        uptime = self.USE_MAX_UPTIME
+    end
+
+    return uptime
+end
+
+function ItemParser:ParseUseEffect(useText, stats)
+    -- Shape 1: a named rating / primary stat, e.g. Bloodlust Brooch
+    -- "Increases attack power by 278 for 20 sec. (2 Mins Cooldown)".
+    local statName, value, duration =
+        string.match(useText, "[Ii]ncreases your ([%a%s]+) by (%d+) for (%d+) sec")
+
+    if not statName then
+        statName, value, duration =
+            string.match(useText, "[Ii]ncreases ([%a%s]+) by (%d+) for (%d+) sec")
+    end
+
+    if statName and value and duration then
+        local internalStat = self:NormalizeStatName(statName)
+
+        if internalStat then
+            local uptime = self:UseEffectUptime(useText, duration)
+
+            if uptime > 0 then
+                self:AddStackingStat(stats, internalStat, tonumber(value) * uptime)
+                return true
+            end
+        end
+    end
+
+    -- Shape 2: spell power / healing wordings, e.g. Icon of the Silver
+    -- Crescent "Increases damage and healing done by magical spells and
+    -- effects by up to 155 for 20 sec. (2 Mins Cooldown)". Reuse the equip
+    -- spell-power parser, then scale its result by the use effect's uptime.
+    local spellDuration = string.match(useText, "for (%d+) sec")
+
+    if spellDuration then
+        local uptime = self:UseEffectUptime(useText, spellDuration)
+
+        if uptime > 0 then
+            local temp = {}
+
+            if self:ParseGenericHealingSpellDamageEffect(useText, temp, true) then
+                local scoredAny = false
+
+                for stat, statValue in pairs(temp) do
+                    self:AddStackingStat(stats, stat, statValue * uptime)
+                    scoredAny = true
+                end
+
+                if scoredAny then
+                    return true
+                end
+            end
+        end
+    end
+
+    return false
+end
+
 function ItemParser:ParseUseTooltipLine(text, stats)
     local useText = string.match(text, "^Use:%s*(.+)$")
 
     if not useText then
         return false
+    end
+
+    -- A stat-for-duration on-cooldown use effect is scored at its uptime;
+    -- burst / utility uses (mana restore, shields, movement) stay unscored.
+    if self:ParseUseEffect(useText, stats) then
+        return true
     end
 
     stats.UNSCORED_USE_EFFECT = 1
@@ -1045,6 +1279,19 @@ function ItemParser:ParseGenericHealingSpellDamageEffect(text, stats, stacking)
     if healing and spellDamage then
         self:AddStackingStat(stats, "HEALING", healing)
         self:AddStackingStat(stats, "SPELLPOWER", spellDamage)
+        return true
+    end
+
+    -- "Increases healing done by spells by up to H and damage done by spells
+    -- by up to D" (Essence of the Martyr on-use wording).
+    local healingBySpells, damageBySpells = string.match(
+        text,
+        "Increases healing done by spells by up to (%d+) and damage done by spells by up to (%d+)"
+    )
+
+    if healingBySpells and damageBySpells then
+        self:AddStackingStat(stats, "HEALING", healingBySpells)
+        self:AddStackingStat(stats, "SPELLPOWER", damageBySpells)
         return true
     end
 

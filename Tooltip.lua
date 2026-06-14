@@ -64,7 +64,19 @@ local function FormatNumber(value, decimals)
     return tostring(math.floor(value + 0.5))
 end
 
-local function GetStatDisplayName(statType)
+local function GetStatDisplayName(statType, profileKey)
+    -- For casters and healers, hit / crit / haste are the spell versions, so
+    -- label them accordingly (don't show "Haste Rating" for spell haste).
+    if profileKey and GSPlus.Calculator then
+        local group = GSPlus.Calculator:GetProfileColorCapGroup(profileKey)
+
+        if group == "CASTER_DPS" or group == "HEALER" then
+            if statType == "HASTE" then return "Spell Haste Rating" end
+            if statType == "HIT" then return "Spell Hit Rating" end
+            if statType == "CRITICAL" then return "Spell Critical Strike Rating" end
+        end
+    end
+
     return Tooltip.STAT_DISPLAY_NAMES[statType] or statType or "Unknown"
 end
 
@@ -97,7 +109,7 @@ function Tooltip:BuildStatContributionRows(stats, profileKey)
 
                 rows[#rows + 1] = {
                     statType = statType,
-                    statName = GetStatDisplayName(statType),
+                    statName = GetStatDisplayName(statType, profileKey),
                     rawValue = value,
                     budgetCost = budgetCost,
                     roleWeight = roleWeight,
@@ -304,18 +316,25 @@ function Tooltip:AddUpgradeComparison(tooltip, itemLink, profileKey)
     end
 end
 
-function Tooltip:AddCompactGearScore(tooltip, profileKey, rawScore, weightedScore, maxBudgetScore, setBonusWeightedScore, itemLink)
+function Tooltip:AddCompactGearScore(tooltip, profileKey, rawScore, weightedScore, maxBudgetScore, setBonusWeightedScore, itemLink, inspectUnit)
     local coloredWeightedScore = GSPlus.Calculator:ColorizeScore(weightedScore or 0, maxBudgetScore or 0)
+    local profileName = GSPlus.Profiles:GetProfileDisplayName(profileKey)
 
     tooltip:AddLine(" ")
-    tooltip:AddLine("|cff00ff00gs+|r - " .. GSPlus.Profiles:GetProfileDisplayName(profileKey))
-    tooltip:AddDoubleLine("gs+", coloredWeightedScore, 1, 1, 1, 1, 1, 1)
+    -- A single headline: the green "gs+" label on the left, the colored score
+    -- and the role on the right. (Previously the label appeared twice - once
+    -- in a "gs+ - Role" header and again on the score line.)
+    tooltip:AddDoubleLine(
+        "|cff00ff00gs+|r",
+        coloredWeightedScore .. "  |cff808080(" .. profileName .. ")|r",
+        1, 1, 1, 1, 1, 1
+    )
     if GSPlus.Options:Get("showBudgetScore") then
         tooltip:AddDoubleLine("Budget Score", math.floor(rawScore or 0), 1, 1, 1, 0.8, 0.8, 0.8)
     end
 
     if itemLink and GSPlus.Options:Get("showLegacyGearScore") then
-        local _, classFileName = UnitClass("player")
+        local _, classFileName = UnitClass(inspectUnit or "player")
         local legacyScore = GSPlus.LegacyGearScore:GetItemScore(itemLink, classFileName)
 
         if legacyScore > 0 then
@@ -323,21 +342,15 @@ function Tooltip:AddCompactGearScore(tooltip, profileKey, rawScore, weightedScor
         end
     end
 
-    if itemLink then
+    -- "For You vs Equipped" is personal to the viewer's own gear, so it is
+    -- omitted on inspected players' items.
+    if itemLink and not inspectUnit then
         self:AddUpgradeComparison(tooltip, itemLink, profileKey)
     end
 
-    if (setBonusWeightedScore or 0) > 0 then
-        tooltip:AddLine(string.format("Active set bonuses add +%d (scored separately).",
-            math.floor(setBonusWeightedScore)), 0.65, 0.85, 1.0)
-    end
-
-    if GSPlus.Options:Get("showTooltipBreakdown") and not IsShiftKeyDown() then
-        tooltip:AddLine("Hold Shift for stat breakdown.", 0.65, 0.65, 0.65)
-    end
 end
 
-function Tooltip:AddDetailedBreakdown(tooltip, stats, profileKey, slotKey, itemLink)
+function Tooltip:AddDetailedBreakdown(tooltip, stats, profileKey, slotKey, itemLink, setBonusShare, setBonusPieces)
     if not GSPlus.Options:Get("showTooltipBreakdown") then
         return
     end
@@ -351,7 +364,7 @@ function Tooltip:AddDetailedBreakdown(tooltip, stats, profileKey, slotKey, itemL
 
     tooltip:AddLine(" ")
     tooltip:AddLine("|cffffff00Stat Contribution Breakdown|r")
-    tooltip:AddLine("|cffaaaaaaValue × Budget Cost × Role Weight → Score|r")
+    tooltip:AddLine("|cffaaaaaaValue × Budget Cost × Role Weight = Score|r")
 
     local anyRows = false
 
@@ -383,6 +396,16 @@ function Tooltip:AddDetailedBreakdown(tooltip, stats, profileKey, slotKey, itemL
         tooltip:AddDoubleLine(leftText, rightText, 1, 1, 1, 0.8, 0.8, 0.8)
     end
 
+    if (setBonusShare or 0) > 0 then
+        anyRows = true
+
+        tooltip:AddDoubleLine(
+            string.format("Set bonus effect (1/%d)", setBonusPieces or 1),
+            "|cff00ff00" .. FormatNumber(setBonusShare, 1) .. "|r",
+            0.65, 0.85, 1.0, 0.8, 0.8, 0.8
+        )
+    end
+
     if not anyRows then
         tooltip:AddLine("No weighted stats found for this profile.", 0.8, 0.8, 0.8)
     end
@@ -391,6 +414,49 @@ function Tooltip:AddDetailedBreakdown(tooltip, stats, profileKey, slotKey, itemL
     if (stats.UNSCORED_EQUIP_EFFECT or 0) > 0 or (stats.UNSCORED_USE_EFFECT or 0) > 0 then
         tooltip:AddLine("Special equip/use effects are not included in the score.", 0.6, 0.6, 0.6)
     end
+end
+
+-- When an item tooltip is shown for a slot on the Blizzard inspect window it
+-- should be scored for the inspected player, not the viewer. The inspect slot
+-- buttons are named "Inspect<Slot>" (InspectHeadSlot, InspectMainHandSlot,
+-- ...), so the tooltip's owner reveals the context. Returns unit, profileKey
+-- when inspecting, otherwise nil.
+function Tooltip:GetInspectContext(tooltip)
+    if not (InspectFrame and InspectFrame.IsShown and InspectFrame:IsShown()) then
+        return nil
+    end
+
+    if not tooltip or not tooltip.GetOwner then
+        return nil
+    end
+
+    local owner = tooltip:GetOwner()
+    local ownerName = owner and owner.GetName and owner:GetName()
+
+    if not ownerName or not string.find(ownerName, "^Inspect") then
+        return nil
+    end
+
+    local unit = (InspectFrame and InspectFrame.unit) or "target"
+
+    if not UnitExists or not UnitExists(unit) then
+        return nil
+    end
+
+    local profileKey = GSPlus.Inspect and GSPlus.Inspect.GetUnitProfile
+        and GSPlus.Inspect:GetUnitProfile(unit)
+
+    if not profileKey then
+        return nil
+    end
+
+    local complete = true
+
+    if GSPlus.Inspect.IsUnitGearComplete then
+        complete = GSPlus.Inspect:IsUnitGearComplete(unit)
+    end
+
+    return unit, profileKey, complete
 end
 
 function Tooltip:AddGearScoreToTooltip(tooltip)
@@ -410,7 +476,30 @@ function Tooltip:AddGearScoreToTooltip(tooltip)
         return
     end
 
-    local profileKey = GSPlus.Profiles:GetSelectedProfile()
+    -- Items shown on the Blizzard inspect window are scored for the inspected
+    -- player's spec, not the viewer's (a feral druid inspecting a paladin tank
+    -- must see the paladin's tank score, not feral weights).
+    local inspectUnit, inspectProfile, inspectComplete = self:GetInspectContext(tooltip)
+
+    -- Inspecting someone whose gear has not fully loaded: their role is not
+    -- reliably known yet (a half-loaded tank looks like DPS), so don't score
+    -- this item under a guessed role. Show a loading line and queue an
+    -- inspect; a later hover shows the real score once their gear is in.
+    if inspectUnit and not inspectComplete then
+        tooltip.bgsScoreAdded = true
+        tooltip:AddLine(" ")
+        tooltip:AddLine("|cff00ff00gs+|r - inspecting " .. (UnitName(inspectUnit) or "player") .. "...",
+            0.65, 0.65, 0.65)
+
+        if GSPlus.Inspect and GSPlus.Inspect.QueueUnitInspect then
+            GSPlus.Inspect:QueueUnitInspect(inspectUnit)
+        end
+
+        tooltip:Show()
+        return
+    end
+
+    local profileKey = inspectProfile or GSPlus.Profiles:GetSelectedProfile()
 
     -- Score the ITEM ONLY. Merging active set bonuses into a single item's
     -- score inflates it against a per-slot color reference (a set bonus is
@@ -419,8 +508,14 @@ function Tooltip:AddGearScoreToTooltip(tooltip)
     local stats = GSPlus.ItemParser:ParseItemStats(itemLink)
     local setBonusStats = {}
 
-    if GSPlus.SetBonuses and GSPlus.SetBonuses.GetActiveSetBonusStatsForItem then
-        setBonusStats = GSPlus.SetBonuses:GetActiveSetBonusStatsForItem(itemLink)
+    -- Score the set bonus from the relevant player's own equipped pieces:
+    -- the inspected unit when inspecting, otherwise the viewer.
+    if GSPlus.SetBonuses then
+        if inspectUnit and GSPlus.SetBonuses.GetUnitActiveSetBonusStatsForItem then
+            setBonusStats = GSPlus.SetBonuses:GetUnitActiveSetBonusStatsForItem(inspectUnit, itemLink)
+        elseif not inspectUnit and GSPlus.SetBonuses.GetActiveSetBonusStatsForItem then
+            setBonusStats = GSPlus.SetBonuses:GetActiveSetBonusStatsForItem(itemLink)
+        end
     end
 
     local statBudgetScore = GSPlus.Calculator:CalculateRawStatBudget(stats)
@@ -429,8 +524,24 @@ function Tooltip:AddGearScoreToTooltip(tooltip)
     local weightedScore = GSPlus.Calculator:CalculateWeightedScore(stats, profileKey, nil, itemLink)
     local maxBudgetScore = GSPlus.Calculator:GetWeightedColorReferenceForItem(profileKey, nil, itemLink)
 
-    if not rawScore or rawScore <= 0 then
-        return
+    -- Nothing scoreable (e.g. a relic whose only effect is a spell-specific
+    -- bonus): fall back to an item-level estimate instead of showing nothing.
+    local usedLevelFallback = false
+
+    if (rawScore or 0) <= GSPlus.Calculator.MIN_SCOREABLE
+        and (weightedScore or 0) <= GSPlus.Calculator.MIN_SCOREABLE then
+        local classFileName = select(2, UnitClass(inspectUnit or "player"))
+        local fallback = GSPlus.Calculator:GetItemLevelFallbackScore(itemLink, classFileName)
+
+        if fallback <= 0 then
+            return
+        end
+
+        weightedScore = fallback
+        rawScore = fallback
+        -- keep maxBudgetScore (the slot's color reference) so the fallback
+        -- score is colored like a normal item instead of plain white.
+        usedLevelFallback = true
     end
 
     local setBonusWeightedScore = 0
@@ -439,10 +550,33 @@ function Tooltip:AddGearScoreToTooltip(tooltip)
         setBonusWeightedScore = GSPlus.Calculator:CalculateWeightedStatScore(setBonusStats, profileKey)
     end
 
+    -- Amortize the set bonus evenly across the equipped set pieces (so it is
+    -- counted once for the whole set) and fold each piece's share into this
+    -- item's score and its breakdown row, rather than a separate summary line.
+    local setBonusShare, setBonusPieces = 0, 0
+
+    if setBonusWeightedScore > 0 and GSPlus.SetBonuses and GSPlus.SetBonuses.GetSetNameForItem then
+        local setName = GSPlus.SetBonuses:GetSetNameForItem(itemLink)
+
+        if setName then
+            local counts = GSPlus.SetBonuses:GetUnitSetCounts(inspectUnit or "player")
+            setBonusPieces = math.max(1, counts[setName] or 1)
+            setBonusShare = setBonusWeightedScore / setBonusPieces
+            weightedScore = (weightedScore or 0) + setBonusShare
+        end
+    end
+
     tooltip.bgsScoreAdded = true
 
-    self:AddCompactGearScore(tooltip, profileKey, rawScore, weightedScore, maxBudgetScore, setBonusWeightedScore, itemLink)
-    self:AddDetailedBreakdown(tooltip, stats, profileKey, nil, itemLink)
+    self:AddCompactGearScore(tooltip, profileKey, rawScore, weightedScore, maxBudgetScore, 0, itemLink, inspectUnit)
+
+    if usedLevelFallback then
+        if GSPlus.Options:Get("showTooltipBreakdown") and IsShiftKeyDown() then
+            tooltip:AddLine("Estimated from item level (special effect not scoreable).", 0.6, 0.6, 0.6)
+        end
+    else
+        self:AddDetailedBreakdown(tooltip, stats, profileKey, nil, itemLink, setBonusShare, setBonusPieces)
+    end
 
     tooltip:Show()
 end

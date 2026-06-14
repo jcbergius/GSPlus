@@ -54,6 +54,12 @@ function GameVersion:Detect()
 
     self.flavor = flavor or self.TBC
 
+    -- Color references are scaled per flavor; drop any cached under a
+    -- previous flavor so they recompute against the new one.
+    if GSPlus.Calculator and GSPlus.Calculator.InvalidateReferenceCache then
+        GSPlus.Calculator:InvalidateReferenceCache()
+    end
+
     return self.flavor
 end
 

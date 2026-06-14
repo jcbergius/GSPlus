@@ -169,30 +169,14 @@ function TalentDetector:ResolveRoleByGear(dpsProfile, tankProfile)
         return self.roleCache[cacheKey]
     end
 
-    local Calculator = GSPlus.Calculator
-
-    local dps = Calculator:CalculateTotalGSPlus(dpsProfile)
-    local tank = Calculator:CalculateTotalGSPlus(tankProfile)
-
-    local dpsRatio = 0
-    local tankRatio = 0
-
-    if dps.totalMaxBudgetScore and dps.totalMaxBudgetScore > 0 then
-        dpsRatio = dps.totalWeightedScore / dps.totalMaxBudgetScore
-    end
-
-    if tank.totalMaxBudgetScore and tank.totalMaxBudgetScore > 0 then
-        tankRatio = tank.totalWeightedScore / tank.totalMaxBudgetScore
-    end
-
-    -- Comparing two profiles poisons the calculator's single-entry score
-    -- cache with the last explicit key; clear it so the real profile's
-    -- result is recomputed cleanly.
-    Calculator:InvalidateCache()
-
+    -- Tank vs DPS is decided by whether the gear carries defense / avoidance -
+    -- the stats only tanks itemize. DPS and tank gear share
+    -- strength/stamina/armor, so a weighted-ratio comparison is unreliable and
+    -- must not depend on how armor happens to be weighted for scoring.
+    local tankStat = GSPlus.ItemParser:GetTankStatTotal("player")
     local resolved = dpsProfile
 
-    if tankRatio > dpsRatio * self.GEAR_ROLE_TANK_BIAS then
+    if tankStat >= GSPlus.ItemParser.TANK_GEAR_DEFENSE_MIN then
         resolved = tankProfile
     end
 
@@ -263,8 +247,8 @@ function TalentDetector:ResolveProfileByGear(profileKeys, cacheKey)
     end
 
     local Calculator = GSPlus.Calculator
-    local bestKey = profileKeys[1]
-    local bestRatio = -1
+    local bestTankKey, bestTankRatio = nil, -1
+    local bestNonTankKey, bestNonTankRatio = nil, -1
 
     for _, profileKey in ipairs(profileKeys) do
         local data = Calculator:CalculateTotalGSPlus(profileKey)
@@ -274,17 +258,32 @@ function TalentDetector:ResolveProfileByGear(profileKeys, cacheKey)
             ratio = data.totalWeightedScore / data.totalMaxBudgetScore
         end
 
-        if ratio > bestRatio then
-            bestRatio = ratio
-            bestKey = profileKey
+        if Calculator:GetProfileColorCapGroup(profileKey) == "TANK" then
+            if ratio > bestTankRatio then
+                bestTankRatio = ratio
+                bestTankKey = profileKey
+            end
+        elseif ratio > bestNonTankRatio then
+            bestNonTankRatio = ratio
+            bestNonTankKey = profileKey
         end
     end
 
     Calculator:InvalidateCache()
 
-    self.roleCache[cacheKey] = bestKey
+    -- Tank is decided by gear defense/avoidance in both directions (see
+    -- ItemParser:GetTankStatTotal), otherwise the best non-tank fit.
+    local resolved
+    if bestTankKey
+        and GSPlus.ItemParser:GetTankStatTotal("player") >= GSPlus.ItemParser.TANK_GEAR_DEFENSE_MIN then
+        resolved = bestTankKey
+    else
+        resolved = bestNonTankKey or bestTankKey or profileKeys[1]
+    end
 
-    return bestKey
+    self.roleCache[cacheKey] = resolved
+
+    return resolved
 end
 
 function TalentDetector:GetDetectedProfile()

@@ -41,7 +41,7 @@ function InspectPaneUI:Create()
     -- (73, 254 up from the bottom of the 512-tall character pane): the
     -- inspect paper doll frame is shorter at the bottom, so bottom-relative
     -- anchoring lands too high.
-    frame:SetPoint("TOPLEFT", parent, "TOPLEFT", 73, -236)
+    frame:SetPoint("TOPLEFT", parent, "TOPLEFT", 64, -70)
 
     local labelText = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     labelText:SetPoint("LEFT", frame, "LEFT", 0, 0)
@@ -73,17 +73,22 @@ function InspectPaneUI:ShowTooltip(owner)
     GameTooltip:AddLine("|cff00ff00gs+|r")
 
     if entry then
-        local coloredScore = GSPlus.Calculator:ColorizeScore(entry.weighted or 0, entry.max or 0)
+        GameTooltip:AddDoubleLine("gs+", GSPlus.PlayerCache:FormatScore(entry), 1, 1, 1, 1, 1, 1)
 
-        GameTooltip:AddLine("Profile: " .. GSPlus.Profiles:GetProfileDisplayName(entry.profileKey), 1, 1, 1)
-        GameTooltip:AddDoubleLine("gs+", coloredScore, 1, 1, 1, 1, 1, 1)
+        if entry.partial then
+            -- Gear still loading: no role or numbers until the score is final
+            -- (a role guessed from partial gear can be wrong).
+            GameTooltip:AddLine("Waiting for all gear to load before scoring.", 0.6, 0.6, 0.6)
+        else
+            GameTooltip:AddLine("Profile: " .. GSPlus.Profiles:GetProfileDisplayName(entry.profileKey), 1, 1, 1)
 
-        if GSPlus.Options:Get("showBudgetScore") then
-            GameTooltip:AddLine("Budget Score: " .. math.floor(entry.raw or 0), 0.8, 0.8, 0.8)
-        end
+            if GSPlus.Options:Get("showBudgetScore") then
+                GameTooltip:AddLine("Budget Score: " .. math.floor(entry.raw or 0), 0.8, 0.8, 0.8)
+            end
 
-        if GSPlus.Options:Get("showLegacyGearScore") and entry.legacy and entry.legacy > 0 then
-            GameTooltip:AddLine("GearScore (legacy): " .. math.floor(entry.legacy), 0.6, 0.6, 0.6)
+            if GSPlus.Options:Get("showLegacyGearScore") and entry.legacy and entry.legacy > 0 then
+                GameTooltip:AddLine("GearScore (legacy): " .. math.floor(entry.legacy), 0.6, 0.6, 0.6)
+            end
         end
 
         if (entry.missingEnchants or 0) > 0 then
@@ -92,10 +97,6 @@ function InspectPaneUI:ShowTooltip(owner)
 
         if (entry.emptySockets or 0) > 0 then
             GameTooltip:AddLine(entry.emptySockets .. " empty socket(s)", 1, 0.53, 0)
-        end
-
-        if (entry.missingItems or 0) > 0 then
-            GameTooltip:AddLine("Some items not cached yet; score may rise shortly.", 0.6, 0.6, 0.6)
         end
     else
         GameTooltip:AddLine("Waiting for inspect data...", 0.8, 0.8, 0.8)
@@ -117,13 +118,12 @@ function InspectPaneUI:Update()
     local unit = self:GetInspectedUnit()
     local entry = GSPlus.PlayerCache:GetByUnit(unit)
 
-    if entry then
-        self.scoreText:SetText(GSPlus.Calculator:ColorizeScore(entry.weighted or 0, entry.max or 0))
-    else
-        self.scoreText:SetText("|cff888888...|r")
+    self.scoreText:SetText(GSPlus.PlayerCache:FormatScore(entry))
 
-        -- Blizzard's NotifyInspect usually covers this, but queue our own
-        -- request in case its data was claimed before we could read it.
+    if not entry or entry.partial then
+        -- No data yet, or gear still loading: keep requesting until complete
+        -- so the loading indicator resolves into a real score. (Blizzard's
+        -- own NotifyInspect usually covers the first case.)
         GSPlus.Inspect:QueueUnitInspect(unit)
     end
 

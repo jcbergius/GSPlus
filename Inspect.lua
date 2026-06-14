@@ -35,10 +35,60 @@ function Inspect:IsBackgroundInspectBlocked()
     return false
 end
 
+-- NotifyInspect on a unit just outside inspect range can throw Blizzard's red
+-- "Out of range" UI error. We gate on CheckInteractDistance, but as a belt-and-
+-- suspenders we also swallow that one error for a brief window after each
+-- inspect attempt (never other errors, never outside the window).
+function Inspect:InstallErrorFilter()
+    if self.errorFilterInstalled then
+        return
+    end
+
+    self.errorFilterInstalled = true
+
+    -- CanInspect(unit) (with no/false showError) and NotifyInspect throw a red
+    -- "Out of range" UI error for far units. We set skipInspectError around our
+    -- own inspect calls and swallow ONLY the inspect-related errors fired while
+    -- it's set - the player's own ability "out of range" errors pass through.
+    if CanInspect then
+        local originalCanInspect = CanInspect
+
+        CanInspect = function(unit, showError, ...)
+            local previous = GSPlus.Inspect.skipInspectError
+
+            if showError ~= true then
+                GSPlus.Inspect.skipInspectError = true
+            end
+
+            local result = originalCanInspect(unit, showError, ...)
+            GSPlus.Inspect.skipInspectError = previous
+
+            return result
+        end
+    end
+
+    if UIErrorsFrame and UIErrorsFrame.AddMessage then
+        local originalAddMessage = UIErrorsFrame.AddMessage
+
+        UIErrorsFrame.AddMessage = function(frame, message, ...)
+            if GSPlus.Inspect.skipInspectError and type(message) == "string"
+                and (message == (ERR_OUT_OF_RANGE or "Out of range.")
+                    or message == ERR_UNIT_NOT_FOUND
+                    or message == ERR_INVALID_INSPECT_TARGET) then
+                return
+            end
+
+            return originalAddMessage(frame, message, ...)
+        end
+    end
+end
+
 function Inspect:RegisterEvents()
     if self.eventFrame then
         return
     end
+
+    self:InstallErrorFilter()
 
     local eventFrame = CreateFrame("Frame")
     eventFrame:RegisterEvent("INSPECT_READY")
@@ -66,6 +116,67 @@ function Inspect:BuildPlayerEntry()
         source = "self",
         time = time(),
     }
+end
+
+-- Feral druids share one talent tree for cat (DPS) and bear (tank). The
+-- player's own detection resolves this from gear; inspected units must too,
+-- or every bear tank reads as cat DPS. (Blood DK is gear-resolved separately
+-- via the DEATHKNIGHT_RESOLVE marker, which has no weights and so falls to the
+-- general gear fallback.)
+function Inspect:DisambiguateUnitProfileByGear(unit, profileKey)
+    if profileKey ~= "DRUID_FERAL" then
+        return profileKey
+    end
+
+    if GSPlus.Options and GSPlus.Options.Get
+        and not GSPlus.Options:Get("autoDetectFeralRole") then
+        return profileKey
+    end
+
+    local dps = self:CalculateUnitScore(unit, "DRUID_FERAL")
+    local tank = self:CalculateUnitScore(unit, "DRUID_TANK")
+
+    local dpsRatio = 0
+    local tankRatio = 0
+
+    if dps.totalMaxScore and dps.totalMaxScore > 0 then
+        dpsRatio = dps.totalWeightedScore / dps.totalMaxScore
+    end
+
+    if tank.totalMaxScore and tank.totalMaxScore > 0 then
+        tankRatio = tank.totalWeightedScore / tank.totalMaxScore
+    end
+
+    local bias = (GSPlus.TalentDetector and GSPlus.TalentDetector.GEAR_ROLE_TANK_BIAS) or 1.05
+
+    if tankRatio > dpsRatio * bias then
+        return "DRUID_TANK"
+    end
+
+    return "DRUID_FERAL"
+end
+
+-- True only when every equipped item on the unit has fully loaded (no
+-- incomplete scans). Role resolution and the displayed score both wait for
+-- this, so nothing derived from half-loaded gear is ever shown.
+function Inspect:IsUnitGearComplete(unit)
+    local ItemParser = GSPlus.ItemParser
+    local sawItem = false
+
+    for _, slotInfo in ipairs(ItemParser.EQUIPMENT_SLOTS) do
+        local slotId = GetInventorySlotInfo(slotInfo.key)
+        local itemLink = slotId and GetInventoryItemLink(unit, slotId)
+
+        if itemLink then
+            sawItem = true
+
+            if ItemParser:ParseItemStats(itemLink).INCOMPLETE_SCAN then
+                return false
+            end
+        end
+    end
+
+    return sawItem
 end
 
 -- Picks a profile for the inspected unit from their talents when the client
@@ -98,15 +209,26 @@ function Inspect:GetUnitProfile(unit)
         local profileKey = classProfiles and classProfiles[bestIndex]
 
         if profileKey and GSPlus.Weights.PROFILE_WEIGHTS[profileKey] then
-            return profileKey
+            return self:DisambiguateUnitProfileByGear(unit, profileKey)
         end
     end
 
     -- Inspect talents unreadable: infer the role from their gear instead of
-    -- defaulting (which would score e.g. a Resto Shaman as Elemental).
-    local gearProfile = self:ResolveUnitProfileByGear(unit, classFileName)
+    -- defaulting (which would score e.g. a Resto Shaman as Elemental) - but
+    -- ONLY when the gear has fully loaded. A role guessed from half-loaded
+    -- gear is unreliable (DPS plate looks like a tank before its crit/hit/
+    -- weapon load in), so while items are still arriving we return the class
+    -- default and let a later, complete inspect set the real role. The entry
+    -- is flagged partial meanwhile, so no number or role is shown yet.
+    if self:IsUnitGearComplete(unit) then
+        local gearProfile = self:ResolveUnitProfileByGear(unit, classFileName)
 
-    return gearProfile or GSPlus.Profiles:GetDefaultProfileForClass(classFileName)
+        if gearProfile then
+            return gearProfile
+        end
+    end
+
+    return GSPlus.Profiles:GetDefaultProfileForClass(classFileName)
 end
 
 function Inspect:ResolveUnitProfileByGear(unit, classFileName)
@@ -120,8 +242,8 @@ function Inspect:ResolveUnitProfileByGear(unit, classFileName)
         return profileKeys[1]
     end
 
-    local bestKey = nil
-    local bestRatio = -1
+    local bestTankKey, bestTankRatio = nil, -1
+    local bestNonTankKey, bestNonTankRatio = nil, -1
 
     for _, profileKey in ipairs(profileKeys) do
         local result = self:CalculateUnitScore(unit, profileKey)
@@ -129,19 +251,34 @@ function Inspect:ResolveUnitProfileByGear(unit, classFileName)
         if result.itemCount > 0 and result.totalMaxScore > 0 then
             local ratio = result.totalWeightedScore / result.totalMaxScore
 
-            if ratio > bestRatio then
-                bestRatio = ratio
-                bestKey = profileKey
+            if GSPlus.Calculator:GetProfileColorCapGroup(profileKey) == "TANK" then
+                if ratio > bestTankRatio then
+                    bestTankRatio = ratio
+                    bestTankKey = profileKey
+                end
+            elseif ratio > bestNonTankRatio then
+                bestNonTankRatio = ratio
+                bestNonTankKey = profileKey
             end
         end
     end
 
-    return bestKey
+    -- Tank is decided by whether the gear carries defense / avoidance (the
+    -- stats only tanks itemize), in BOTH directions: tank gear -> the tank
+    -- profile, anything else -> the best non-tank fit. DPS and tank plate
+    -- share strength/stamina/armor, so a weighted ratio alone confuses them.
+    if bestTankKey
+        and GSPlus.ItemParser:GetTankStatTotal(unit) >= GSPlus.ItemParser.TANK_GEAR_DEFENSE_MIN then
+        return bestTankKey
+    end
+
+    return bestNonTankKey or bestTankKey
 end
 
 function Inspect:CalculateUnitScore(unit, profileKey)
     local Calculator = GSPlus.Calculator
     local ItemParser = GSPlus.ItemParser
+    local _, unitClass = UnitClass(unit)
 
     local totalRawScore = 0
     local totalWeightedScore = 0
@@ -158,20 +295,52 @@ function Inspect:CalculateUnitScore(unit, profileKey)
             local stats = ItemParser:ParseItemStats(itemLink)
             local statBudgetScore = Calculator:CalculateRawStatBudget(stats)
             local weaponBudgetScore = Calculator:CalculateWeaponBudgetScore(stats)
+            local rawScore = statBudgetScore + weaponBudgetScore
             local weightedScore = Calculator:CalculateWeightedScore(stats, profileKey, slotInfo.key, itemLink)
 
-            totalRawScore = totalRawScore + statBudgetScore + weaponBudgetScore
+            -- Item-level fallback for items with nothing scoreable. This MUST
+            -- match Calculator:CalculateTotalGSPlus exactly, or a player's
+            -- comms/self score and their inspected score differ for the same
+            -- gear (the "first hover vs after inspect" mismatch).
+            if rawScore <= Calculator.MIN_SCOREABLE and weightedScore <= Calculator.MIN_SCOREABLE then
+                local fallback = Calculator:GetItemLevelFallbackScore(itemLink, unitClass)
+
+                if fallback > 0 then
+                    rawScore = fallback
+                    weightedScore = fallback
+                end
+            end
+
+            totalRawScore = totalRawScore + rawScore
             totalWeightedScore = totalWeightedScore + weightedScore
             totalMaxScore = totalMaxScore + Calculator:GetWeightedColorReferenceForItem(profileKey, slotInfo.key, itemLink)
             itemCount = itemCount + 1
             emptySockets = emptySockets + (stats.EMPTY_SOCKETS or 0)
 
-            -- INCOMPLETE_SCAN: server hadn't sent the item's tooltip data,
-            -- so green equip effects (spell power, attack power, weapon
-            -- lines) are missing and the score is an undercount.
-            if stats.INCOMPLETE_SCAN or (statBudgetScore <= 0 and weaponBudgetScore <= 0) then
+            -- INCOMPLETE_SCAN: the client hadn't sent the item's full data,
+            -- so green equip effects (spell power, attack power, weapon lines)
+            -- are missing and the score is an undercount. Only that counts as
+            -- "missing". A fully loaded item that simply has no budget stats -
+            -- a libram, totem, idol, sigil or other stat-less relic - must NOT
+            -- count, or every paladin / shaman / druid / death knight would
+            -- read as partial ("score may rise") forever even when fully
+            -- inspected.
+            if stats.INCOMPLETE_SCAN then
                 missingItems = missingItems + 1
             end
+        end
+    end
+
+    -- Add the inspected unit's own active set bonuses (scored once), so a
+    -- tank's Kill Command armor-ignore etc. counts toward their total.
+    if GSPlus.SetBonuses and GSPlus.SetBonuses.GetUnitActiveSetBonusStats then
+        local setStats = GSPlus.SetBonuses:GetUnitActiveSetBonusStats(unit)
+        local setWeighted = Calculator:CalculateWeightedStatScore(setStats, profileKey)
+
+        if setWeighted > 0 then
+            totalRawScore = totalRawScore + Calculator:CalculateRawStatBudget(setStats)
+            totalWeightedScore = totalWeightedScore + setWeighted
+            totalMaxScore = totalMaxScore + Calculator:GetSetBonusColorReference(profileKey)
         end
     end
 
@@ -224,6 +393,12 @@ function Inspect:QueueUnitInspect(unit)
     end
 
     if CanInspect and not CanInspect(unit) then
+        return false
+    end
+
+    -- Out of inspect range: skip rather than fire NotifyInspect, which throws
+    -- a red "Out of range" UI error. A later hover retries when in range.
+    if not self:IsUnitInInspectRange(unit) then
         return false
     end
 
@@ -285,6 +460,20 @@ function Inspect:ScheduleDrain(delay)
     end)
 end
 
+-- Inspect range is interact-distance index 1 (~28 yds). When the API is
+-- missing we assume in range (older clients).
+function Inspect:IsUnitInInspectRange(unit)
+    if not unit then
+        return false
+    end
+
+    if CheckInteractDistance then
+        return CheckInteractDistance(unit, 1) and true or false
+    end
+
+    return true
+end
+
 function Inspect:ProcessQueue()
     if self.current then
         return
@@ -320,7 +509,8 @@ function Inspect:ProcessQueue()
 
         local unit = request.unit
 
-        if unit and (not CanInspect or CanInspect(unit)) then
+        if unit and (not CanInspect or CanInspect(unit))
+            and self:IsUnitInInspectRange(unit) then
             break
         end
 
@@ -338,7 +528,9 @@ function Inspect:ProcessQueue()
         self.lastAttempt[request.guid] = time()
     end
 
+    self.skipInspectError = true
     NotifyInspect(request.unit)
+    self.skipInspectError = false
 
     if C_Timer and C_Timer.After then
         local token = request
@@ -417,6 +609,25 @@ end
 function Inspect:StoreUnitEntry(unit, guid, entry)
     if not entry then
         return
+    end
+
+    -- Never downgrade a complete score to a partial one. A quick re-scan of a
+    -- player whose item data briefly fell out of the client cache must not
+    -- replace a good total with an undercount - the root of the "mouseover
+    -- shows a different number than inspect" inconsistency. The partial scan
+    -- still clears the retry cooldown so a later COMPLETE scan refreshes the
+    -- entry. (This mirrors TacoTip's all-or-nothing approach: only a fully
+    -- loaded scan is allowed to set the displayed number.)
+    if entry.partial then
+        local existing = GSPlus.PlayerCache:GetByUnit(unit)
+
+        if existing and not existing.partial then
+            if guid then
+                self.lastAttempt[guid] = nil
+            end
+
+            return
+        end
     end
 
     GSPlus.PlayerCache:SetForUnit(unit, entry)

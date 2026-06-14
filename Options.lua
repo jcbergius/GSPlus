@@ -10,8 +10,8 @@ local Options = GSPlus.Options
 -- scores, score sharing) are on. Extra tooltip lines are opt-in so the
 -- addon doesn't flood every tooltip with text.
 Options.DEFAULTS = {
-    showItemTooltip = false,
-    showTooltipBreakdown = false,
+    showItemTooltip = true,
+    showTooltipBreakdown = true,
     showUpgradeDelta = false,
     showLegacyGearScore = false,
     showBudgetScore = false,

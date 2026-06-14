@@ -14,6 +14,14 @@ SetBonuses.PERCENT_DAMAGE_TO_SPELLPOWER = 5
 SetBonuses.PERCENT_MANA_COST_TO_MP5 = 0.5
 SetBonuses.PERCENT_THREAT_TO_THREAT_VALUE = 0
 
+-- Flat "ignore N armor" set bonuses (Beast Lord 4pc: "Each time you use Kill
+-- Command, your attacks ignore 600 of your victim's armor for 15 sec.") are a
+-- big DPS gain but conditional/temporary. Value the ignored armor as armor
+-- penetration at a conservative average uptime so it contributes without
+-- being overrated. Tunable - hunters keep this near-permanent in practice, so
+-- this is deliberately on the cautious side.
+SetBonuses.ARMOR_IGNORE_UPTIME = 0.5
+
 SetBonuses.TEXT_STAT_MAPPING = {
     ["Strength"] = "STRENGTH",
     ["Agility"] = "AGILITY",
@@ -468,6 +476,18 @@ function SetBonuses:ParseAttackPowerEffects(text, stats)
     return parsedAny
 end
 
+function SetBonuses:ParseArmorIgnoreEffects(text, stats)
+    local ignored = string.match(text, "ignores? (%d+) of [%a%s']+ armor")
+        or string.match(text, "ignores? (%d+) armor")
+
+    if ignored then
+        self:AddScaledStat(stats, "ARMOR_PENETRATION", ignored, self.ARMOR_IGNORE_UPTIME)
+        return true
+    end
+
+    return false
+end
+
 function SetBonuses:ParseDefenseTankEffects(text, stats)
     local parsedAny = false
 
@@ -562,6 +582,21 @@ function SetBonuses:ParseSetBonusTextLine(text, stats)
         return false
     end
 
+    -- High-impact set bonuses get curated values (KnownSetBonuses), which
+    -- override the generic conversion that under-rates effects like armor
+    -- ignore. Matched on the bonus text, so it covers both tooltip formats.
+    if GSPlus.KnownSetBonuses then
+        local known = GSPlus.KnownSetBonuses:Match(text)
+
+        if known then
+            for stat, value in pairs(known) do
+                self:AddStat(stats, stat, value)
+            end
+
+            return true
+        end
+    end
+
     local parsedAny = false
 
     if GSPlus.ItemParser and GSPlus.ItemParser.ParseEffectText then
@@ -586,6 +621,10 @@ function SetBonuses:ParseSetBonusTextLine(text, stats)
         parsedAny = true
     end
 
+    if self:ParseArmorIgnoreEffects(text, stats) then
+        parsedAny = true
+    end
+
     if self:ParsePercentEffects(text, stats) then
         parsedAny = true
     end
@@ -597,13 +636,24 @@ function SetBonuses:ParseSetBonusTextLine(text, stats)
     return parsedAny
 end
 
-function SetBonuses:ScanItemSetBonuses(itemLink, processedBonuses)
+function SetBonuses:ScanItemSetBonuses(itemLink, processedBonuses, setCountOverride)
     local stats = {}
 
     local lines = self:GetTooltipLines(itemLink)
     local setName, equippedCount = self:FindSetHeader(lines)
 
-    if not setName or not equippedCount or equippedCount <= 0 then
+    if not setName then
+        return stats
+    end
+
+    -- When scoring an inspected player the tooltip's "(X/Y)" count is the
+    -- viewer's, not the target's, so the caller passes the target's real
+    -- per-set piece count.
+    if setCountOverride and setCountOverride[setName] ~= nil then
+        equippedCount = setCountOverride[setName]
+    end
+
+    if not equippedCount or equippedCount <= 0 then
         return stats
     end
 
@@ -725,6 +775,75 @@ function SetBonuses:GetEquippedActiveSetBonusStats()
     self.equippedBonusCache = totalStats
 
     return totalStats
+end
+
+-- Count how many pieces of each set a unit has equipped (we tally the target
+-- ourselves because the tooltip's own count is viewer-relative).
+function SetBonuses:GetSetNameForItem(itemLink)
+    if not itemLink then
+        return nil
+    end
+
+    return self:FindSetHeader(self:GetTooltipLines(itemLink))
+end
+
+function SetBonuses:GetUnitSetCounts(unit)
+    local counts = {}
+
+    if not GSPlus.ItemParser or not GSPlus.ItemParser.EQUIPMENT_SLOTS then
+        return counts
+    end
+
+    for _, slotInfo in ipairs(GSPlus.ItemParser.EQUIPMENT_SLOTS) do
+        local slotId = GetInventorySlotInfo(slotInfo.key)
+        local itemLink = slotId and GetInventoryItemLink(unit, slotId)
+
+        if itemLink then
+            local setName = self:FindSetHeader(self:GetTooltipLines(itemLink))
+
+            if setName then
+                counts[setName] = (counts[setName] or 0) + 1
+            end
+        end
+    end
+
+    return counts
+end
+
+-- All active set-bonus stats for an inspected unit, counted from their own
+-- equipped pieces (each bonus scored once).
+function SetBonuses:GetUnitActiveSetBonusStats(unit)
+    local totalStats = {}
+
+    if not GSPlus.ItemParser or not GSPlus.ItemParser.EQUIPMENT_SLOTS then
+        return totalStats
+    end
+
+    local setCounts = self:GetUnitSetCounts(unit)
+    local processedBonuses = {}
+
+    for _, slotInfo in ipairs(GSPlus.ItemParser.EQUIPMENT_SLOTS) do
+        local slotId = GetInventorySlotInfo(slotInfo.key)
+        local itemLink = slotId and GetInventoryItemLink(unit, slotId)
+
+        if itemLink then
+            self:MergeStats(totalStats, self:ScanItemSetBonuses(itemLink, processedBonuses, setCounts))
+        end
+    end
+
+    return totalStats
+end
+
+-- The active set-bonus stats from THIS item's set, for an inspected unit.
+function SetBonuses:GetUnitActiveSetBonusStatsForItem(unit, itemLink)
+    if not itemLink then
+        return {}
+    end
+
+    local stats = {}
+    self:MergeStats(stats, self:ScanItemSetBonuses(itemLink, {}, self:GetUnitSetCounts(unit)))
+
+    return stats
 end
 
 function SetBonuses:GetActiveSetBonusStatsForItem(itemLink)

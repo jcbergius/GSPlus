@@ -69,7 +69,7 @@ Weights.PROFILE_WEIGHTS = {
         STRENGTH = 0.50,
         AGILITY = 0.50,
         STAMINA = 1.0,
-        ARMOR = 0.90,
+        ARMOR = 0.35,
         ATTACKPOWER = 0.30,
         DEFENSE = 1.0,
         DODGE = 0.90,
@@ -133,7 +133,7 @@ Weights.PROFILE_WEIGHTS = {
         STAMINA = 1.0,
         SPIRIT = 0.0,
 
-        ARMOR = 0.90,
+        ARMOR = 0.35,
         ATTACKPOWER = 0.30,
         RANGED_ATTACKPOWER = 0.0,
         FERAL_ATTACKPOWER = 0.0,
@@ -217,7 +217,7 @@ Weights.PROFILE_WEIGHTS = {
         STAMINA = 1.0,
         SPIRIT = 0.0,
 
-        ARMOR = 0.90,
+        ARMOR = 0.35,
         ATTACKPOWER = 0.20,
         RANGED_ATTACKPOWER = 0.0,
         FERAL_ATTACKPOWER = 0.0,
@@ -721,7 +721,7 @@ Weights.PROFILE_WEIGHTS = {
         STAMINA = 1.0,
         SPIRIT = 0.0,
 
-        ARMOR = 1.0,
+        ARMOR = 0.55,
         ATTACKPOWER = 0.30,
         RANGED_ATTACKPOWER = 0.0,
         FERAL_ATTACKPOWER = 0.70,

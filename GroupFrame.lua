@@ -192,7 +192,12 @@ function GroupFrame:SetRow(row, data)
     local entry = data.entry
 
     if entry then
-        row.scoreText:SetText(GSPlus.Calculator:ColorizeScore(entry.weighted or 0, entry.max or 0))
+        row.scoreText:SetText(GSPlus.PlayerCache:FormatScore(entry))
+
+        if entry.partial then
+            row.detailText:SetText("|cff888888Gear still loading...|r")
+            return
+        end
 
         local details = GSPlus.Profiles:GetProfileDisplayName(entry.profileKey)
 
@@ -212,11 +217,6 @@ function GroupFrame:SetRow(row, data)
 
         if #warnings > 0 then
             details = details .. "  |cffff8800" .. table.concat(warnings, ", ") .. "|r"
-        end
-
-        if entry.source and entry.source ~= "self" then
-            details = details .. "  |cff666666(" .. GSPlus.PlayerCache:FormatSource(entry)
-                .. ", " .. GSPlus.PlayerCache:FormatAge(entry) .. ")|r"
         end
 
         row.detailText:SetText(details)

@@ -5,6 +5,21 @@ local Calculator = GSPlus.Calculator
 Calculator.ITEMIZATION_MODE = "TBC"
 Calculator.ITEM_BUDGET_EXPONENT = 1.7095
 
+-- Headroom applied to every color reference so RED means true best-in-slot,
+-- not merely "as good as a representative endgame piece". The reference items
+-- (ReferenceGear.lua / the static fallback caps) approximate strong raid gear
+-- that solid raiders already match; without this, good-but-not-BiS gear
+-- saturates at red. Raising the bar by this factor reserves red for fully
+-- gemmed/enchanted Sunwell-tier BiS. It scales all references uniformly, so
+-- gear-based role detection (which compares ratios across profiles) is
+-- unaffected. Tunable - validate the exact value in-game.
+Calculator.COLOR_REFERENCE_HEADROOM = 1.66
+
+-- Weighted scores at or below this are treated as "nothing we can value", so
+-- the item falls back to an item-level estimate (e.g. a relic whose only
+-- effect is a spell-specific bonus).
+Calculator.MIN_SCOREABLE = 1
+
 Calculator.SET_BONUS_COLOR_REFERENCE = {
     HEALER = 45,
     CASTER_DPS = 45,
@@ -474,6 +489,7 @@ function Calculator:GetWeightedColorReferenceForItem(profileKey, slotKey, itemLi
             end
 
             local reference = self:CalculateWeightedScore(refStats, profileKey, slotKey, itemLink)
+                * self.COLOR_REFERENCE_HEADROOM
 
             if reference > 0 then
                 self.referenceCache[cacheKey] = reference
@@ -488,14 +504,14 @@ function Calculator:GetWeightedColorReferenceForItem(profileKey, slotKey, itemLi
     local scale = self:GetColorReferenceScale()
 
     if equipLoc and groupCaps[equipLoc] then
-        return groupCaps[equipLoc] * scale
+        return groupCaps[equipLoc] * scale * self.COLOR_REFERENCE_HEADROOM
     end
 
     if equipLoc and self.WEIGHTED_COLOR_CAPS.FALLBACK[equipLoc] then
-        return self.WEIGHTED_COLOR_CAPS.FALLBACK[equipLoc] * scale
+        return self.WEIGHTED_COLOR_CAPS.FALLBACK[equipLoc] * scale * self.COLOR_REFERENCE_HEADROOM
     end
 
-    return 100 * scale
+    return 100 * scale * self.COLOR_REFERENCE_HEADROOM
 end
 
 function Calculator:GetSetBonusColorReference(profileKey)
@@ -587,7 +603,31 @@ end
 -- so frequent callers like the character pane tooltip stay cheap.
 function Calculator:InvalidateCache()
     self.scoreCache = nil
+end
+
+-- The per-slot/per-role color references are derived from fixed reference
+-- gear and the runtime-constant weight tables, so they never go stale when
+-- the player's own gear or talents change - only the score cache does. They
+-- are kept across refreshes (a meaningful saving for hybrid specs that score
+-- the gear under two profiles to resolve their role on every refresh) and
+-- cleared only when the client flavor changes, which is the one thing that
+-- can rescale a reference (GameVersion:Detect calls this).
+function Calculator:InvalidateReferenceCache()
     self.referenceCache = nil
+end
+
+-- Some items carry no stats we can value (a relic with only a spell-specific
+-- bonus, a pure-utility piece). Rather than score them as zero, estimate from
+-- item level using the legacy GearScore value, which is ilvl/rarity based and
+-- on a scale comparable to the weighted score.
+function Calculator:GetItemLevelFallbackScore(itemLink, classFileName)
+    if not itemLink or not GSPlus.LegacyGearScore then
+        return 0
+    end
+
+    classFileName = classFileName or self:GetPlayerClass()
+
+    return GSPlus.LegacyGearScore:GetItemScore(itemLink, classFileName) or 0
 end
 
 function Calculator:CalculateTotalGSPlus(profileKey)
@@ -598,6 +638,7 @@ function Calculator:CalculateTotalGSPlus(profileKey)
     end
 
     local equippedItems = GSPlus.ItemParser:GetEquippedItems()
+    local playerClass = self:GetPlayerClass()
 
     local setBonusStats = {}
 
@@ -620,6 +661,16 @@ function Calculator:CalculateTotalGSPlus(profileKey)
         local rawScore = statBudgetScore + weaponBudgetScore
         local weightedScore = self:CalculateWeightedScore(item.stats, profileKey, item.slotKey, item.link)
         local maxWeightedScore = self:GetWeightedColorReferenceForItem(profileKey, item.slotKey, item.link)
+
+        -- Nothing scoreable on this item: fall back to an item-level estimate.
+        if rawScore <= self.MIN_SCOREABLE and weightedScore <= self.MIN_SCOREABLE then
+            local fallback = self:GetItemLevelFallbackScore(item.link, playerClass)
+
+            if fallback > 0 then
+                weightedScore = fallback
+                rawScore = fallback
+            end
+        end
 
         totalRawScore = totalRawScore + rawScore
         totalWeightedScore = totalWeightedScore + weightedScore

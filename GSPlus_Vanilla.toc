@@ -13,6 +13,7 @@ GameVersion.lua
 StatWeights.lua
 ReferenceGear.lua
 KnownProcs.lua
+KnownSetBonuses.lua
 StatCaps.lua
 Profiles.lua
 TalentDetector.lua
