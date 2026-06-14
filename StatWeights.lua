@@ -51,7 +51,10 @@ Weights.PROFILE_WEIGHTS = {
     -- listed default to 0 via GetWeight.
     DEATHKNIGHT_DPS = {
         STRENGTH = 1.0,
-        AGILITY = 0.45,
+        -- Strength and agility are equivalent primary stats; weighting agility
+        -- equally lets the shared (agility-based) physical-DPS reference score
+        -- this strength spec correctly, so its gs+ lines up with agility DPS.
+        AGILITY = 1.0,
         STAMINA = 0.35,
         ARMOR = 0.05,
         ATTACKPOWER = 0.90,
@@ -86,7 +89,10 @@ Weights.PROFILE_WEIGHTS = {
 
     WARRIOR_DPS = {
         STRENGTH = 1.0,
-        AGILITY = 0.55,
+        -- Strength and agility are equivalent primary stats; weighting agility
+        -- equally lets the shared (agility-based) physical-DPS reference score
+        -- this strength spec correctly, so its gs+ lines up with agility DPS.
+        AGILITY = 1.0,
         INTELLECT = 0.0,
         STAMINA = 0.35,
         SPIRIT = 0.0,
@@ -170,7 +176,10 @@ Weights.PROFILE_WEIGHTS = {
 
     PALADIN_DPS = {
         STRENGTH = 1.0,
-        AGILITY = 0.30,
+        -- Strength and agility are equivalent primary stats; weighting agility
+        -- equally lets the shared (agility-based) physical-DPS reference score
+        -- this strength spec correctly, so its gs+ lines up with agility DPS.
+        AGILITY = 1.0,
         INTELLECT = 0.35,
         STAMINA = 0.35,
         SPIRIT = 0.0,

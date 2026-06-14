@@ -2222,5 +2222,44 @@ end)()
 end)()
 
 
+
+;(function()
+    -- 74. Cross-role normalization: every TBC role's full BiS reference set
+    -- scores within a tight band, so a BiS tank/healer/caster/physical-DPS all
+    -- land at a comparable gs+ (was a ~40% spread; physical DPS ran far low).
+    local C = GSPlus.Calculator
+    local slots = {
+      {"HeadSlot","INVTYPE_HEAD"},{"NeckSlot","INVTYPE_NECK"},{"ShoulderSlot","INVTYPE_SHOULDER"},
+      {"BackSlot","INVTYPE_CLOAK"},{"ChestSlot","INVTYPE_CHEST"},{"WristSlot","INVTYPE_WRIST"},
+      {"HandsSlot","INVTYPE_HAND"},{"WaistSlot","INVTYPE_WAIST"},{"LegsSlot","INVTYPE_LEGS"},
+      {"FeetSlot","INVTYPE_FEET"},{"Finger0Slot","INVTYPE_FINGER"},{"Finger1Slot","INVTYPE_FINGER"},
+      {"Trinket0Slot","INVTYPE_TRINKET"},{"Trinket1Slot","INVTYPE_TRINKET"},
+      {"MainHandSlot","INVTYPE_WEAPONMAINHAND"},{"SecondaryHandSlot","INVTYPE_SHIELD"},{"RangedSlot","INVTYPE_RELIC"} }
+    local function total(prof, group)
+        local t = 0
+        for _, sl in ipairs(slots) do
+            local rs = GSPlus.ReferenceGear:GetStats(group, sl[2])
+            if rs then
+                local w = C:CalculateWeightedStatScore(rs, prof)
+                if rs.WEAPON_DPS and rs.WEAPON_DPS > 0 then w = w + C:CalculateWeaponScore(rs, prof, sl[1], nil) end
+                t = t + w
+            end
+        end
+        return t
+    end
+    C:InvalidateCache(); C.referenceCache = nil
+    local mn, mx = 1e9, 0
+    for prof in pairs(GSPlus.Weights.PROFILE_WEIGHTS) do
+        if not string.find(prof, "DEATHKNIGHT") then  -- not a TBC class
+            local v = total(prof, C:GetProfileColorCapGroup(prof))
+            if v < mn then mn = v end
+            if v > mx then mx = v end
+        end
+    end
+    check(mn > 0 and (mx - mn) / mn < 0.15,
+        string.format("all TBC roles within 15%% gs+ band (min=%.0f max=%.0f, %.0f%%)", mn, mx, (mx-mn)/mn*100))
+end)()
+
+
 realPrint(failures == 0 and "ALL TESTS PASSED" or (failures .. " TEST(S) FAILED"))
 os.exit(failures == 0 and 0 or 1)
