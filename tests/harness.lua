@@ -462,12 +462,11 @@ check(math.abs(scoreBefore - scoreAfter) < 0.001, "total score unchanged by play
 check(commsBefore == commsAfter, "broadcast score unchanged by player's cap state")
 
 local rows = GSPlus.Tooltip:BuildStatContributionRows(hitStats, "WARRIOR_DPS")
--- Cap-neutral: the breakdown shows the uncapped HIT weight (base 1.0) carrying
--- the per-profile calibration scale, never the hit-capped 0.15.
-local neutralHit = GSPlus.Weights:GetWeight("WARRIOR_DPS", "HIT")
-    * GSPlus.Calculator:GetProfileScoreScale("WARRIOR_DPS")
-check(#rows == 1 and math.abs(rows[1].roleWeight - neutralHit) < 0.001,
-    "breakdown shows cap-neutral weights matching the score")
+-- Cap-neutral AND clean: the breakdown shows the uncapped, un-normalized HIT
+-- weight (the raw 1.0), never the hit-capped 0.15 nor a normalization-scaled value.
+check(#rows == 1 and math.abs(rows[1].roleWeight - GSPlus.Weights:GetWeight("WARRIOR_DPS", "HIT")) < 0.001
+    and rows[1].roleWeight == 1.0,
+    "breakdown shows clean, cap-neutral role weights")
 
 local cappedNames = GSPlus.StatCaps:GetCappedStatNames(hitStats, "WARRIOR_DPS")
 check(#cappedNames == 1 and cappedNames[1] == "Hit Rating", "capped stat names listed for advisory note")
@@ -948,9 +947,12 @@ local chestStats = GSPlus.ItemParser:ParseItemStats(chestLink)
 local rows2, rowTotal = GSPlus.Tooltip:BuildStatContributionRows(chestStats, "SHAMAN_HEALER")
 local rowSum = 0
 for _, row in ipairs(rows2) do rowSum = rowSum + row.finalContribution end
+-- Rows use clean (un-normalized) weights and sum to the pre-normalization total;
+-- that total times the per-spec normalization equals the displayed weighted score.
+local hScale = GSPlus.Calculator:GetProfileScoreScale("SHAMAN_HEALER")
 check(math.abs(rowSum - rowTotal) < 0.001
-    and math.abs(rowTotal - GSPlus.Calculator:CalculateWeightedStatScore(chestStats, "SHAMAN_HEALER")) < 0.001,
-    "breakdown contributions sum exactly to the weighted score (linear)")
+    and math.abs(rowTotal * hScale - GSPlus.Calculator:CalculateWeightedStatScore(chestStats, "SHAMAN_HEALER")) < 0.01,
+    "breakdown rows (clean weights) x normalization = the weighted score")
 
 -- 23. Cross-realm cache keys: comms and inspect must resolve to the SAME key
 -- for one player. Regression: comms stored under the short name while inspect

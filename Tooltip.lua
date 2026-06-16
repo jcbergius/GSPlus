@@ -100,7 +100,7 @@ function Tooltip:BuildStatContributionRows(stats, profileKey)
     for statType, value in pairs(stats or {}) do
         if GSPlus.Calculator:IsScoringStat(statType) then
             local budgetCost = GSPlus.Calculator:GetStatBudgetCost(statType)
-            local roleWeight = GSPlus.Calculator:GetEffectiveWeight(profileKey, statType, false)
+            local roleWeight = GSPlus.Weights:GetWeight(profileKey, statType)
             local budgetValue = GSPlus.Calculator:CalculateBudgetAdjustedStatValue(statType, value)
             local weightedBudgetValue = budgetValue * roleWeight
 
@@ -144,8 +144,8 @@ function Tooltip:BuildWeaponContributionRows(stats, profileKey, slotKey, itemLin
 
     local dpsWeightKey, damageWeightKey = GSPlus.Calculator:GetWeaponWeightKeys(slotKey, itemLink)
 
-    local dpsWeight = GSPlus.Calculator:GetEffectiveWeight(profileKey, dpsWeightKey, false)
-    local damageWeight = GSPlus.Calculator:GetEffectiveWeight(profileKey, damageWeightKey, false)
+    local dpsWeight = GSPlus.Weights:GetWeight(profileKey, dpsWeightKey)
+    local damageWeight = GSPlus.Weights:GetWeight(profileKey, damageWeightKey)
 
     local dpsContribution = weaponDps * dpsWeight
     local damageContribution = averageDamage * damageWeight
@@ -403,6 +403,21 @@ function Tooltip:AddDetailedBreakdown(tooltip, stats, profileKey, slotKey, itemL
             string.format("Set bonus effect (1/%d)", setBonusPieces or 1),
             "|cff00ff00" .. FormatNumber(setBonusShare, 1) .. "|r",
             0.65, 0.85, 1.0, 0.8, 0.8, 0.8
+        )
+    end
+
+    -- The rows above use the clean, readable role weights. The displayed gs+ is
+    -- those contributions times one per-spec normalization factor, which keeps
+    -- equally-geared specs on the same scale (a fair cross-spec number) without
+    -- muddying every weight. Disclose it as a single line when it isn't ~1.
+    local profileScale = GSPlus.Calculator.GetProfileScoreScale
+        and GSPlus.Calculator:GetProfileScoreScale(profileKey) or 1
+
+    if anyRows and math.abs(profileScale - 1) > 0.005 then
+        tooltip:AddDoubleLine(
+            "Profile normalization",
+            string.format("|cffaaaaaax %.2f|r", profileScale),
+            0.65, 0.85, 1.0, 0.67, 0.67, 0.67
         )
     end
 
