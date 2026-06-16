@@ -110,9 +110,17 @@ function Inspect:RegisterEvents()
 
     local eventFrame = CreateFrame("Frame")
     eventFrame:RegisterEvent("INSPECT_READY")
+    eventFrame:RegisterEvent("PLAYER_TARGET_CHANGED")
 
-    eventFrame:SetScript("OnEvent", function(_, _, guid)
-        GSPlus.Inspect:OnInspectReady(guid)
+    eventFrame:SetScript("OnEvent", function(_, event, arg1)
+        if event == "INSPECT_READY" then
+            GSPlus.Inspect:OnInspectReady(arg1)
+        elseif event == "PLAYER_TARGET_CHANGED" then
+            -- Targeting a player is the reliable way to inspect them: the
+            -- "target" token is stable, unlike a transient "mouseover", so the
+            -- inspect completes and a hover shows a real score, not "Loading...".
+            GSPlus.Inspect:QueueUnitInspect("target")
+        end
     end)
 
     self.eventFrame = eventFrame
@@ -627,6 +635,13 @@ function Inspect:OnInspectTimeout(token)
     end
 
     self.current = nil
+
+    -- A timed-out inspect produced no score, so don't let the per-player cooldown
+    -- (intended for SUCCESSFUL inspects) block a prompt retry on the next hover.
+    if token and token.guid then
+        self.lastAttempt[token.guid] = nil
+    end
+
     self:ProcessQueue()
 end
 

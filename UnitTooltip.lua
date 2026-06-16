@@ -105,15 +105,15 @@ end
 -- Called by Inspect when a queued inspect completes; if the tooltip is still
 -- showing that player, append the freshly computed lines.
 function UnitTooltip:OnScoreUpdated(guid, name, entry)
-    if not guid or self.waitingGuid ~= guid then
+    -- Refresh whenever the tooltip is currently showing the player whose score
+    -- changed - not only when a "waiting" flag was set. A cached-but-not-final
+    -- entry (common for a stranger whose items are still loading) otherwise
+    -- left the live tooltip stuck on "Loading..." even after the score resolved.
+    if not guid or not GameTooltip or not GameTooltip.IsShown or not GameTooltip:IsShown() then
         return
     end
 
     self.waitingGuid = nil
-
-    if not GameTooltip or not GameTooltip:IsShown() then
-        return
-    end
 
     local unit = self:GetTooltipUnit(GameTooltip)
 

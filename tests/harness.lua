@@ -2568,6 +2568,54 @@ end)()
         "bears gain nothing from weapon skill or weapon DPS")
 end)()
 
+;(function()
+    -- 70. The live mouseover tooltip refreshes when a player's score resolves,
+    -- even with no "waiting" flag set (the cached-but-not-final case that left
+    -- it stuck on "Loading...").
+    TEST_UNITS.hovertgt = { name = "Hovery", guid = "guid-hovery", isPlayer = true, class = "WARRIOR" }
+    local realGT = GameTooltip
+    local setUnitCalls = 0
+    GameTooltip = {
+        IsShown = function() return true end,
+        GetUnit = function() return "Hovery", "hovertgt" end,
+        SetUnit = function() setUnitCalls = setUnitCalls + 1 end,
+        AddLine = function() end, AddDoubleLine = function() end, Show = function() end,
+    }
+    GSPlus.UnitTooltip.waitingGuid = nil
+    GSPlus.UnitTooltip:OnScoreUpdated("guid-hovery", "Hovery",
+        { weighted = 1000, max = 1200, profileKey = "WARRIOR_DPS" })
+    check(setUnitCalls == 1, "mouseover tooltip refreshes on score update without a waiting flag")
+    GameTooltip = realGT
+
+    -- 71. A timed-out background inspect clears the per-player cooldown so the
+    -- next hover retries instead of waiting out the 10s cooldown.
+    GSPlus.Inspect.queue = {}
+    local token = { unit = "hovertgt", guid = "guid-hovery", name = "Hovery" }
+    GSPlus.Inspect.current = token
+    GSPlus.Inspect.lastAttempt["guid-hovery"] = time()
+    GSPlus.Inspect:OnInspectTimeout(token)
+    check(GSPlus.Inspect.current == nil and GSPlus.Inspect.lastAttempt["guid-hovery"] == nil,
+        "inspect timeout clears the current request and the per-player cooldown")
+
+    -- 72. Targeting a player triggers a background inspect (the "target" token is
+    -- stable), so the cache fills reliably instead of relying on a transient hover.
+    GSPlus.Inspect:RegisterEvents()
+    TEST_UNITS.target = { name = "Targy", guid = "guid-targy", isPlayer = true, class = "MAGE" }
+    local origCID = CheckInteractDistance
+    CheckInteractDistance = function() return true end
+    if InspectFrame then InspectFrame:Hide() end
+    inCombat = false
+    GSPlus.Inspect.queue = {}; GSPlus.Inspect.current = nil
+    GSPlus.Inspect.lastAttempt["guid-targy"] = nil
+    GSPlus.Inspect.lastNotify = 0
+    GSPlus.Inspect.MIN_NOTIFY_INTERVAL = 0
+    notifyInspectCalls = 0
+    GSPlus.Inspect.eventFrame.script_OnEvent(GSPlus.Inspect.eventFrame, "PLAYER_TARGET_CHANGED")
+    check(notifyInspectCalls == 1, "targeting a player triggers a background inspect")
+    CheckInteractDistance = origCID
+    GSPlus.Inspect.queue = {}; GSPlus.Inspect.current = nil
+end)()
+
 
 realPrint(failures == 0 and "ALL TESTS PASSED" or (failures .. " TEST(S) FAILED"))
 os.exit(failures == 0 and 0 or 1)
