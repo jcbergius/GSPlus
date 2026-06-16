@@ -863,6 +863,7 @@ Weights.STAT_WEIGHT_ALIASES = {
     HEALTH = "STAMINA",
     MANA = "INTELLECT",
     ARMOR_PENETRATION = "ATTACKPOWER",
+    ARMOR_PENETRATION_RATING = "ATTACKPOWER",
     SPELL_PENETRATION = "SPELLPOWER",
     -- Single-school spell damage counts at the general spell power weight
     -- (BiS lists agree matching-school gear is top-tier for that school).

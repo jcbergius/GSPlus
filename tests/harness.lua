@@ -2477,6 +2477,49 @@ end)()
     GSPlus.ItemParser:InvalidateStatsCache()
 end)()
 
+;(function()
+    -- 67. Budget costs match the documented WoW itemization StatMods, and armor
+    -- penetration RATING (a combat rating) is scored separately from flat armor
+    -- ignore (priced like bonus armor). See STAT_BUDGET_ANALYSIS.md.
+    local C = GSPlus.Calculator
+    check(C.ITEM_BUDGET_EXPONENT == 1.5, "budget exponent is the documented 3/2 (1.5)")
+    check(C:GetStatBudgetCost("SCHOOL_SPELLPOWER") == 0.70, "single-school spell damage costs 0.70")
+    check(C:GetStatBudgetCost("MP5") == 2.50, "MP5 costs 2.5")
+    check(C:GetStatBudgetCost("SPELL_PENETRATION") == 0.90, "spell penetration costs 0.9")
+    check(C:GetStatBudgetCost("FIRE_RESISTANCE") == 1.00, "single-school resistance costs 1.0")
+    check(C:GetStatBudgetCost("ARMOR_PENETRATION_RATING") == 1.00, "armor penetration RATING costs 1.0")
+    check(C:GetStatBudgetCost("ARMOR_PENETRATION") == 0.10, "flat armor-ignore stays cheap (0.10)")
+
+    -- "Armor Penetration Rating" parses to the rating key; "ignore N armor" stays flat.
+    GSPlus.ItemParser:InvalidateStatsCache()
+    local apl = "|cffa335ee|Hitem:61001:::::::80:::::|h[Sundering Blade]|h|r"
+    fakeItems[apl] = { name = "Sundering Blade", equipLoc = "INVTYPE_WEAPON" }
+    fakeTooltips[apl] = { "Sundering Blade", "One-Hand", "Sword",
+        "100 - 150 Damage", "Speed 2.60", "(48.1 damage per second)",
+        "+40 Armor Penetration Rating", "Requires Level 80" }
+    local aps = GSPlus.ItemParser:ParseItemStats(apl)
+    check(aps.ARMOR_PENETRATION_RATING == 40 and aps.ARMOR_PENETRATION == nil,
+        "armor penetration rating parsed as a rating, not flat armor-ignore")
+
+    local flat = {}
+    GSPlus.ItemParser:ParseTooltipLine("Equip: Your attacks ignore 175 of your opponent's armor.", flat)
+    check(flat.ARMOR_PENETRATION == 175 and flat.ARMOR_PENETRATION_RATING == nil,
+        "flat armor-ignore stays the flat ARMOR_PENETRATION key")
+
+    -- The rating aliases the attack-power weight, so it scores for a melee DPS.
+    check(GSPlus.Weights:GetWeight("WARRIOR_DPS", "ARMOR_PENETRATION_RATING")
+        == GSPlus.Weights:GetWeight("WARRIOR_DPS", "ATTACKPOWER")
+        and GSPlus.Weights:GetWeight("WARRIOR_DPS", "ATTACKPOWER") > 0,
+        "armor penetration rating inherits the attack-power role weight")
+
+    -- A school-spell-damage point now contributes less than an all-school point
+    -- (0.70 vs 0.86 budget), per the documented single-school discount.
+    check(GSPlus.Calculator:CalculateWeightedStatScore({ SCHOOL_SPELLPOWER = 100 }, "MAGE_DPS")
+        < GSPlus.Calculator:CalculateWeightedStatScore({ SPELLPOWER = 100 }, "MAGE_DPS"),
+        "single-school spell damage scores below all-school spell power")
+    GSPlus.ItemParser:InvalidateStatsCache()
+end)()
+
 
 realPrint(failures == 0 and "ALL TESTS PASSED" or (failures .. " TEST(S) FAILED"))
 os.exit(failures == 0 and 0 or 1)

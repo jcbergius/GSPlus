@@ -3,7 +3,13 @@
 local Calculator = GSPlus.Calculator
 
 Calculator.ITEMIZATION_MODE = "TBC"
-Calculator.ITEM_BUDGET_EXPONENT = 1.7095
+-- Blizzard's itemization combines stat costs non-linearly: the documented rule
+-- is Budget^1.5 = SUM( (StatValue * StatMod)^1.5 ), i.e. the 3/2 power (see the
+-- Hyzenthlei/BlizzCon stat-budget table; STAT_BUDGET_ANALYSIS.md). We match that
+-- 3/2 exponent so the raw Budget Score mirrors true itemization rather than
+-- over-rewarding stat concentration. (The displayed gs+ is a separate LINEAR
+-- sum - see CalculateWeightedStatScore - so this only shapes the Budget Score.)
+Calculator.ITEM_BUDGET_EXPONENT = 1.5
 
 -- Headroom applied to every color reference so RED means true best-in-slot,
 -- not merely "as good as a representative endgame piece". The reference items
@@ -28,23 +34,33 @@ Calculator.SET_BONUS_COLOR_REFERENCE = {
     FALLBACK = 45,
 }
 
+-- Per-point budget cost of each stat (its "StatMod"), normalized so a primary
+-- stat = 1.0. These are the documented WoW itemization values (the Hyzenthlei
+-- cost table Blizzard confirmed at BlizzCon); see STAT_BUDGET_ANALYSIS.md for the
+-- per-stat sourcing. A stat's contribution = StatValue * StatMod * role weight,
+-- so these double as the universal stat->budget normalization that the role
+-- weights (StatWeights.lua) are tuned against.
 Calculator.STAT_BUDGET_COST = {
     STRENGTH = 1.00,
     AGILITY = 1.00,
     INTELLECT = 1.00,
     SPIRIT = 1.00,
 
+    -- Stamina was repriced to 2/3 in TBC (was 1.0 in vanilla).
     STAMINA = 0.67,
 
+    -- Bonus armor: 0.10 in TBC, 1/14 ~ 0.071 from patch 3.2; 0.07 splits the two.
     ARMOR = 0.07,
     ATTACKPOWER = 0.50,
     RANGED_ATTACKPOWER = 0.40,
     FERAL_ATTACKPOWER = 0.50,
 
     SPELLPOWER = 0.86,
-    SCHOOL_SPELLPOWER = 0.86,
+    -- Single-school spell damage costs 0.70, less than all-school 0.86.
+    SCHOOL_SPELLPOWER = 0.70,
     HEALING = 0.45,
 
+    -- All combat ratings cost 1.0 per point.
     DEFENSE = 1.00,
     DODGE = 1.00,
     PARRY = 1.00,
@@ -56,22 +72,31 @@ Calculator.STAT_BUDGET_COST = {
     EXPERTISE = 1.00,
     RESILIENCE = 1.00,
     WEAPON_SKILL = 1.00,
+    MASTERY = 1.00,
+    -- Armor penetration RATING is a combat rating (1.0). Flat "ignore N armor"
+    -- (TBC) is priced like bonus armor (see ARMOR_PENETRATION below).
+    ARMOR_PENETRATION_RATING = 1.00,
 
-    MP5 = 2.00,
+    -- MP5 is the most expensive common stat at 2.5; HP5 is priced alongside it.
+    MP5 = 2.50,
     HP5 = 2.50,
 
     -- 10 health ~ 1 stamina (x0.67), 15 mana ~ 1 intellect
     HEALTH = 0.067,
     MANA = 0.067,
-    SPELL_PENETRATION = 0.20,
+    -- Magic/spell penetration ~ 0.9 per point.
+    SPELL_PENETRATION = 0.90,
+    -- Flat armor-ignore (TBC), priced like bonus armor; the RATING is above.
     ARMOR_PENETRATION = 0.10,
-    MASTERY = 1.00,
 
-    ARCANE_RESISTANCE = 2.50,
-    FIRE_RESISTANCE = 2.50,
-    FROST_RESISTANCE = 2.50,
-    NATURE_RESISTANCE = 2.50,
-    SHADOW_RESISTANCE = 2.50,
+    -- A single resistance school costs 1.0 per point (only the all-schools
+    -- bundle is 2.5; this addon adds an "all resistances" value to each school,
+    -- so each school is priced individually at the single-school rate).
+    ARCANE_RESISTANCE = 1.00,
+    FIRE_RESISTANCE = 1.00,
+    FROST_RESISTANCE = 1.00,
+    NATURE_RESISTANCE = 1.00,
+    SHADOW_RESISTANCE = 1.00,
 }
 
 Calculator.WEAPON_STAT_KEYS = {
@@ -297,7 +322,7 @@ function Calculator:CalculateBudgetAdjustedStatValue(statType, value)
 end
 
 function Calculator:CalculateRawStatBudget(stats)
-    local exponent = self.ITEM_BUDGET_EXPONENT or 1.7095
+    local exponent = self.ITEM_BUDGET_EXPONENT or 1.5
     local total = 0
 
     for statType, value in pairs(stats or {}) do

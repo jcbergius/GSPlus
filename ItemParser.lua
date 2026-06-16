@@ -151,7 +151,7 @@ ItemParser.ITEM_MOD_STAT_MAP = {
     EXPERTISE_RATING = "EXPERTISE",
     RESILIENCE_RATING = "RESILIENCE",
     MASTERY_RATING = "MASTERY",
-    ARMOR_PENETRATION_RATING = "ARMOR_PENETRATION",
+    ARMOR_PENETRATION_RATING = "ARMOR_PENETRATION_RATING",
 
     MANA_REGENERATION = "MP5",
     MP5 = "MP5",
@@ -216,8 +216,8 @@ ItemParser.TEXT_STAT_MAPPING = {
     ["Mana"] = "MANA",
     ["mana"] = "MANA",
     ["Spell Penetration"] = "SPELL_PENETRATION",
-    ["Armor Penetration"] = "ARMOR_PENETRATION",
-    ["Armor Penetration Rating"] = "ARMOR_PENETRATION",
+    ["Armor Penetration"] = "ARMOR_PENETRATION_RATING",
+    ["Armor Penetration Rating"] = "ARMOR_PENETRATION_RATING",
     ["Mastery Rating"] = "MASTERY",
 
     ["Mana per 5 sec"] = "MP5",
@@ -866,7 +866,7 @@ function ItemParser:NormalizeStatName(statName)
     elseif lowerName == "mastery rating" then
         return "MASTERY"
     elseif lowerName == "armor penetration rating" then
-        return "ARMOR_PENETRATION"
+        return "ARMOR_PENETRATION_RATING"
     elseif lowerName == "resilience rating" then
         return "RESILIENCE"
     elseif lowerName == "mana per 5 sec" or lowerName == "mana every 5 seconds" or lowerName == "mp5" then
