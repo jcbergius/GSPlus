@@ -267,7 +267,7 @@ equipped.MainHandSlot = swordLink
 
 -- Load addon files in toc order ----------------------------------------------
 local tocOrder = {
-    "Core.lua", "GameVersion.lua", "StatWeights.lua", "ReferenceGear.lua", "KnownProcs.lua", "KnownSetBonuses.lua", "StatCaps.lua", "Profiles.lua", "TalentDetector.lua",
+    "Core.lua", "GameVersion.lua", "StatWeights.lua", "ReferenceGear.lua", "KnownProcs.lua", "KnownEnchants.lua", "KnownSetBonuses.lua", "StatCaps.lua", "Profiles.lua", "TalentDetector.lua",
     "ItemParser.lua", "SetBonuses.lua", "Calculator.lua",
     "LegacyGearScore.lua", "Options.lua", "PlayerCache.lua",
     "CharacterPaneUI.lua", "InspectPaneUI.lua", "UI.lua", "GroupFrame.lua",
@@ -2415,6 +2415,65 @@ end)()
     GSPlusSavedVars.useManualProfile = savedUseManual
     GSPlusSavedVars.selectedProfile = savedSelected
     GSPlus:InvalidateCaches()
+    GSPlus.ItemParser:InvalidateStatsCache()
+end)()
+
+;(function()
+    -- 66. Weapon enchant effects are scored from their tooltip name. Named
+    -- enchants (Mongoose, Crusader, the spellpower brands, ...) show only their
+    -- name with no stat text, so KnownEnchants maps the name to averaged stats.
+    GSPlus.ItemParser:InvalidateStatsCache()
+
+    -- Mongoose: agility + a little haste, added on top of the weapon's own stats.
+    local mlink = "|cffa335ee|Hitem:60001:2673:::::::70:::::|h[Vindicator's Brand]|h|r"
+    fakeItems[mlink] = { name = "Vindicator's Brand", equipLoc = "INVTYPE_WEAPON" }
+    fakeTooltips[mlink] = { "Vindicator's Brand", "One-Hand", "Sword",
+        "147 - 275 Damage", "Speed 2.60", "(81.2 damage per second)",
+        "Mongoose", "Requires Level 70",
+        "Equip: Improves hit rating by 19.", "Equip: Increases attack power by 38." }
+    local ms = GSPlus.ItemParser:ParseItemStats(mlink)
+    check(ms.AGILITY == 30 and ms.HASTE == 8,
+        "Mongoose enchant scored (agi " .. tostring(ms.AGILITY) .. ", haste " .. tostring(ms.HASTE) .. ")")
+    check(ms.HIT == 19 and ms.ATTACKPOWER == 38,
+        "the weapon's own equip stats are still parsed alongside the enchant")
+    local noEnch = {}
+    for k, v in pairs(ms) do noEnch[k] = v end
+    noEnch.AGILITY = nil; noEnch.HASTE = nil
+    check(GSPlus.Calculator:CalculateWeightedStatScore(ms, "ROGUE_DPS")
+        > GSPlus.Calculator:CalculateWeightedStatScore(noEnch, "ROGUE_DPS"),
+        "Mongoose raises a rogue's weighted score")
+
+    -- Crusader -> Strength.
+    GSPlus.ItemParser:InvalidateStatsCache()
+    local clink = "|cffa335ee|Hitem:60002:1900:::::::70:::::|h[Crusader Blade]|h|r"
+    fakeItems[clink] = { name = "Crusader Blade", equipLoc = "INVTYPE_WEAPON" }
+    fakeTooltips[clink] = { "Crusader Blade", "One-Hand", "Mace",
+        "100 - 150 Damage", "Speed 2.70", "(46.3 damage per second)", "Crusader", "Requires Level 60" }
+    check(GSPlus.ItemParser:ParseItemStats(clink).STRENGTH == 25, "Crusader enchant scored as Strength")
+
+    -- Major Spellpower -> spell power + healing.
+    GSPlus.ItemParser:InvalidateStatsCache()
+    local splink = "|cffa335ee|Hitem:60003:2674:::::::70:::::|h[Sageblade]|h|r"
+    fakeItems[splink] = { name = "Sageblade", equipLoc = "INVTYPE_WEAPON" }
+    fakeTooltips[splink] = { "Sageblade", "One-Hand", "Sword",
+        "50 - 90 Damage", "Speed 1.80", "(38.9 damage per second)", "Major Spellpower", "Requires Level 70" }
+    local sp = GSPlus.ItemParser:ParseItemStats(splink)
+    check(sp.SPELLPOWER == 40 and sp.HEALING == 40, "Major Spellpower enchant scored (spell power + healing)")
+
+    -- Cataclysm Landslide -> attack power.
+    GSPlus.ItemParser:InvalidateStatsCache()
+    local llink = "|cffa335ee|Hitem:60004:4099:::::::85:::::|h[Landslide Axe]|h|r"
+    fakeItems[llink] = { name = "Landslide Axe", equipLoc = "INVTYPE_WEAPON" }
+    fakeTooltips[llink] = { "Landslide Axe", "One-Hand", "Axe",
+        "200 - 300 Damage", "Speed 2.60", "(96.1 damage per second)", "Landslide", "Requires Level 85" }
+    check(GSPlus.ItemParser:ParseItemStats(llink).ATTACKPOWER == 200, "Landslide enchant scored as attack power")
+
+    -- Exact-name match only: ordinary item text is never mistaken for an enchant.
+    check(GSPlus.KnownEnchants:GetByName("Mongoose") ~= nil
+        and GSPlus.KnownEnchants:GetByName("Vindicator's Brand") == nil
+        and GSPlus.KnownEnchants:GetByName("") == nil,
+        "KnownEnchants matches only exact enchant names")
+
     GSPlus.ItemParser:InvalidateStatsCache()
 end)()
 

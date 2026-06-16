@@ -690,6 +690,10 @@ function ItemParser:ParseTooltipLine(text, stats)
         return
     end
 
+    if self:ParseWeaponEnchantLine(text, stats) then
+        return
+    end
+
     if self:ParseWeaponTooltipLine(text, stats) then
         return
     end
@@ -719,6 +723,28 @@ function ItemParser:ParseTooltipLine(text, stats)
     end
 
     self:ParseBaseTooltipStatLine(text, stats)
+end
+
+-- Named weapon enchants (Mongoose, Crusader, Berserking, the spellpower brands,
+-- ...) render as just their name with no stat text. Match that name against the
+-- curated KnownEnchants table and add its averaged stats so the enchant counts
+-- toward the score. Exact full-line match, so it never collides with other text.
+function ItemParser:ParseWeaponEnchantLine(text, stats)
+    if not (GSPlus.KnownEnchants and GSPlus.KnownEnchants.GetByName) then
+        return false
+    end
+
+    local enchantStats = GSPlus.KnownEnchants:GetByName(text)
+
+    if not enchantStats then
+        return false
+    end
+
+    for statName, value in pairs(enchantStats) do
+        self:AddStackingStat(stats, statName, value)
+    end
+
+    return true
 end
 
 function ItemParser:ParseWeaponTooltipLine(text, stats)
