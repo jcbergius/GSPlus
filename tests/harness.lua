@@ -2549,21 +2549,21 @@ end)()
 end)()
 
 ;(function()
-    -- 69. Feral (bear) tank weights follow Wowhead's bear stat priority. The
-    -- per-point value (budget cost x role weight) must rank expertise > agility
-    -- > hit > stamina > strength > defense > crit > dodge >= haste > attack
-    -- power > armor. (Regression: Dodge used to be the single highest stat.)
+    -- 69. Feral (bear) tank weights: the stats ferals stack lead, dodge sits
+    -- mid-list (it used to be the single highest stat), and weapon DPS/skill are
+    -- ignored. Simple weights, so exact Wowhead ratios aren't reproduced - just
+    -- a sensible priority with the main stats near the top.
     local C = GSPlus.Calculator
     local function per(stat) return C:CalculateWeightedStatScore({ [stat] = 1 }, "DRUID_TANK") end
-    check(per("EXPERTISE") > per("AGILITY") and per("AGILITY") > per("HIT")
-        and per("HIT") > per("STAMINA") and per("STAMINA") > per("STRENGTH")
-        and per("STRENGTH") >= per("DEFENSE") and per("DEFENSE") > per("CRITICAL")
-        and per("CRITICAL") > per("DODGE") and per("DODGE") >= per("HASTE")
-        and per("HASTE") > per("ATTACKPOWER") and per("ATTACKPOWER") > per("ARMOR"),
-        "bear tank per-point stat priority matches Wowhead")
-    check(per("AGILITY") > per("DODGE") and per("HIT") > per("DODGE")
-        and per("EXPERTISE") > per("DODGE") * 3,
-        "expertise/agility/hit now outvalue dodge for bears (was inverted)")
+    check(per("AGILITY") >= per("HIT") and per("EXPERTISE") >= per("HIT")
+        and per("STRENGTH") >= per("HIT") and per("HIT") >= per("DODGE")
+        and per("DODGE") > per("HASTE") and per("HASTE") > per("ATTACKPOWER")
+        and per("ATTACKPOWER") > per("ARMOR"),
+        "bear tank priority: agi/exp/str lead, then hit, dodge, haste, AP, armor")
+    check(per("AGILITY") > per("DODGE") and per("EXPERTISE") > per("DODGE"),
+        "agility & expertise outrank dodge (dodge no longer the top bear stat)")
+    check(per("WEAPON_SKILL") == 0 and C:CalculateWeaponScore({ WEAPON_DPS = 100, WEAPON_AVERAGE_DAMAGE = 150 }, "DRUID_TANK", "MainHandSlot", nil) == 0,
+        "bears gain nothing from weapon skill or weapon DPS")
 end)()
 
 

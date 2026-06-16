@@ -729,39 +729,40 @@ Weights.PROFILE_WEIGHTS = {
         RANGED_WEAPON_DAMAGE = 0.0,
     },
 
-    -- Calibrated to Wowhead's bear-tank stat weights (normalized to AP=1):
-    -- Expertise 7.3, Agility 4.6, Hit 3.5, Stamina 3.05, Strength 2.27,
-    -- Defense 2.2, Crit 1.9, Dodge/Resilience 1.7, Haste 1.6, AP/FeralAP 1.0,
-    -- Armor 0.59, ArmorPen 0.34. role weight = weight / budget cost, normalized
-    -- so the most budget-efficient stat (Armor) is 1.0; the effective per-point
-    -- value (budget cost x role weight) then reproduces the Wowhead priority.
+    -- Simple, high-resolution-not-needed bear weights: the stats feral tanks
+    -- actually stack sit near 1.0, roughly following the bear stat priority
+    -- (agility/expertise/stamina/strength top, then hit/defense/dodge, then
+    -- crit/resilience/haste). Armor is deliberately modest: the shared TANK
+    -- color reference is plate-itemized (chest ~1600 armor) while ferals wear
+    -- leather, so heavy armor weighting unfairly tanked their totals. Bears get
+    -- huge armor from Dire Bear Form anyway, which the item score can't see.
     DRUID_TANK = {
-        STRENGTH = 0.27,
-        AGILITY = 0.55,
+        STRENGTH = 1.0,
+        AGILITY = 1.0,
         INTELLECT = 0.0,
-        STAMINA = 0.54,
+        STAMINA = 1.0,
         SPIRIT = 0.0,
 
-        ARMOR = 1.0,
-        ATTACKPOWER = 0.24,
+        ARMOR = 0.5,
+        ATTACKPOWER = 0.9,
         RANGED_ATTACKPOWER = 0.0,
-        FERAL_ATTACKPOWER = 0.24,
+        FERAL_ATTACKPOWER = 0.9,
 
         SPELLPOWER = 0.0,
         HEALING = 0.0,
 
-        DEFENSE = 0.26,
-        DODGE = 0.20,
+        DEFENSE = 0.85,
+        DODGE = 0.8,
         PARRY = 0.0,
         BLOCK = 0.0,
         BLOCK_VALUE = 0.0,
-        CRITICAL = 0.23,
-        HIT = 0.42,
-        HASTE = 0.19,
-        EXPERTISE = 0.87,
-        RESILIENCE = 0.20,
-        -- Bears attack in form; the weapon's own skill/DPS don't apply (only its
-        -- stats and feral attack power do), so weapon skill/DPS carry no weight.
+        CRITICAL = 0.7,
+        HIT = 0.9,
+        HASTE = 0.5,
+        EXPERTISE = 1.0,
+        RESILIENCE = 0.6,
+        -- Bears attack in form; a weapon's own skill/DPS don't apply (only its
+        -- stats and feral attack power do).
         WEAPON_SKILL = 0.0,
 
         MP5 = 0.0,
