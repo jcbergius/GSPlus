@@ -491,7 +491,7 @@ check(GSPlus.Profiles:GetSelectedProfile() == "WARRIOR_TANK", "auto detection re
 
 -- 7. Comms roundtrip
 local message = GSPlus.Comms:BuildScoreMessage()
-check(string.match(message, "^S:3:") ~= nil, "score message built (protocol v3)")
+check(string.match(message, "^S:4:") ~= nil, "score message built (protocol v4)")
 GSPlus.Comms:OnChatMsgAddon("GSPlus", message, "PARTY", "Alice-Realm")
 local aliceEntry = GSPlus.PlayerCache:Get("Alice")
 check(aliceEntry ~= nil and aliceEntry.source == "comms", "comms score cached")
@@ -559,7 +559,7 @@ sentMessages = {}
 GSPlus.GroupFrame:Show()
 local sawRequest = false
 for _, sent in ipairs(sentMessages) do
-    if sent.message == "R:3" then sawRequest = true end
+    if sent.message == "R:4" then sawRequest = true end
 end
 check(sawRequest, "group window open requests scores automatically")
 GSPlus.GroupFrame:Hide()
@@ -964,7 +964,7 @@ local xrealmSenderKey = GSPlus.PlayerCache:NormalizeSenderKey("Zara-DistantRealm
 check(xrealmUnitKey == xrealmSenderKey,
     "cross-realm comms and inspect keys match ('" .. tostring(xrealmUnitKey) .. "')")
 
-GSPlus.Comms:OnChatMsgAddon("GSPlus", "S:3:123.0:200.0:80.0:500:MAGE_DPS", "PARTY", "Zara-DistantRealm")
+GSPlus.Comms:OnChatMsgAddon("GSPlus", "S:4:123.0:200.0:80.0:500:MAGE_DPS", "PARTY", "Zara-DistantRealm")
 local xrealmEntry = GSPlus.PlayerCache:GetByUnit("xrealm")
 check(xrealmEntry ~= nil and xrealmEntry.source == "comms",
     "cross-realm comms score is retrievable by unit lookup")
@@ -2551,17 +2551,17 @@ end)()
 end)()
 
 ;(function()
-    -- 69. Feral (bear) tank weights: the stats ferals stack lead, dodge sits
-    -- mid-list (it used to be the single highest stat), and weapon DPS/skill are
-    -- ignored. Simple weights, so exact Wowhead ratios aren't reproduced - just
-    -- a sensible priority with the main stats near the top.
+    -- 69. Feral (bear) tank weights follow Wowhead's bear priority:
+    -- agility/expertise lead, then hit, stamina, strength, defense, crit, dodge,
+    -- haste, attack power, and armor last. Weapon DPS/skill are ignored.
     local C = GSPlus.Calculator
     local function per(stat) return C:CalculateWeightedStatScore({ [stat] = 1 }, "DRUID_TANK") end
-    check(per("AGILITY") >= per("HIT") and per("EXPERTISE") >= per("HIT")
-        and per("STRENGTH") >= per("HIT") and per("HIT") >= per("DODGE")
-        and per("DODGE") > per("HASTE") and per("HASTE") > per("ATTACKPOWER")
-        and per("ATTACKPOWER") > per("ARMOR"),
-        "bear tank priority: agi/exp/str lead, then hit, dodge, haste, AP, armor")
+    check(per("AGILITY") >= per("EXPERTISE") - 1e-9 and per("EXPERTISE") >= per("HIT")
+        and per("HIT") >= per("STAMINA") and per("STAMINA") >= per("STRENGTH")
+        and per("STRENGTH") >= per("DEFENSE") and per("DEFENSE") >= per("CRITICAL")
+        and per("CRITICAL") >= per("DODGE") and per("DODGE") > per("HASTE")
+        and per("HASTE") > per("ATTACKPOWER") and per("ATTACKPOWER") > per("ARMOR"),
+        "bear tank priority (Wowhead): agi/exp > hit > stamina > strength > defense > crit > dodge > haste > AP > armor")
     check(per("AGILITY") > per("DODGE") and per("EXPERTISE") > per("DODGE"),
         "agility & expertise outrank dodge (dodge no longer the top bear stat)")
     check(per("WEAPON_SKILL") == 0 and C:CalculateWeaponScore({ WEAPON_DPS = 100, WEAPON_AVERAGE_DAMAGE = 150 }, "DRUID_TANK", "MainHandSlot", nil) == 0,
@@ -2614,6 +2614,49 @@ end)()
     check(notifyInspectCalls == 1, "targeting a player triggers a background inspect")
     CheckInteractDistance = origCID
     GSPlus.Inspect.queue = {}; GSPlus.Inspect.current = nil
+end)()
+
+;(function()
+    -- 73. Every profile's per-point contribution (computed through the real
+    -- Calculator budget costs + role weights) is non-increasing along that
+    -- spec's Wowhead PvE stat priority. This guards the whole weight table
+    -- against future edits that would scramble a spec's priority order.
+    local C = GSPlus.Calculator
+    local function per(profile, stat) return C:CalculateWeightedStatScore({ [stat] = 1 }, profile) end
+    local CHAINS = {
+        WARRIOR_DPS        = { "HIT","EXPERTISE","CRITICAL","STRENGTH","HASTE" },
+        ROGUE_DPS          = { "EXPERTISE","HIT","HASTE","AGILITY","CRITICAL","STRENGTH" },
+        PALADIN_DPS        = { "EXPERTISE","HIT","STRENGTH","CRITICAL" },
+        SHAMAN_ENHANCEMENT = { "EXPERTISE","STRENGTH","HIT","HASTE","CRITICAL","AGILITY" },
+        HUNTER_DPS         = { "HIT","HASTE","AGILITY","CRITICAL" },
+        DRUID_FERAL        = { "AGILITY","HIT","STRENGTH","CRITICAL","HASTE" },
+        MAGE_DPS           = { "HIT","HASTE","SPELLPOWER","CRITICAL","INTELLECT" },
+        WARLOCK_DPS        = { "HIT","HASTE","SPELLPOWER","CRITICAL","INTELLECT" },
+        PRIEST_DPS         = { "SPELLPOWER","HIT","CRITICAL","HASTE","INTELLECT" },
+        SHAMAN_ELEMENTAL   = { "HIT","HASTE","SPELLPOWER","CRITICAL","INTELLECT","MP5","STAMINA" },
+        DRUID_BALANCE      = { "HIT","SPELLPOWER","HASTE","CRITICAL","INTELLECT" },
+        PALADIN_HEALER     = { "HEALING","INTELLECT","CRITICAL","MP5" },
+        PRIEST_HEALER      = { "HASTE","HEALING","INTELLECT","CRITICAL","MP5" },
+        SHAMAN_HEALER      = { "HEALING","MP5","INTELLECT","HASTE","CRITICAL" },
+        DRUID_RESTO        = { "HEALING","HASTE","MP5","INTELLECT","CRITICAL" },
+        WARRIOR_TANK       = { "STAMINA","DEFENSE","DODGE","EXPERTISE","HIT","CRITICAL","HASTE" },
+        PALADIN_TANK       = { "STAMINA","DEFENSE","DODGE","EXPERTISE","HIT","CRITICAL","HASTE" },
+        DRUID_TANK         = { "AGILITY","EXPERTISE","HIT","STAMINA","STRENGTH","DEFENSE","CRITICAL","DODGE","HASTE" },
+    }
+    local allOk = true
+    local firstBad = nil
+    for profile, chain in pairs(CHAINS) do
+        for i = 1, #chain - 1 do
+            local a, b = per(profile, chain[i]), per(profile, chain[i + 1])
+            if a < b - 1e-9 then
+                allOk = false
+                firstBad = firstBad or (profile .. ": " .. chain[i] .. "(" .. string.format("%.3f", a)
+                    .. ") < " .. chain[i + 1] .. "(" .. string.format("%.3f", b) .. ")")
+            end
+        end
+    end
+    check(allOk, "all 18 profiles follow their Wowhead stat priority"
+        .. (firstBad and (" - first violation " .. firstBad) or ""))
 end)()
 
 

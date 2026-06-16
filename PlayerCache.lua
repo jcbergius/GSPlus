@@ -12,7 +12,7 @@ PlayerCache.MAX_ENTRIES = 300
 -- Bumped whenever scoring or role-detection logic changes. On a mismatch the
 -- persisted cache is wiped so stale numbers/roles from an older build can't
 -- survive a /reload or relog - everyone is simply re-inspected fresh.
-PlayerCache.CACHE_VERSION = 4
+PlayerCache.CACHE_VERSION = 5
 
 function PlayerCache:GetStore()
     GSPlusSavedVars = GSPlusSavedVars or {}

@@ -47,822 +47,298 @@ Weights.OTHER_STATS = {
 }
 
 Weights.PROFILE_WEIGHTS = {
-    -- Death Knight (Wrath/Cata clients only). Sparse on purpose: stats not
-    -- listed default to 0 via GetWeight.
-    DEATHKNIGHT_DPS = {
-        STRENGTH = 1.0,
-        -- Strength and agility are equivalent primary stats; weighting agility
-        -- equally lets the shared (agility-based) physical-DPS reference score
-        -- this strength spec correctly, so its gs+ lines up with agility DPS.
-        AGILITY = 1.0,
+    -- Hit > Expertise > Crit > Strength/AP > ArmorPen > Haste
+    WARRIOR_DPS = {
+        STRENGTH = 0.85,
+        AGILITY = 0.85,
         STAMINA = 0.35,
         ARMOR = 0.05,
-        ATTACKPOWER = 0.90,
+        ATTACKPOWER = 0.85,
         CRITICAL = 0.85,
-        HIT = 1.0,
+        HIT = 1,
+        HASTE = 0.45,
+        EXPERTISE = 0.95,
+        ARMOR_PENETRATION = 0.9,
+        MELEE_WEAPON_DPS = 1,
+        MELEE_WEAPON_DAMAGE = 0.45,
+    },
+
+    -- Survival: Stamina/Defense/avoidance (uncrittable); Threat: Expertise > Hit > Str/Crit
+    WARRIOR_TANK = {
+        STRENGTH = 0.4,
+        AGILITY = 0.4,
+        STAMINA = 1,
+        ARMOR = 0.45,
+        ATTACKPOWER = 0.4,
+        DEFENSE = 0.65,
+        DODGE = 0.6,
+        PARRY = 0.6,
+        BLOCK = 0.4,
+        BLOCK_VALUE = 0.4,
+        CRITICAL = 0.25,
+        HIT = 0.45,
+        HASTE = 0.15,
+        EXPERTISE = 0.55,
+        RESILIENCE = 0.55,
+        ARMOR_PENETRATION = 0.1,
+        MELEE_WEAPON_DPS = 0.4,
+        MELEE_WEAPON_DAMAGE = 0.2,
+    },
+
+    -- Expertise > Hit > Strength/AP > Crit/Agility
+    PALADIN_DPS = {
+        STRENGTH = 0.85,
+        AGILITY = 0.85,
+        STAMINA = 0.35,
+        ARMOR = 0.05,
+        ATTACKPOWER = 0.85,
+        CRITICAL = 0.7,
+        HIT = 0.95,
+        HASTE = 0.45,
+        EXPERTISE = 1,
+        ARMOR_PENETRATION = 0.3,
+        MELEE_WEAPON_DPS = 1,
+        MELEE_WEAPON_DAMAGE = 0.45,
+    },
+
+    -- Survival: Stamina/Defense/avoidance; Threat: Spell Power/Expertise/Hit
+    PALADIN_TANK = {
+        STRENGTH = 0.4,
+        INTELLECT = 0.4,
+        STAMINA = 1,
+        ARMOR = 0.45,
+        ATTACKPOWER = 0.4,
+        SPELLPOWER = 0.55,
+        DEFENSE = 0.65,
+        DODGE = 0.6,
+        PARRY = 0.6,
+        BLOCK = 0.5,
+        BLOCK_VALUE = 0.45,
+        CRITICAL = 0.3,
+        HIT = 0.45,
+        HASTE = 0.15,
+        EXPERTISE = 0.55,
+        RESILIENCE = 0.55,
+        MP5 = 0.1,
+        MELEE_WEAPON_DPS = 0.3,
+        MELEE_WEAPON_DAMAGE = 0.15,
+    },
+
+    -- Healing > Intellect > Spell Crit > MP5 > Stamina
+    PALADIN_HEALER = {
+        INTELLECT = 0.4,
+        STAMINA = 0.2,
+        SPIRIT = 0.05,
+        SPELLPOWER = 0.1,
+        HEALING = 1,
+        CRITICAL = 0.35,
+        HASTE = 0.25,
+        MP5 = 0.1,
+    },
+
+    -- Hit > ArmorPen > Haste > Agility > Crit > AP (ranged weapon heavily weighted)
+    HUNTER_DPS = {
+        AGILITY = 0.8,
+        INTELLECT = 0.1,
+        STAMINA = 0.2,
+        ARMOR = 0.05,
+        ATTACKPOWER = 0.5,
+        RANGED_ATTACKPOWER = 0.8,
+        CRITICAL = 0.7,
+        HIT = 1,
         HASTE = 0.85,
-        EXPERTISE = 1.0,
+        ARMOR_PENETRATION = 0.95,
+        RANGED_WEAPON_DPS = 1,
+        RANGED_WEAPON_DAMAGE = 0.5,
+    },
+
+    -- Expertise > Hit > Haste > Agility > Crit > Str/AP > ArmorPen
+    ROGUE_DPS = {
+        STRENGTH = 0.35,
+        AGILITY = 0.7,
+        STAMINA = 0.2,
+        ARMOR = 0.05,
+        ATTACKPOWER = 0.35,
+        CRITICAL = 0.55,
+        HIT = 0.9,
+        HASTE = 0.75,
+        EXPERTISE = 1,
+        ARMOR_PENETRATION = 0.85,
+        MELEE_WEAPON_DPS = 1,
+        MELEE_WEAPON_DAMAGE = 0.45,
+    },
+
+    -- Spell Haste > Healing > Int/Spirit > Crit > MP5
+    PRIEST_HEALER = {
+        INTELLECT = 0.4,
+        STAMINA = 0.2,
+        SPIRIT = 0.4,
+        SPELLPOWER = 0.1,
+        HEALING = 1,
+        CRITICAL = 0.3,
+        HASTE = 0.5,
+        MP5 = 0.1,
+    },
+
+    -- Spell Power > Spell Hit > Crit > Int/Spirit/MP5 (shadow)
+    PRIEST_DPS = {
+        INTELLECT = 0.4,
+        SPIRIT = 0.25,
+        SPELLPOWER = 1,
+        CRITICAL = 0.7,
+        HIT = 0.85,
+        HASTE = 0.65,
+        MP5 = 0.05,
+    },
+
+    -- Spell Hit > Spell Haste > Spell Power > Crit > Int > MP5 > Stamina
+    SHAMAN_ELEMENTAL = {
+        INTELLECT = 0.45,
+        STAMINA = 0.15,
+        SPELLPOWER = 1,
+        CRITICAL = 0.7,
+        HIT = 1,
+        HASTE = 0.95,
+        MP5 = 0.15,
+    },
+
+    -- Expertise > Strength > Hit > Haste > Crit > Agility > AP
+    SHAMAN_ENHANCEMENT = {
+        STRENGTH = 0.9,
+        AGILITY = 0.55,
+        STAMINA = 0.35,
+        ARMOR = 0.05,
+        ATTACKPOWER = 0.9,
+        CRITICAL = 0.6,
+        HIT = 0.85,
+        HASTE = 0.7,
+        EXPERTISE = 1,
+        ARMOR_PENETRATION = 0.3,
+        MELEE_WEAPON_DPS = 1,
+        MELEE_WEAPON_DAMAGE = 0.45,
+    },
+
+    -- Healing > MP5 > Int > Spell Haste > Crit > Stamina
+    SHAMAN_HEALER = {
+        INTELLECT = 0.35,
+        STAMINA = 0.2,
+        SPIRIT = 0.1,
+        SPELLPOWER = 0.1,
+        HEALING = 1,
+        CRITICAL = 0.25,
+        HASTE = 0.3,
+        MP5 = 0.15,
+    },
+
+    -- Spell Hit > Spell Haste > Spell Power > Crit > Intellect
+    MAGE_DPS = {
+        INTELLECT = 0.45,
+        SPELLPOWER = 1,
+        CRITICAL = 0.7,
+        HIT = 1,
+        HASTE = 0.95,
+    },
+
+    -- Spell Hit > Spell Haste > Spell Power > Crit > Intellect
+    WARLOCK_DPS = {
+        INTELLECT = 0.4,
+        SPIRIT = 0.05,
+        SPELLPOWER = 1,
+        CRITICAL = 0.7,
+        HIT = 1,
+        HASTE = 0.95,
+    },
+
+    -- Agility > Hit/Expertise > Strength > Crit > Haste > AP/FeralAP > ArmorPen
+    DRUID_FERAL = {
+        STRENGTH = 0.85,
+        AGILITY = 1,
+        STAMINA = 0.35,
+        ARMOR = 0.05,
+        ATTACKPOWER = 0.85,
+        FERAL_ATTACKPOWER = 0.85,
+        CRITICAL = 0.65,
+        HIT = 0.95,
+        HASTE = 0.4,
+        EXPERTISE = 0.95,
+        ARMOR_PENETRATION = 0.85,
+    },
+
+    -- Spell Hit > Spell Power > Spell Haste > Crit > Int > Spirit > MP5
+    DRUID_BALANCE = {
+        INTELLECT = 0.45,
+        SPIRIT = 0.2,
+        SPELLPOWER = 1,
+        CRITICAL = 0.7,
+        HIT = 1,
+        HASTE = 0.85,
+        MP5 = 0.05,
+    },
+
+    -- Healing > Spell Haste > Int/Spirit/MP5 > Crit
+    DRUID_RESTO = {
+        INTELLECT = 0.35,
+        STAMINA = 0.2,
+        SPIRIT = 0.35,
+        SPELLPOWER = 0.1,
+        HEALING = 1,
+        CRITICAL = 0.25,
+        HASTE = 0.4,
+        MP5 = 0.15,
+    },
+
+    -- Expertise/Agility > Hit > Stamina > Strength > Defense > Crit > Dodge > Haste > AP > Armor
+    DRUID_TANK = {
+        STRENGTH = 0.65,
+        AGILITY = 1,
+        STAMINA = 1,
+        ARMOR = 0.5,
+        ATTACKPOWER = 0.5,
+        FERAL_ATTACKPOWER = 0.5,
+        DEFENSE = 0.6,
+        DODGE = 0.5,
+        CRITICAL = 0.55,
+        HIT = 0.9,
+        HASTE = 0.4,
+        EXPERTISE = 1,
+        RESILIENCE = 0.45,
+    },
+
+    DEATHKNIGHT_DPS = {
+        STRENGTH = 1,
+        AGILITY = 1,
+        STAMINA = 0.35,
+        ARMOR = 0.05,
+        ATTACKPOWER = 0.9,
+        CRITICAL = 0.85,
+        HIT = 1,
+        HASTE = 0.85,
+        EXPERTISE = 1,
         RESILIENCE = 0.35,
-        WEAPON_SKILL = 0.50,
-        MELEE_WEAPON_DPS = 1.0,
+        WEAPON_SKILL = 0.5,
+        MELEE_WEAPON_DPS = 1,
         MELEE_WEAPON_DAMAGE = 0.45,
     },
 
     DEATHKNIGHT_TANK = {
-        STRENGTH = 0.50,
-        AGILITY = 0.50,
-        STAMINA = 1.0,
+        STRENGTH = 0.5,
+        AGILITY = 0.5,
+        STAMINA = 1,
         ARMOR = 0.35,
-        ATTACKPOWER = 0.30,
-        DEFENSE = 1.0,
-        DODGE = 0.90,
-        PARRY = 0.90,
+        ATTACKPOWER = 0.3,
+        DEFENSE = 1,
+        DODGE = 0.9,
+        PARRY = 0.9,
         CRITICAL = 0.15,
         HIT = 0.45,
         HASTE = 0.15,
-        EXPERTISE = 0.70,
+        EXPERTISE = 0.7,
         RESILIENCE = 0.65,
         HP5 = 0.15,
         MELEE_WEAPON_DPS = 0.35,
         MELEE_WEAPON_DAMAGE = 0.15,
     },
 
-    WARRIOR_DPS = {
-        STRENGTH = 1.0,
-        -- Strength and agility are equivalent primary stats; weighting agility
-        -- equally lets the shared (agility-based) physical-DPS reference score
-        -- this strength spec correctly, so its gs+ lines up with agility DPS.
-        AGILITY = 1.0,
-        INTELLECT = 0.0,
-        STAMINA = 0.35,
-        SPIRIT = 0.0,
-
-        ARMOR = 0.05,
-        ATTACKPOWER = 0.90,
-        RANGED_ATTACKPOWER = 0.0,
-        FERAL_ATTACKPOWER = 0.0,
-
-        SPELLPOWER = 0.0,
-        HEALING = 0.0,
-
-        DEFENSE = 0.0,
-        DODGE = 0.05,
-        PARRY = 0.05,
-        BLOCK = 0.0,
-        BLOCK_VALUE = 0.0,
-        CRITICAL = 0.85,
-        HIT = 1.0,
-        HASTE = 0.85,
-        EXPERTISE = 1.0,
-        RESILIENCE = 0.35,
-        WEAPON_SKILL = 0.85,
-
-        MP5 = 0.0,
-        HP5 = 0.0,
-
-        ARCANE_RESISTANCE = 0.0,
-        FIRE_RESISTANCE = 0.0,
-        FROST_RESISTANCE = 0.0,
-        NATURE_RESISTANCE = 0.0,
-        SHADOW_RESISTANCE = 0.0,
-
-        MELEE_WEAPON_DPS = 1.0,
-        MELEE_WEAPON_DAMAGE = 0.45,
-        RANGED_WEAPON_DPS = 0.0,
-        RANGED_WEAPON_DAMAGE = 0.0,
-    },
-
-    WARRIOR_TANK = {
-        STRENGTH = 0.45,
-        AGILITY = 0.45,
-        INTELLECT = 0.0,
-        STAMINA = 1.0,
-        SPIRIT = 0.0,
-
-        ARMOR = 0.35,
-        ATTACKPOWER = 0.30,
-        RANGED_ATTACKPOWER = 0.0,
-        FERAL_ATTACKPOWER = 0.0,
-
-        SPELLPOWER = 0.0,
-        HEALING = 0.0,
-
-        DEFENSE = 1.0,
-        DODGE = 0.90,
-        PARRY = 0.85,
-        BLOCK = 0.70,
-        BLOCK_VALUE = 0.65,
-        CRITICAL = 0.15,
-        HIT = 0.45,
-        HASTE = 0.15,
-        EXPERTISE = 0.70,
-        RESILIENCE = 0.65,
-        WEAPON_SKILL = 0.50,
-
-        MP5 = 0.0,
-        HP5 = 0.15,
-
-        ARCANE_RESISTANCE = 0.0,
-        FIRE_RESISTANCE = 0.0,
-        FROST_RESISTANCE = 0.0,
-        NATURE_RESISTANCE = 0.0,
-        SHADOW_RESISTANCE = 0.0,
-
-        MELEE_WEAPON_DPS = 0.35,
-        MELEE_WEAPON_DAMAGE = 0.15,
-        RANGED_WEAPON_DPS = 0.0,
-        RANGED_WEAPON_DAMAGE = 0.0,
-    },
-
-    PALADIN_DPS = {
-        STRENGTH = 1.0,
-        -- Strength and agility are equivalent primary stats; weighting agility
-        -- equally lets the shared (agility-based) physical-DPS reference score
-        -- this strength spec correctly, so its gs+ lines up with agility DPS.
-        AGILITY = 1.0,
-        INTELLECT = 0.35,
-        STAMINA = 0.35,
-        SPIRIT = 0.0,
-
-        ARMOR = 0.05,
-        ATTACKPOWER = 0.85,
-        RANGED_ATTACKPOWER = 0.0,
-        FERAL_ATTACKPOWER = 0.0,
-
-        SPELLPOWER = 0.30,
-        HEALING = 0.0,
-
-        DEFENSE = 0.0,
-        DODGE = 0.05,
-        PARRY = 0.05,
-        BLOCK = 0.05,
-        BLOCK_VALUE = 0.05,
-        CRITICAL = 0.80,
-        HIT = 1.0,
-        HASTE = 0.75,
-        EXPERTISE = 0.85,
-        RESILIENCE = 0.35,
-        WEAPON_SKILL = 0.70,
-
-        MP5 = 0.15,
-        HP5 = 0.0,
-
-        ARCANE_RESISTANCE = 0.0,
-        FIRE_RESISTANCE = 0.0,
-        FROST_RESISTANCE = 0.0,
-        NATURE_RESISTANCE = 0.0,
-        SHADOW_RESISTANCE = 0.0,
-
-        MELEE_WEAPON_DPS = 0.90,
-        MELEE_WEAPON_DAMAGE = 0.35,
-        RANGED_WEAPON_DPS = 0.0,
-        RANGED_WEAPON_DAMAGE = 0.0,
-    },
-
-    PALADIN_TANK = {
-        STRENGTH = 0.40,
-        AGILITY = 0.20,
-        -- Spell power / intellect / mp5 are real prot-paladin THREAT stats, but
-        -- weighting them as high as tank survival stats inflated paladin-tank
-        -- gs+ above every other role (their gear carries these where warrior
-        -- tanks carry none). Tuned down so a prot paladin's total lines up with
-        -- a warrior tank's. Colour is unaffected: the paladin-tank reference
-        -- weapon also carries spell power, so the ratio scales with the weight.
-        INTELLECT = 0.35,
-        STAMINA = 1.0,
-        SPIRIT = 0.0,
-
-        ARMOR = 0.35,
-        ATTACKPOWER = 0.20,
-        RANGED_ATTACKPOWER = 0.0,
-        FERAL_ATTACKPOWER = 0.0,
-
-        SPELLPOWER = 0.50,
-        HEALING = 0.0,
-
-        DEFENSE = 1.0,
-        DODGE = 0.80,
-        PARRY = 0.75,
-        BLOCK = 0.85,
-        BLOCK_VALUE = 0.75,
-        CRITICAL = 0.15,
-        HIT = 0.45,
-        HASTE = 0.15,
-        EXPERTISE = 0.55,
-        RESILIENCE = 0.65,
-        WEAPON_SKILL = 0.40,
-
-        MP5 = 0.30,
-        HP5 = 0.15,
-
-        ARCANE_RESISTANCE = 0.0,
-        FIRE_RESISTANCE = 0.0,
-        FROST_RESISTANCE = 0.0,
-        NATURE_RESISTANCE = 0.0,
-        SHADOW_RESISTANCE = 0.0,
-
-        MELEE_WEAPON_DPS = 0.20,
-        MELEE_WEAPON_DAMAGE = 0.10,
-        RANGED_WEAPON_DPS = 0.0,
-        RANGED_WEAPON_DAMAGE = 0.0,
-    },
-
-    PALADIN_HEALER = {
-        STRENGTH = 0.0,
-        AGILITY = 0.0,
-        INTELLECT = 1.0,
-        STAMINA = 0.40,
-        SPIRIT = 0.25,
-
-        ARMOR = 0.05,
-        ATTACKPOWER = 0.0,
-        RANGED_ATTACKPOWER = 0.0,
-        FERAL_ATTACKPOWER = 0.0,
-
-        SPELLPOWER = 0.30,
-        HEALING = 1.0,
-
-        DEFENSE = 0.0,
-        DODGE = 0.0,
-        PARRY = 0.0,
-        BLOCK = 0.0,
-        BLOCK_VALUE = 0.0,
-        CRITICAL = 0.70,
-        HIT = 0.0,
-        HASTE = 0.80,
-        EXPERTISE = 0.0,
-        RESILIENCE = 0.20,
-        WEAPON_SKILL = 0.0,
-
-        MP5 = 0.85,
-        HP5 = 0.0,
-
-        ARCANE_RESISTANCE = 0.0,
-        FIRE_RESISTANCE = 0.0,
-        FROST_RESISTANCE = 0.0,
-        NATURE_RESISTANCE = 0.0,
-        SHADOW_RESISTANCE = 0.0,
-
-        MELEE_WEAPON_DPS = 0.0,
-        MELEE_WEAPON_DAMAGE = 0.0,
-        RANGED_WEAPON_DPS = 0.0,
-        RANGED_WEAPON_DAMAGE = 0.0,
-    },
-
-    HUNTER_DPS = {
-        STRENGTH = 0.0,
-        AGILITY = 1.0,
-        INTELLECT = 0.35,
-        STAMINA = 0.35,
-        SPIRIT = 0.0,
-
-        ARMOR = 0.05,
-        ATTACKPOWER = 0.75,
-        RANGED_ATTACKPOWER = 1.0,
-        FERAL_ATTACKPOWER = 0.0,
-
-        SPELLPOWER = 0.0,
-        HEALING = 0.0,
-
-        DEFENSE = 0.0,
-        DODGE = 0.15,
-        PARRY = 0.0,
-        BLOCK = 0.0,
-        BLOCK_VALUE = 0.0,
-        CRITICAL = 0.90,
-        HIT = 1.0,
-        HASTE = 0.85,
-        EXPERTISE = 0.0,
-        RESILIENCE = 0.35,
-        WEAPON_SKILL = 0.35,
-
-        MP5 = 0.20,
-        HP5 = 0.0,
-
-        ARCANE_RESISTANCE = 0.0,
-        FIRE_RESISTANCE = 0.0,
-        FROST_RESISTANCE = 0.0,
-        NATURE_RESISTANCE = 0.0,
-        SHADOW_RESISTANCE = 0.0,
-
-        MELEE_WEAPON_DPS = 0.10,
-        MELEE_WEAPON_DAMAGE = 0.05,
-        RANGED_WEAPON_DPS = 1.0,
-        RANGED_WEAPON_DAMAGE = 0.45,
-    },
-
-    ROGUE_DPS = {
-        STRENGTH = 0.50,
-        AGILITY = 1.0,
-        INTELLECT = 0.0,
-        STAMINA = 0.35,
-        SPIRIT = 0.0,
-
-        ARMOR = 0.05,
-        ATTACKPOWER = 0.90,
-        RANGED_ATTACKPOWER = 0.0,
-        FERAL_ATTACKPOWER = 0.0,
-
-        SPELLPOWER = 0.0,
-        HEALING = 0.0,
-
-        DEFENSE = 0.0,
-        DODGE = 0.15,
-        PARRY = 0.0,
-        BLOCK = 0.0,
-        BLOCK_VALUE = 0.0,
-        CRITICAL = 0.90,
-        HIT = 1.0,
-        HASTE = 0.85,
-        EXPERTISE = 1.0,
-        RESILIENCE = 0.35,
-        WEAPON_SKILL = 0.90,
-
-        MP5 = 0.0,
-        HP5 = 0.0,
-
-        ARCANE_RESISTANCE = 0.0,
-        FIRE_RESISTANCE = 0.0,
-        FROST_RESISTANCE = 0.0,
-        NATURE_RESISTANCE = 0.0,
-        SHADOW_RESISTANCE = 0.0,
-
-        MELEE_WEAPON_DPS = 1.0,
-        MELEE_WEAPON_DAMAGE = 0.35,
-        RANGED_WEAPON_DPS = 0.0,
-        RANGED_WEAPON_DAMAGE = 0.0,
-    },
-
-    PRIEST_HEALER = {
-        STRENGTH = 0.0,
-        AGILITY = 0.0,
-        INTELLECT = 1.0,
-        STAMINA = 0.40,
-        SPIRIT = 0.95,
-
-        ARMOR = 0.05,
-        ATTACKPOWER = 0.0,
-        RANGED_ATTACKPOWER = 0.0,
-        FERAL_ATTACKPOWER = 0.0,
-
-        SPELLPOWER = 0.25,
-        HEALING = 1.0,
-
-        DEFENSE = 0.0,
-        DODGE = 0.0,
-        PARRY = 0.0,
-        BLOCK = 0.0,
-        BLOCK_VALUE = 0.0,
-        CRITICAL = 0.45,
-        HIT = 0.0,
-        HASTE = 0.75,
-        EXPERTISE = 0.0,
-        RESILIENCE = 0.20,
-        WEAPON_SKILL = 0.0,
-
-        MP5 = 0.80,
-        HP5 = 0.0,
-
-        ARCANE_RESISTANCE = 0.0,
-        FIRE_RESISTANCE = 0.0,
-        FROST_RESISTANCE = 0.0,
-        NATURE_RESISTANCE = 0.0,
-        SHADOW_RESISTANCE = 0.0,
-
-        MELEE_WEAPON_DPS = 0.0,
-        MELEE_WEAPON_DAMAGE = 0.0,
-        RANGED_WEAPON_DPS = 0.0,
-        RANGED_WEAPON_DAMAGE = 0.0,
-    },
-
-    PRIEST_DPS = {
-        STRENGTH = 0.0,
-        AGILITY = 0.0,
-        INTELLECT = 0.85,
-        STAMINA = 0.45,
-        SPIRIT = 0.55,
-
-        ARMOR = 0.05,
-        ATTACKPOWER = 0.0,
-        RANGED_ATTACKPOWER = 0.0,
-        FERAL_ATTACKPOWER = 0.0,
-
-        SPELLPOWER = 1.0,
-        HEALING = 0.10,
-
-        DEFENSE = 0.0,
-        DODGE = 0.0,
-        PARRY = 0.0,
-        BLOCK = 0.0,
-        BLOCK_VALUE = 0.0,
-        CRITICAL = 0.70,
-        HIT = 1.0,
-        HASTE = 0.85,
-        EXPERTISE = 0.0,
-        RESILIENCE = 0.20,
-        WEAPON_SKILL = 0.0,
-
-        MP5 = 0.25,
-        HP5 = 0.0,
-
-        ARCANE_RESISTANCE = 0.0,
-        FIRE_RESISTANCE = 0.0,
-        FROST_RESISTANCE = 0.0,
-        NATURE_RESISTANCE = 0.0,
-        SHADOW_RESISTANCE = 0.0,
-
-        MELEE_WEAPON_DPS = 0.0,
-        MELEE_WEAPON_DAMAGE = 0.0,
-        RANGED_WEAPON_DPS = 0.0,
-        RANGED_WEAPON_DAMAGE = 0.0,
-    },
-
-    SHAMAN_ELEMENTAL = {
-        STRENGTH = 0.0,
-        AGILITY = 0.0,
-        INTELLECT = 0.85,
-        STAMINA = 0.40,
-        SPIRIT = 0.20,
-
-        ARMOR = 0.05,
-        ATTACKPOWER = 0.0,
-        RANGED_ATTACKPOWER = 0.0,
-        FERAL_ATTACKPOWER = 0.0,
-
-        SPELLPOWER = 1.0,
-        HEALING = 0.10,
-
-        DEFENSE = 0.0,
-        DODGE = 0.0,
-        PARRY = 0.0,
-        BLOCK = 0.0,
-        BLOCK_VALUE = 0.0,
-        CRITICAL = 0.80,
-        HIT = 1.0,
-        HASTE = 0.85,
-        EXPERTISE = 0.0,
-        RESILIENCE = 0.20,
-        WEAPON_SKILL = 0.0,
-
-        MP5 = 0.25,
-        HP5 = 0.0,
-
-        ARCANE_RESISTANCE = 0.0,
-        FIRE_RESISTANCE = 0.0,
-        FROST_RESISTANCE = 0.0,
-        NATURE_RESISTANCE = 0.0,
-        SHADOW_RESISTANCE = 0.0,
-
-        MELEE_WEAPON_DPS = 0.0,
-        MELEE_WEAPON_DAMAGE = 0.0,
-        RANGED_WEAPON_DPS = 0.0,
-        RANGED_WEAPON_DAMAGE = 0.0,
-    },
-
-    SHAMAN_ENHANCEMENT = {
-        STRENGTH = 0.65,
-        AGILITY = 0.80,
-        INTELLECT = 0.35,
-        STAMINA = 0.35,
-        SPIRIT = 0.0,
-
-        ARMOR = 0.10,
-        ATTACKPOWER = 0.90,
-        RANGED_ATTACKPOWER = 0.0,
-        FERAL_ATTACKPOWER = 0.0,
-
-        SPELLPOWER = 0.10,
-        HEALING = 0.0,
-
-        DEFENSE = 0.0,
-        DODGE = 0.15,
-        PARRY = 0.05,
-        BLOCK = 0.05,
-        BLOCK_VALUE = 0.0,
-        CRITICAL = 0.85,
-        HIT = 1.0,
-        HASTE = 0.85,
-        EXPERTISE = 1.0,
-        RESILIENCE = 0.35,
-        WEAPON_SKILL = 0.75,
-
-        MP5 = 0.15,
-        HP5 = 0.0,
-
-        ARCANE_RESISTANCE = 0.0,
-        FIRE_RESISTANCE = 0.0,
-        FROST_RESISTANCE = 0.0,
-        NATURE_RESISTANCE = 0.0,
-        SHADOW_RESISTANCE = 0.0,
-
-        MELEE_WEAPON_DPS = 1.0,
-        MELEE_WEAPON_DAMAGE = 0.40,
-        RANGED_WEAPON_DPS = 0.0,
-        RANGED_WEAPON_DAMAGE = 0.0,
-    },
-
-    SHAMAN_HEALER = {
-        STRENGTH = 0.0,
-        AGILITY = 0.0,
-        INTELLECT = 1.0,
-        STAMINA = 0.45,
-        SPIRIT = 0.20,
-
-        ARMOR = 0.05,
-        ATTACKPOWER = 0.0,
-        RANGED_ATTACKPOWER = 0.0,
-        FERAL_ATTACKPOWER = 0.0,
-
-        SPELLPOWER = 0.35,
-        HEALING = 1.0,
-
-        DEFENSE = 0.0,
-        DODGE = 0.0,
-        PARRY = 0.0,
-        BLOCK = 0.0,
-        BLOCK_VALUE = 0.0,
-        CRITICAL = 0.45,
-        HIT = 0.0,
-        HASTE = 0.85,
-        EXPERTISE = 0.0,
-        RESILIENCE = 0.20,
-        WEAPON_SKILL = 0.0,
-
-        MP5 = 0.95,
-        HP5 = 0.0,
-
-        ARCANE_RESISTANCE = 0.0,
-        FIRE_RESISTANCE = 0.0,
-        FROST_RESISTANCE = 0.0,
-        NATURE_RESISTANCE = 0.0,
-        SHADOW_RESISTANCE = 0.0,
-
-        MELEE_WEAPON_DPS = 0.0,
-        MELEE_WEAPON_DAMAGE = 0.0,
-        RANGED_WEAPON_DPS = 0.0,
-        RANGED_WEAPON_DAMAGE = 0.0,
-    },
-
-    MAGE_DPS = {
-        STRENGTH = 0.0,
-        AGILITY = 0.0,
-        INTELLECT = 0.85,
-        STAMINA = 0.35,
-        SPIRIT = 0.35,
-
-        ARMOR = 0.05,
-        ATTACKPOWER = 0.0,
-        RANGED_ATTACKPOWER = 0.0,
-        FERAL_ATTACKPOWER = 0.0,
-
-        SPELLPOWER = 1.0,
-        HEALING = 0.0,
-
-        DEFENSE = 0.0,
-        DODGE = 0.0,
-        PARRY = 0.0,
-        BLOCK = 0.0,
-        BLOCK_VALUE = 0.0,
-        CRITICAL = 0.80,
-        HIT = 1.0,
-        HASTE = 0.90,
-        EXPERTISE = 0.0,
-        RESILIENCE = 0.20,
-        WEAPON_SKILL = 0.0,
-
-        MP5 = 0.15,
-        HP5 = 0.0,
-
-        ARCANE_RESISTANCE = 0.0,
-        FIRE_RESISTANCE = 0.0,
-        FROST_RESISTANCE = 0.0,
-        NATURE_RESISTANCE = 0.0,
-        SHADOW_RESISTANCE = 0.0,
-
-        MELEE_WEAPON_DPS = 0.0,
-        MELEE_WEAPON_DAMAGE = 0.0,
-        RANGED_WEAPON_DPS = 0.0,
-        RANGED_WEAPON_DAMAGE = 0.0,
-    },
-
-    WARLOCK_DPS = {
-        STRENGTH = 0.0,
-        AGILITY = 0.0,
-        INTELLECT = 0.80,
-        STAMINA = 0.55,
-        SPIRIT = 0.20,
-
-        ARMOR = 0.05,
-        ATTACKPOWER = 0.0,
-        RANGED_ATTACKPOWER = 0.0,
-        FERAL_ATTACKPOWER = 0.0,
-
-        SPELLPOWER = 1.0,
-        HEALING = 0.0,
-
-        DEFENSE = 0.0,
-        DODGE = 0.0,
-        PARRY = 0.0,
-        BLOCK = 0.0,
-        BLOCK_VALUE = 0.0,
-        CRITICAL = 0.75,
-        HIT = 1.0,
-        HASTE = 0.85,
-        EXPERTISE = 0.0,
-        RESILIENCE = 0.20,
-        WEAPON_SKILL = 0.0,
-
-        MP5 = 0.15,
-        HP5 = 0.0,
-
-        ARCANE_RESISTANCE = 0.0,
-        FIRE_RESISTANCE = 0.0,
-        FROST_RESISTANCE = 0.0,
-        NATURE_RESISTANCE = 0.0,
-        SHADOW_RESISTANCE = 0.0,
-
-        MELEE_WEAPON_DPS = 0.0,
-        MELEE_WEAPON_DAMAGE = 0.0,
-        RANGED_WEAPON_DPS = 0.0,
-        RANGED_WEAPON_DAMAGE = 0.0,
-    },
-
-    DRUID_FERAL = {
-        STRENGTH = 0.65,
-        AGILITY = 1.0,
-        INTELLECT = 0.10,
-        STAMINA = 0.40,
-        SPIRIT = 0.0,
-
-        ARMOR = 0.20,
-        ATTACKPOWER = 0.90,
-        RANGED_ATTACKPOWER = 0.0,
-        FERAL_ATTACKPOWER = 1.0,
-
-        SPELLPOWER = 0.0,
-        HEALING = 0.0,
-
-        DEFENSE = 0.0,
-        DODGE = 0.35,
-        PARRY = 0.0,
-        BLOCK = 0.0,
-        BLOCK_VALUE = 0.0,
-        CRITICAL = 0.90,
-        HIT = 1.0,
-        HASTE = 0.85,
-        EXPERTISE = 1.0,
-        RESILIENCE = 0.35,
-        WEAPON_SKILL = 0.70,
-
-        MP5 = 0.0,
-        HP5 = 0.0,
-
-        ARCANE_RESISTANCE = 0.0,
-        FIRE_RESISTANCE = 0.0,
-        FROST_RESISTANCE = 0.0,
-        NATURE_RESISTANCE = 0.0,
-        SHADOW_RESISTANCE = 0.0,
-
-        MELEE_WEAPON_DPS = 0.35,
-        MELEE_WEAPON_DAMAGE = 0.15,
-        RANGED_WEAPON_DPS = 0.0,
-        RANGED_WEAPON_DAMAGE = 0.0,
-    },
-
-    -- Simple, high-resolution-not-needed bear weights: the stats feral tanks
-    -- actually stack sit near 1.0, roughly following the bear stat priority
-    -- (agility/expertise/stamina/strength top, then hit/defense/dodge, then
-    -- crit/resilience/haste). Armor is deliberately modest: the shared TANK
-    -- color reference is plate-itemized (chest ~1600 armor) while ferals wear
-    -- leather, so heavy armor weighting unfairly tanked their totals. Bears get
-    -- huge armor from Dire Bear Form anyway, which the item score can't see.
-    DRUID_TANK = {
-        STRENGTH = 1.0,
-        AGILITY = 1.0,
-        INTELLECT = 0.0,
-        STAMINA = 1.0,
-        SPIRIT = 0.0,
-
-        ARMOR = 0.5,
-        ATTACKPOWER = 0.9,
-        RANGED_ATTACKPOWER = 0.0,
-        FERAL_ATTACKPOWER = 0.9,
-
-        SPELLPOWER = 0.0,
-        HEALING = 0.0,
-
-        DEFENSE = 0.85,
-        DODGE = 0.8,
-        PARRY = 0.0,
-        BLOCK = 0.0,
-        BLOCK_VALUE = 0.0,
-        CRITICAL = 0.7,
-        HIT = 0.9,
-        HASTE = 0.5,
-        EXPERTISE = 1.0,
-        RESILIENCE = 0.6,
-        -- Bears attack in form; a weapon's own skill/DPS don't apply (only its
-        -- stats and feral attack power do).
-        WEAPON_SKILL = 0.0,
-
-        MP5 = 0.0,
-        HP5 = 0.0,
-
-        ARCANE_RESISTANCE = 0.0,
-        FIRE_RESISTANCE = 0.0,
-        FROST_RESISTANCE = 0.0,
-        NATURE_RESISTANCE = 0.0,
-        SHADOW_RESISTANCE = 0.0,
-
-        MELEE_WEAPON_DPS = 0.0,
-        MELEE_WEAPON_DAMAGE = 0.0,
-        RANGED_WEAPON_DPS = 0.0,
-        RANGED_WEAPON_DAMAGE = 0.0,
-    },
-
-    DRUID_BALANCE = {
-        STRENGTH = 0.0,
-        AGILITY = 0.0,
-        INTELLECT = 0.85,
-        STAMINA = 0.40,
-        SPIRIT = 0.45,
-
-        ARMOR = 0.05,
-        ATTACKPOWER = 0.0,
-        RANGED_ATTACKPOWER = 0.0,
-        FERAL_ATTACKPOWER = 0.0,
-
-        SPELLPOWER = 1.0,
-        HEALING = 0.10,
-
-        DEFENSE = 0.0,
-        DODGE = 0.0,
-        PARRY = 0.0,
-        BLOCK = 0.0,
-        BLOCK_VALUE = 0.0,
-        CRITICAL = 0.75,
-        HIT = 1.0,
-        HASTE = 0.85,
-        EXPERTISE = 0.0,
-        RESILIENCE = 0.20,
-        WEAPON_SKILL = 0.0,
-
-        MP5 = 0.25,
-        HP5 = 0.0,
-
-        ARCANE_RESISTANCE = 0.0,
-        FIRE_RESISTANCE = 0.0,
-        FROST_RESISTANCE = 0.0,
-        NATURE_RESISTANCE = 0.0,
-        SHADOW_RESISTANCE = 0.0,
-
-        MELEE_WEAPON_DPS = 0.0,
-        MELEE_WEAPON_DAMAGE = 0.0,
-        RANGED_WEAPON_DPS = 0.0,
-        RANGED_WEAPON_DAMAGE = 0.0,
-    },
-
-    DRUID_RESTO = {
-        STRENGTH = 0.0,
-        AGILITY = 0.0,
-        INTELLECT = 1.0,
-        STAMINA = 0.40,
-        SPIRIT = 0.95,
-
-        ARMOR = 0.05,
-        ATTACKPOWER = 0.0,
-        RANGED_ATTACKPOWER = 0.0,
-        FERAL_ATTACKPOWER = 0.0,
-
-        SPELLPOWER = 0.25,
-        HEALING = 1.0,
-
-        DEFENSE = 0.0,
-        DODGE = 0.0,
-        PARRY = 0.0,
-        BLOCK = 0.0,
-        BLOCK_VALUE = 0.0,
-        CRITICAL = 0.40,
-        HIT = 0.0,
-        HASTE = 0.75,
-        EXPERTISE = 0.0,
-        RESILIENCE = 0.20,
-        WEAPON_SKILL = 0.0,
-
-        MP5 = 0.80,
-        HP5 = 0.0,
-
-        ARCANE_RESISTANCE = 0.0,
-        FIRE_RESISTANCE = 0.0,
-        FROST_RESISTANCE = 0.0,
-        NATURE_RESISTANCE = 0.0,
-        SHADOW_RESISTANCE = 0.0,
-
-        MELEE_WEAPON_DPS = 0.0,
-        MELEE_WEAPON_DAMAGE = 0.0,
-        RANGED_WEAPON_DPS = 0.0,
-        RANGED_WEAPON_DAMAGE = 0.0,
-    },
 }
 
 -- Stats that derive their role value from another stat, so the 18 profile

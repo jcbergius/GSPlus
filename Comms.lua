@@ -8,9 +8,9 @@ GSPlus.Comms = GSPlus.Comms or {}
 local Comms = GSPlus.Comms
 
 Comms.PREFIX = "GSPlus"
--- v3: scores are cross-role calibrated (different scale than v2's raw linear
--- sums), so v2 and v3 numbers must not be mixed.
-Comms.PROTOCOL_VERSION = 3
+-- v4: all profile weights redistributed to Wowhead stat priorities, so the
+-- score scale differs from v3 (and v2's raw linear sums) - never mix versions.
+Comms.PROTOCOL_VERSION = 4
 Comms.BROADCAST_DEBOUNCE = 5
 Comms.REQUEST_REPLY_THROTTLE = 3
 Comms.REQUEST_THROTTLE = 10
