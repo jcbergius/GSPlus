@@ -101,8 +101,13 @@ function UI:CreateProfileDropdown(parent)
         end
         UIDropDownMenu_AddButton(info, level)
 
+        local playerClass = GSPlus.Calculator:GetPlayerClass()
+
         for _, profileKey in ipairs(Profiles.SORTED_PROFILE_KEYS) do
-            if GSPlus.Weights.PROFILE_WEIGHTS[profileKey] then
+            -- Only the current character's class - a manual pick from another
+            -- class can't be scored sensibly and used to leak across characters.
+            if GSPlus.Weights.PROFILE_WEIGHTS[profileKey]
+                and Profiles:IsProfileForClass(profileKey, playerClass) then
                 local key = profileKey
 
                 info = UIDropDownMenu_CreateInfo()

@@ -2,7 +2,7 @@
 # NOTE: verify/bump this Interface number when the Wrath Classic client ships.
 ## Title: gs+
 ## Author: Jonathan Bergius
-## Version: 2.4.3
+## Version: 2.4.4
 ## Notes: Role-aware gear scores for you, your group, and everyone you mouse over - zero configuration
 ## SavedVariables: GSPlusSavedVars
 ## X-Category: Inventory

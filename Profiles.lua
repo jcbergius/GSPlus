@@ -61,15 +61,88 @@ function Profiles:GetDefaultProfileForClass(className)
     return self.DEFAULT_PROFILE_BY_CLASS[className] or "MAGE_DPS"
 end
 
+-- A stable identifier for the logged-in character. The manual profile is stored
+-- per character: profiles are class-specific, so one account-wide setting (the
+-- old design) made a pick on one character apply to ALL of them - the cause of
+-- "logged in as a Druid, scored as Shaman Healer".
+function Profiles:GetCharacterKey()
+    local name = UnitName and UnitName("player")
+    local realm = GetRealmName and GetRealmName()
+
+    if not name or name == "" then
+        return "__local__"
+    end
+
+    if realm and realm ~= "" then
+        return name .. "-" .. realm
+    end
+
+    return name
+end
+
+-- The class a profile belongs to, derived from its key ("CLASS_ROLE", e.g.
+-- DRUID_FERAL -> DRUID). Returns nil for an unrecognized key.
+function Profiles:GetProfileClass(profileKey)
+    profileKey = self:NormalizeProfileKey(profileKey)
+
+    if not profileKey then
+        return nil
+    end
+
+    for className in pairs(self.DEFAULT_PROFILE_BY_CLASS) do
+        if string.sub(profileKey, 1, #className + 1) == className .. "_" then
+            return className
+        end
+    end
+
+    return nil
+end
+
+function Profiles:IsProfileForClass(profileKey, className)
+    if not className then
+        return false
+    end
+
+    return self:GetProfileClass(profileKey) == className
+end
+
+-- The manually-selected profile for the CURRENT character, or nil for automatic
+-- detection. A selection is honored ONLY when it is a valid profile for this
+-- character's class, so a pick stored under one character can never apply to a
+-- different class.
+function Profiles:GetManualProfile()
+    GSPlusSavedVars = GSPlusSavedVars or {}
+
+    -- One-time cleanup: older versions stored a single account-wide manual pick
+    -- (useManualProfile/selectedProfile) that leaked to EVERY character - the
+    -- cause of a Druid showing "Shaman Healer" and a Resto Shaman showing
+    -- "Shaman Enhancement". We can't know which character it belonged to, so we
+    -- discard it and let each character auto-detect (or pick again per character).
+    if GSPlusSavedVars.useManualProfile ~= nil or GSPlusSavedVars.selectedProfile ~= nil then
+        GSPlusSavedVars.useManualProfile = nil
+        GSPlusSavedVars.selectedProfile = nil
+    end
+
+    local className = GSPlus.Calculator:GetPlayerClass()
+    local byChar = GSPlusSavedVars.manualProfileByChar
+    local stored = self:NormalizeProfileKey(byChar and byChar[self:GetCharacterKey()])
+
+    if stored
+        and GSPlus.Weights.PROFILE_WEIGHTS[stored]
+        and self:IsProfileForClass(stored, className) then
+        return stored
+    end
+
+    return nil
+end
+
 function Profiles:GetSelectedProfile()
     GSPlusSavedVars = GSPlusSavedVars or {}
 
-    if GSPlusSavedVars.useManualProfile and GSPlusSavedVars.selectedProfile then
-        local manualProfile = self:NormalizeProfileKey(GSPlusSavedVars.selectedProfile)
+    local manualProfile = self:GetManualProfile()
 
-        if manualProfile and GSPlus.Weights.PROFILE_WEIGHTS[manualProfile] then
-            return manualProfile
-        end
+    if manualProfile then
+        return manualProfile
     end
 
     if GSPlus.TalentDetector then
@@ -97,9 +170,21 @@ function Profiles:SetSelectedProfile(profileKey)
         return false
     end
 
+    -- Refuse a profile that doesn't belong to this character's class; it could
+    -- never be scored sensibly and is the kind of value that used to leak
+    -- across characters.
+    if not self:IsProfileForClass(profileKey, GSPlus.Calculator:GetPlayerClass()) then
+        return false
+    end
+
     GSPlusSavedVars = GSPlusSavedVars or {}
-    GSPlusSavedVars.useManualProfile = true
-    GSPlusSavedVars.selectedProfile = profileKey
+    GSPlusSavedVars.manualProfileByChar = GSPlusSavedVars.manualProfileByChar or {}
+    GSPlusSavedVars.manualProfileByChar[self:GetCharacterKey()] = profileKey
+
+    -- Drop the legacy account-wide fields so an old global pick can't leak to
+    -- other characters once any new selection is made.
+    GSPlusSavedVars.useManualProfile = nil
+    GSPlusSavedVars.selectedProfile = nil
 
     GSPlus:RefreshUI()
 
@@ -108,7 +193,10 @@ end
 
 function Profiles:UseAutomaticProfileDetection()
     GSPlusSavedVars = GSPlusSavedVars or {}
-    GSPlusSavedVars.useManualProfile = false
+    GSPlusSavedVars.manualProfileByChar = GSPlusSavedVars.manualProfileByChar or {}
+    GSPlusSavedVars.manualProfileByChar[self:GetCharacterKey()] = nil
+
+    GSPlusSavedVars.useManualProfile = nil
     GSPlusSavedVars.selectedProfile = nil
 
     GSPlus:RefreshUI()
@@ -151,8 +239,6 @@ Profiles.SORTED_PROFILE_KEYS = {
 }
 
 function Profiles:IsUsingManualProfile()
-    GSPlusSavedVars = GSPlusSavedVars or {}
-
-    return GSPlusSavedVars.useManualProfile == true
+    return self:GetManualProfile() ~= nil
 end
 

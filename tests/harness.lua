@@ -477,9 +477,12 @@ check(cappedDelta < uncappedDelta, "upgrade comparison discounts capped hit ("
     .. string.format("%.1f vs %.1f", cappedDelta, uncappedDelta) .. ")")
 GSPlus:InvalidateCaches()
 
--- 6. Profile override still works through the Profiles API (dropdown path)
-GSPlus.Profiles:SetSelectedProfile("MAGE_DPS")
-check(GSPlus.Profiles:GetSelectedProfile() == "MAGE_DPS", "manual profile via dropdown API")
+-- 6. Profile override still works through the Profiles API (dropdown path).
+-- The override must be a profile for the player's own class (a cross-class pick
+-- is rejected - see the per-character manual-profile section below).
+GSPlus.Profiles:SetSelectedProfile("WARRIOR_DPS")
+check(GSPlus.Profiles:GetSelectedProfile() == "WARRIOR_DPS", "manual profile via dropdown API")
+check(GSPlus.Profiles:SetSelectedProfile("MAGE_DPS") == false, "a cross-class manual profile is rejected")
 GSPlus.Profiles:UseAutomaticProfileDetection()
 check(GSPlus.Profiles:GetSelectedProfile() == "WARRIOR_TANK", "auto detection restored")
 
@@ -2339,6 +2342,80 @@ end)()
     GSPlus.ItemParser:InvalidateStatsCache()
     GSPlus:InvalidateCaches()
     pendingTimers = {}
+end)()
+
+;(function()
+    -- 65. Manual profile is PER CHARACTER, and a leftover account-wide pick from
+    -- an older version is discarded so it can't mis-label a character (regression:
+    -- a Shaman's manual pick was stored globally and surfaced on a Druid as
+    -- "Shaman Healer"; a Resto Shaman showed as "Shaman Enhancement" from the
+    -- same stale global - even though talents/gear clearly detect Restoration).
+    local savedEq = {}
+    for k, v in pairs(equipped) do savedEq[k] = v end
+    local savedTabs = talentTabs
+    local savedClass = playerClass
+    local savedByChar = GSPlusSavedVars.manualProfileByChar
+    local savedUseManual = GSPlusSavedVars.useManualProfile
+    local savedSelected = GSPlusSavedVars.selectedProfile
+
+    -- The old buggy global state: a single account-wide manual pick.
+    GSPlusSavedVars.manualProfileByChar = nil
+    GSPlusSavedVars.useManualProfile = true
+    GSPlusSavedVars.selectedProfile = "SHAMAN_ENHANCEMENT"
+
+    -- A Resto shaman must auto-detect its real spec, not the stale global pick.
+    for _, k in ipairs(allSlotKeys) do equipped[k] = nil end
+    playerClass = "SHAMAN"
+    talentTabs = { { name = "Elemental", points = 0 }, { name = "Enhancement", points = 5 },
+        { name = "Restoration", points = 56 } }
+    GSPlus:InvalidateCaches()
+    GSPlus.ItemParser:InvalidateStatsCache()
+    check(GSPlus.Profiles:GetSelectedProfile() == "SHAMAN_HEALER",
+        "manual: a stale account-wide pick no longer overrides detection (Resto -> Healer)")
+    check(GSPlus.Profiles:IsUsingManualProfile() == false,
+        "manual: the Resto shaman is on automatic detection")
+    check(GSPlusSavedVars.useManualProfile == nil and GSPlusSavedVars.selectedProfile == nil,
+        "manual: the legacy account-wide fields are discarded on read")
+
+    -- A new pick is stored per character.
+    check(GSPlus.Profiles:SetSelectedProfile("SHAMAN_ELEMENTAL") == true, "manual: same-class pick accepted")
+    check(GSPlus.Profiles:GetSelectedProfile() == "SHAMAN_ELEMENTAL", "manual: same-class pick applied")
+    check(GSPlusSavedVars.manualProfileByChar[GSPlus.Profiles:GetCharacterKey()] == "SHAMAN_ELEMENTAL",
+        "manual: pick stored under the per-character key")
+
+    -- A different class neither inherits that pick nor accepts a cross-class one.
+    for _, k in ipairs(allSlotKeys) do equipped[k] = nil end
+    playerClass = "DRUID"
+    talentTabs = { { name = "Balance", points = 0 }, { name = "Feral Combat", points = 41 },
+        { name = "Restoration", points = 0 } }
+    GSPlus:InvalidateCaches()
+    GSPlus.ItemParser:InvalidateStatsCache()
+    local druidProfile = GSPlus.Profiles:GetSelectedProfile()
+    check(GSPlus.Profiles:GetProfileClass(druidProfile) == "DRUID",
+        "manual: the Druid resolves to a Druid profile, no Shaman leak (got " .. tostring(druidProfile) .. ")")
+    check(GSPlus.Profiles:SetSelectedProfile("SHAMAN_HEALER") == false,
+        "manual: a cross-class pick is rejected")
+
+    -- Automatic clears the per-character pick.
+    playerClass = "SHAMAN"
+    GSPlus:InvalidateCaches()
+    GSPlus.Profiles:UseAutomaticProfileDetection()
+    check(GSPlus.Profiles:IsUsingManualProfile() == false, "manual: Automatic clears the per-character pick")
+
+    check(GSPlus.Profiles:IsProfileForClass("DRUID_FERAL", "DRUID")
+        and not GSPlus.Profiles:IsProfileForClass("SHAMAN_HEALER", "DRUID")
+        and not GSPlus.Profiles:IsProfileForClass("WARLOCK_DPS", "WARRIOR"),
+        "manual: IsProfileForClass distinguishes class ownership (no WARRIOR/WARLOCK overlap)")
+
+    talentTabs = savedTabs
+    playerClass = savedClass
+    for _, k in ipairs(allSlotKeys) do equipped[k] = nil end
+    for k, v in pairs(savedEq) do equipped[k] = v end
+    GSPlusSavedVars.manualProfileByChar = savedByChar
+    GSPlusSavedVars.useManualProfile = savedUseManual
+    GSPlusSavedVars.selectedProfile = savedSelected
+    GSPlus:InvalidateCaches()
+    GSPlus.ItemParser:InvalidateStatsCache()
 end)()
 
 
