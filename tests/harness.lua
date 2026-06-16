@@ -2548,6 +2548,24 @@ end)()
     GSPlus.ItemParser:InvalidateStatsCache()
 end)()
 
+;(function()
+    -- 69. Feral (bear) tank weights follow Wowhead's bear stat priority. The
+    -- per-point value (budget cost x role weight) must rank expertise > agility
+    -- > hit > stamina > strength > defense > crit > dodge >= haste > attack
+    -- power > armor. (Regression: Dodge used to be the single highest stat.)
+    local C = GSPlus.Calculator
+    local function per(stat) return C:CalculateWeightedStatScore({ [stat] = 1 }, "DRUID_TANK") end
+    check(per("EXPERTISE") > per("AGILITY") and per("AGILITY") > per("HIT")
+        and per("HIT") > per("STAMINA") and per("STAMINA") > per("STRENGTH")
+        and per("STRENGTH") >= per("DEFENSE") and per("DEFENSE") > per("CRITICAL")
+        and per("CRITICAL") > per("DODGE") and per("DODGE") >= per("HASTE")
+        and per("HASTE") > per("ATTACKPOWER") and per("ATTACKPOWER") > per("ARMOR"),
+        "bear tank per-point stat priority matches Wowhead")
+    check(per("AGILITY") > per("DODGE") and per("HIT") > per("DODGE")
+        and per("EXPERTISE") > per("DODGE") * 3,
+        "expertise/agility/hit now outvalue dodge for bears (was inverted)")
+end)()
+
 
 realPrint(failures == 0 and "ALL TESTS PASSED" or (failures .. " TEST(S) FAILED"))
 os.exit(failures == 0 and 0 or 1)

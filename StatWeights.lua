@@ -729,35 +729,43 @@ Weights.PROFILE_WEIGHTS = {
         RANGED_WEAPON_DAMAGE = 0.0,
     },
 
+    -- Calibrated to Wowhead's bear-tank stat weights (normalized to AP=1):
+    -- Expertise 7.3, Agility 4.6, Hit 3.5, Stamina 3.05, Strength 2.27,
+    -- Defense 2.2, Crit 1.9, Dodge/Resilience 1.7, Haste 1.6, AP/FeralAP 1.0,
+    -- Armor 0.59, ArmorPen 0.34. role weight = weight / budget cost, normalized
+    -- so the most budget-efficient stat (Armor) is 1.0; the effective per-point
+    -- value (budget cost x role weight) then reproduces the Wowhead priority.
     DRUID_TANK = {
-        STRENGTH = 0.35,
-        AGILITY = 0.80,
+        STRENGTH = 0.27,
+        AGILITY = 0.55,
         INTELLECT = 0.0,
-        STAMINA = 1.0,
+        STAMINA = 0.54,
         SPIRIT = 0.0,
 
-        ARMOR = 0.55,
-        ATTACKPOWER = 0.30,
+        ARMOR = 1.0,
+        ATTACKPOWER = 0.24,
         RANGED_ATTACKPOWER = 0.0,
-        FERAL_ATTACKPOWER = 0.70,
+        FERAL_ATTACKPOWER = 0.24,
 
         SPELLPOWER = 0.0,
         HEALING = 0.0,
 
-        DEFENSE = 0.80,
-        DODGE = 1.0,
+        DEFENSE = 0.26,
+        DODGE = 0.20,
         PARRY = 0.0,
         BLOCK = 0.0,
         BLOCK_VALUE = 0.0,
-        CRITICAL = 0.15,
-        HIT = 0.40,
-        HASTE = 0.15,
-        EXPERTISE = 0.65,
-        RESILIENCE = 0.65,
-        WEAPON_SKILL = 0.40,
+        CRITICAL = 0.23,
+        HIT = 0.42,
+        HASTE = 0.19,
+        EXPERTISE = 0.87,
+        RESILIENCE = 0.20,
+        -- Bears attack in form; the weapon's own skill/DPS don't apply (only its
+        -- stats and feral attack power do), so weapon skill/DPS carry no weight.
+        WEAPON_SKILL = 0.0,
 
         MP5 = 0.0,
-        HP5 = 0.15,
+        HP5 = 0.0,
 
         ARCANE_RESISTANCE = 0.0,
         FIRE_RESISTANCE = 0.0,
@@ -765,8 +773,8 @@ Weights.PROFILE_WEIGHTS = {
         NATURE_RESISTANCE = 0.0,
         SHADOW_RESISTANCE = 0.0,
 
-        MELEE_WEAPON_DPS = 0.20,
-        MELEE_WEAPON_DAMAGE = 0.05,
+        MELEE_WEAPON_DPS = 0.0,
+        MELEE_WEAPON_DAMAGE = 0.0,
         RANGED_WEAPON_DPS = 0.0,
         RANGED_WEAPON_DAMAGE = 0.0,
     },
