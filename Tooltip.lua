@@ -464,6 +464,61 @@ function Tooltip:GetInspectContext(tooltip)
     return unit, profileKey, complete
 end
 
+-- The Blizzard inspect window does not raise the native "Currently Equipped"
+-- comparison tooltip when you shift-hover an inspected player's item, so you
+-- can't see it side-by-side with your own. Drive it ourselves: when the compare
+-- modifier is held (or "always compare" is on), show YOUR equipped item(s) in
+-- the comparable slot(s) as the compare tooltip(s). Only acts on the main game
+-- tooltip; the compare tooltips themselves are owned by it, so this never
+-- recurses (their inspect context resolves to nil).
+function Tooltip:ShowOwnGearComparisonForInspect(tooltip, itemLink)
+    if tooltip ~= GameTooltip then
+        return
+    end
+
+    local wantCompare = (IsModifiedClick and IsModifiedClick("COMPAREITEMS"))
+        or (GetCVarBool and GetCVarBool("alwaysCompareItems"))
+
+    if not wantCompare then
+        return
+    end
+
+    local equipLoc = itemLink and select(9, GetItemInfo(itemLink))
+    local slots = equipLoc and self.EQUIPLOC_TO_SLOTS[equipLoc]
+
+    if not slots then
+        return
+    end
+
+    local compareTooltips = { ShoppingTooltip1, ShoppingTooltip2 }
+    local shown = 0
+
+    for _, slotKey in ipairs(slots) do
+        local slotId = GetInventorySlotInfo and GetInventorySlotInfo(slotKey)
+        local equippedLink = slotId and GetInventoryItemLink("player", slotId)
+
+        if equippedLink then
+            shown = shown + 1
+
+            local shopping = compareTooltips[shown]
+
+            if shopping then
+                shopping:SetOwner(tooltip, "ANCHOR_NONE")
+                shopping:ClearAllPoints()
+
+                if shown == 1 then
+                    shopping:SetPoint("TOPLEFT", tooltip, "TOPRIGHT", 4, -10)
+                else
+                    shopping:SetPoint("TOPLEFT", compareTooltips[1], "TOPRIGHT", 4, 0)
+                end
+
+                shopping:SetHyperlink(equippedLink)
+                shopping:Show()
+            end
+        end
+    end
+end
+
 function Tooltip:AddGearScoreToTooltip(tooltip)
     if not GSPlus.Options:Get("showItemTooltip") then
         return
@@ -485,6 +540,12 @@ function Tooltip:AddGearScoreToTooltip(tooltip)
     -- player's spec, not the viewer's (a feral druid inspecting a paladin tank
     -- must see the paladin's tank score, not feral weights).
     local inspectUnit, inspectProfile, inspectComplete = self:GetInspectContext(tooltip)
+
+    -- Bring up the viewer's own gear as a comparison for inspected items (the
+    -- inspect window doesn't do this natively).
+    if inspectUnit then
+        self:ShowOwnGearComparisonForInspect(tooltip, itemLink)
+    end
 
     -- Inspecting someone whose gear has not fully loaded: their role is not
     -- reliably known yet (a half-loaded tank looks like DPS), so don't score

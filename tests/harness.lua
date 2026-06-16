@@ -2526,6 +2526,28 @@ end)()
     GSPlus.ItemParser:InvalidateStatsCache()
 end)()
 
+;(function()
+    -- 68. Serpent-Coil Braid: the mana-gem spell power proc is valued via a
+    -- KnownProcs override (its wording has no "chance to", so the generic proc
+    -- model can't see it). Its base ratings still parse, and the special line is
+    -- NOT flagged unscored once the override accounts for it.
+    GSPlus.ItemParser:InvalidateStatsCache()
+    local scb = "|cffa335ee|Hitem:30720::::::::70:::::|h[Serpent-Coil Braid]|h|r"
+    fakeItems[scb] = { name = "Serpent-Coil Braid", equipLoc = "INVTYPE_TRINKET", ilvl = 128 }
+    fakeTooltips[scb] = {
+        "Serpent-Coil Braid", "Unique", "Trinket", "Classes: Mage", "Requires Level 70",
+        "Equip: Improves spell hit rating by 12.",
+        "Equip: Improves spell critical strike rating by 30.",
+        "Equip: You gain 25% more mana when you use a mana gem. In addition, using a mana gem grants you 225 spell damage for 15 sec.",
+    }
+    local sc = GSPlus.ItemParser:ParseItemStats(scb)
+    check(sc.SPELLPOWER == 30, "Serpent-Coil mana-gem proc scored as spell power (got " .. tostring(sc.SPELLPOWER) .. ")")
+    check(sc.HIT == 12 and sc.CRITICAL == 30, "Serpent-Coil base ratings still parsed alongside the proc")
+    check(not sc.UNSCORED_EQUIP_EFFECT, "override item's special line is not flagged unscored")
+    check(GSPlus.Calculator:CalculateWeightedStatScore(sc, "MAGE_DPS") > 0, "Serpent-Coil contributes to a mage's score")
+    GSPlus.ItemParser:InvalidateStatsCache()
+end)()
+
 
 realPrint(failures == 0 and "ALL TESTS PASSED" or (failures .. " TEST(S) FAILED"))
 os.exit(failures == 0 and 0 or 1)

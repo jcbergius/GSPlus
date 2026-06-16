@@ -38,6 +38,11 @@ KnownProcs.PROC_AVERAGE_STATS = {
     -- -> ~37% uptime -> ~85 AP
     [34472] = { ATTACKPOWER = 85 },
 
+    -- Serpent-Coil Braid: using a mana gem grants 225 spell power for 15s.
+    -- A mana gem comes up roughly every ~2 min in practice, so ~12% uptime
+    -- -> ~28-30 spell power. (The "+25% mana from gems" half is utility, unscored.)
+    [30720] = { SPELLPOWER = 30 },
+
     -- Darkmoon Card: Crusade: stacking aura with near-permanent uptime in
     -- combat (~80% of max stacks). Both values listed; role weights zero
     -- out whichever doesn't apply to the wearer's profile.

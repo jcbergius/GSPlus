@@ -1291,7 +1291,12 @@ function ItemParser:ParseEquipTooltipLine(text, stats)
     if not self:ParseEffectText(equipText, stats, true) then
         -- Unrecognized equip effect (proc, utility, threat, etc.): flag it
         -- so the tooltip breakdown can disclose that something isn't scored.
-        self:AddStackingStat(stats, "UNSCORED_EQUIP_EFFECT", 1)
+        -- Skip when this item has a KnownProcs override - its special effect is
+        -- already valued by the curated entry (e.g. Serpent-Coil Braid), so
+        -- flagging it unscored would contradict that.
+        if not self.procOverrideActive then
+            self:AddStackingStat(stats, "UNSCORED_EQUIP_EFFECT", 1)
+        end
     end
 
     return true
