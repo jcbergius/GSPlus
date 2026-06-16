@@ -2,7 +2,7 @@
 
 GSPlus = GSPlus or {}
 
-GSPlus.VERSION = "2.4.2"
+GSPlus.VERSION = "2.4.3"
 GSPlus.ItemParser = GSPlus.ItemParser or {}
 GSPlus.Calculator = GSPlus.Calculator or {}
 GSPlus.Weights = GSPlus.Weights or {}
@@ -117,6 +117,14 @@ function GSPlus:OnEvent(event, ...)
     elseif event == "PLAYER_LOGIN" or event == "PLAYER_ENTERING_WORLD" then
         self:InvalidateCaches()
         self:RequestRefresh()
+        -- Equipped item data often arrives a beat AFTER login. Relying only on
+        -- GET_ITEM_INFO_RECEIVED to recompute is racy: if the data lands before
+        -- our first scan (so sawUncachedItem was never set when the events
+        -- fired) or a first scan reads an item as "complete" while its green
+        -- Equip lines are still a beat behind, the score sticks at a wrong value
+        -- until a /reload. This bounded pass re-scores the player's own gear
+        -- until it has fully loaded and the number stops rising.
+        self:ConvergePlayerScore()
     elseif event == "PLAYER_EQUIPMENT_CHANGED"
         or event == "CHARACTER_POINTS_CHANGED"
         or event == "PLAYER_TALENT_UPDATE" then
@@ -176,6 +184,77 @@ function GSPlus:OnEvent(event, ...)
             end
         end
     end
+end
+
+-- Tunables for the post-login convergence pass.
+GSPlus.LOGIN_CONVERGE_DELAY = 0.5
+GSPlus.LOGIN_CONVERGE_MAX_PASSES = 10
+
+-- Re-score the player's own gear on a short timer until it has fully loaded and
+-- the score has stopped climbing, then stop. This is the player-side analogue of
+-- the inspect verification loop (Inspect:BeginVerify), which the player's OWN
+-- score previously lacked - so a login-time undercount had no way to self-heal
+-- without a /reload. Each pass forces a fresh re-read of the equipped items (a
+-- first scan can report an item cached while its Equip lines lag), invalidates
+-- the derived caches, and refreshes the display. Because scores only ever rise
+-- as data finishes loading, "complete and no longer rising" is the convergence
+-- signal. A generation token makes the duplicate PLAYER_LOGIN/PLAYER_ENTERING_WORLD
+-- fire restart cleanly instead of running two overlapping loops.
+function GSPlus:ConvergePlayerScore()
+    self.convergeGen = (self.convergeGen or 0) + 1
+    self:RunConvergePass(self.convergeGen, 0, 0)
+end
+
+function GSPlus:RunConvergePass(gen, pass, bestScore)
+    if gen ~= self.convergeGen then
+        return
+    end
+
+    -- Force a fresh parse of the player's currently equipped items so a stale
+    -- partial scan can't keep the score pinned low.
+    local ItemParser = self.ItemParser
+
+    if ItemParser and ItemParser.InvalidateItem then
+        for _, slotInfo in ipairs(ItemParser.EQUIPMENT_SLOTS) do
+            local slotId = GetInventorySlotInfo(slotInfo.key)
+            local itemLink = slotId and GetInventoryItemLink("player", slotId)
+
+            if itemLink then
+                ItemParser:InvalidateItem(itemLink)
+            end
+        end
+    end
+
+    self:InvalidateCaches()
+    self:RefreshUI()
+
+    local score = bestScore or 0
+    local complete = true
+
+    if self.Calculator and self.Calculator.GetPlayerGSPlus then
+        local data = self.Calculator:GetPlayerGSPlus()
+
+        if data then
+            score = math.max(score, data.totalWeightedScore or 0)
+            complete = not data.incomplete
+        end
+    end
+
+    local rising = score > (bestScore or 0) + 0.5
+
+    -- Done once the gear is fully loaded and the score has settled, or after a
+    -- bounded number of attempts (so a permanently-missing item can't loop).
+    if (complete and not rising) or pass >= self.LOGIN_CONVERGE_MAX_PASSES then
+        return
+    end
+
+    if not (C_Timer and C_Timer.After) then
+        return
+    end
+
+    C_Timer.After(self.LOGIN_CONVERGE_DELAY, function()
+        GSPlus:RunConvergePass(gen, pass + 1, score)
+    end)
 end
 
 -- Equipment swaps fire one event per slot; collapse bursts into one refresh.

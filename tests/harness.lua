@@ -2260,6 +2260,87 @@ end)()
         string.format("all TBC roles within 15%% gs+ band (min=%.0f max=%.0f, %.0f%%)", mn, mx, (mx-mn)/mn*100))
 end)()
 
+;(function()
+    -- 64. Login self-heal (regression: "gs+ wrong on login, correct after a
+    -- /reload"). A score computed while the player's own gear is still loading
+    -- must NOT freeze: once item data arrives it has to converge to the correct,
+    -- complete number on its own - without a /reload, and without depending on a
+    -- GET_ITEM_INFO_RECEIVED event firing at just the right moment.
+    local function pumpTimers(maxRounds)
+        for _ = 1, (maxRounds or 50) do
+            if #pendingTimers == 0 then break end
+            local batch = pendingTimers
+            pendingTimers = {}
+            for _, fn in ipairs(batch) do fn() end
+        end
+    end
+
+    local savedEq = {}
+    for k, v in pairs(equipped) do savedEq[k] = v end
+    for _, k in ipairs(allSlotKeys) do equipped[k] = nil end
+    playerClass = "WARRIOR"
+
+    local loginChest = "|cffa335ee|Hitem:9800::::::::70:::::|h[Login Chest]|h|r"
+    fakeItems[loginChest] = { name = "Login Chest", equipLoc = "INVTYPE_CHEST" }
+    -- Base lines present, but the client hasn't confirmed full data, so the green
+    -- "Equip:" attack power line is still missing - the "Late Loader" shape that
+    -- undercounts a real login scan.
+    local loadingLines = { "Login Chest", "Chest", "Plate", "1400 Armor", "+57 Stamina", "+30 Strength" }
+    local loadedLines = { "Login Chest", "Chest", "Plate", "1400 Armor", "+57 Stamina", "+30 Strength",
+        "Equip: Increases attack power by 40." }
+    fakeTooltips[loginChest] = loadingLines
+    itemDataCached["9800"] = false
+    equipped.ChestSlot = loginChest
+
+    -- (a) Calculator fix: an incomplete total is flagged and never cached, so the
+    --     very next read after data arrives recomputes instead of returning a
+    --     frozen undercount.
+    GSPlus.ItemParser:InvalidateStatsCache()
+    GSPlus:InvalidateCaches()
+    local partial = GSPlus.Calculator:CalculateTotalGSPlus("WARRIOR_DPS")
+    check(partial.incomplete == true, "login: a total built from unloaded gear is flagged incomplete")
+    check(GSPlus.Calculator.scoreCache == nil, "login: an incomplete total is never cached")
+
+    itemDataCached["9800"] = true
+    fakeTooltips[loginChest] = loadedLines
+    local complete = GSPlus.Calculator:CalculateTotalGSPlus("WARRIOR_DPS")
+    check(not complete.incomplete
+        and (complete.totalWeightedScore or 0) > (partial.totalWeightedScore or 0),
+        "login: next read after data arrives recomputes the complete score (no reload)")
+    check(GSPlus.Calculator.scoreCache ~= nil, "login: a complete total is cached")
+
+    -- (b) Core fix: the login event starts a bounded convergence pass that drives
+    --     the pane to the right score on a timer, even though data only becomes
+    --     available AFTER login and no item event fires.
+    fakeTooltips[loginChest] = loadingLines
+    itemDataCached["9800"] = false
+    GSPlus.ItemParser:InvalidateStatsCache()
+    GSPlus:InvalidateCaches()
+    pendingTimers = {}
+
+    GSPlus:OnEvent("PLAYER_ENTERING_WORLD")
+    GSPlus.CharacterPaneUI:Update()
+    check(string.find(GSPlus.CharacterPaneUI.scoreText.text or "", "...", 1, true) ~= nil,
+        "login: pane shows the loading indicator, not a wrong number, while gear loads")
+
+    -- Server delivers the data; GET_ITEM_INFO_RECEIVED is deliberately NOT fired.
+    itemDataCached["9800"] = true
+    fakeTooltips[loginChest] = loadedLines
+    pumpTimers(40)
+
+    local healed = GSPlus.CharacterPaneUI.scoreText.text or ""
+    check(string.find(healed, "|c", 1, true) ~= nil and string.find(healed, "...", 1, true) == nil,
+        "login: pane converges to the real score once data arrives (no /reload, no item event)")
+
+    itemDataCached["9800"] = nil
+    for _, k in ipairs(allSlotKeys) do equipped[k] = nil end
+    for k, v in pairs(savedEq) do equipped[k] = v end
+    playerClass = "WARRIOR"
+    GSPlus.ItemParser:InvalidateStatsCache()
+    GSPlus:InvalidateCaches()
+    pendingTimers = {}
+end)()
+
 
 realPrint(failures == 0 and "ALL TESTS PASSED" or (failures .. " TEST(S) FAILED"))
 os.exit(failures == 0 and 0 or 1)

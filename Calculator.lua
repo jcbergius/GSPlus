@@ -655,7 +655,18 @@ function Calculator:CalculateTotalGSPlus(profileKey)
     local totalMaxBudgetScore = self:GetTotalWeightedColorReference(equippedItems, profileKey, hasSetBonuses)
     local itemScores = {}
 
+    -- Any equipped item whose server data had not fully loaded yet (a login-time
+    -- scan, or a piece that briefly fell out of the client cache) makes the total
+    -- an undercount. Track it so the result can be flagged and, crucially, NOT
+    -- cached - otherwise a partial total computed during login freezes in the
+    -- score cache and only a /reload clears it (the "wrong gs+ on login" bug).
+    local incompleteScan = false
+
     for slot, item in pairs(equippedItems) do
+        if item.stats and item.stats.INCOMPLETE_SCAN then
+            incompleteScan = true
+        end
+
         local statBudgetScore = self:CalculateRawStatBudget(item.stats)
         local weaponBudgetScore = self:CalculateWeaponBudgetScore(item.stats)
         local rawScore = statBudgetScore + weaponBudgetScore
@@ -715,9 +726,17 @@ function Calculator:CalculateTotalGSPlus(profileKey)
         setBonusStats = setBonusStats,
         setBonusRawScore = setBonusRawScore,
         setBonusWeightedScore = setBonusWeightedScore,
+        -- True when at least one item was scored from half-loaded data. Callers
+        -- (the login convergence pass, the pane) use it to keep retrying.
+        incomplete = incompleteScan or nil,
     }
 
-    self.scoreCache = result
+    -- Never cache an undercount built from gear that has not finished loading;
+    -- the next call recomputes against the complete data instead of returning a
+    -- frozen wrong score. A complete total caches as before.
+    if not incompleteScan then
+        self.scoreCache = result
+    end
 
     return result
 end
