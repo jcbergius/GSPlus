@@ -26,6 +26,30 @@ Calculator.COLOR_REFERENCE_HEADROOM = 1.66
 -- effect is a spell-specific bonus).
 Calculator.MIN_SCOREABLE = 1
 
+-- Cross-role calibration target. Each profile's score is scaled so that a full
+-- reference build (the same per-slot reference items the color references use)
+-- totals this number. Equally-geared characters of any spec therefore land on
+-- the same gs+, so the number is a fair shared currency across roles. The scale
+-- multiplies BOTH the weighted score and its color reference, so item colors and
+-- the gear-based role-detection ratios are unchanged - only the number is
+-- calibrated. Chosen near the pre-calibration cross-role average so existing
+-- numbers barely move.
+Calculator.CALIBRATION_TARGET = 1700
+
+-- Canonical full-build slots used to measure a profile's reference total (must
+-- match the role-balance test in tests/harness.lua so the band collapses to ~0).
+Calculator.CALIBRATION_SLOTS = {
+    { "HeadSlot", "INVTYPE_HEAD" }, { "NeckSlot", "INVTYPE_NECK" },
+    { "ShoulderSlot", "INVTYPE_SHOULDER" }, { "BackSlot", "INVTYPE_CLOAK" },
+    { "ChestSlot", "INVTYPE_CHEST" }, { "WristSlot", "INVTYPE_WRIST" },
+    { "HandsSlot", "INVTYPE_HAND" }, { "WaistSlot", "INVTYPE_WAIST" },
+    { "LegsSlot", "INVTYPE_LEGS" }, { "FeetSlot", "INVTYPE_FEET" },
+    { "Finger0Slot", "INVTYPE_FINGER" }, { "Finger1Slot", "INVTYPE_FINGER" },
+    { "Trinket0Slot", "INVTYPE_TRINKET" }, { "Trinket1Slot", "INVTYPE_TRINKET" },
+    { "MainHandSlot", "INVTYPE_WEAPONMAINHAND" }, { "SecondaryHandSlot", "INVTYPE_SHIELD" },
+    { "RangedSlot", "INVTYPE_RELIC" },
+}
+
 Calculator.SET_BONUS_COLOR_REFERENCE = {
     HEALER = 45,
     CASTER_DPS = 45,
@@ -356,7 +380,74 @@ function Calculator:GetEffectiveWeight(profileKey, statType, applyCaps)
         roleWeight = roleWeight * GSPlus.StatCaps:GetWeightMultiplier(profileKey, statType)
     end
 
+    -- Per-profile cross-role calibration. Skipped while measuring the reference
+    -- build itself (computingReferenceScale), which would otherwise recurse.
+    if roleWeight ~= 0 and not self.computingReferenceScale then
+        roleWeight = roleWeight * self:GetProfileScoreScale(profileKey)
+    end
+
     return roleWeight
+end
+
+-- Weighted score of a full reference build for a profile, computed with UNSCALED
+-- weights (the guard stops GetEffectiveWeight/CalculateWeaponScore recursing back
+-- through GetProfileScoreScale). Cached; cleared with the reference cache.
+function Calculator:GetReferenceBuildScore(profileKey)
+    self.refBuildCache = self.refBuildCache or {}
+
+    if self.refBuildCache[profileKey] ~= nil then
+        return self.refBuildCache[profileKey]
+    end
+
+    local total = 0
+
+    if GSPlus.ReferenceGear and GSPlus.ReferenceGear.GetStats then
+        local group = self:GetProfileColorCapGroup(profileKey)
+        local wasComputing = self.computingReferenceScale
+        self.computingReferenceScale = true
+
+        for _, slot in ipairs(self.CALIBRATION_SLOTS) do
+            local refStats = GSPlus.ReferenceGear:GetStats(group, slot[2])
+
+            if refStats then
+                local w = self:CalculateWeightedStatScore(refStats, profileKey)
+
+                if refStats.WEAPON_DPS and refStats.WEAPON_DPS > 0 then
+                    w = w + self:CalculateWeaponScore(refStats, profileKey, slot[1], nil)
+                end
+
+                total = total + w
+            end
+        end
+
+        self.computingReferenceScale = wasComputing
+    end
+
+    self.refBuildCache[profileKey] = total
+
+    return total
+end
+
+-- Per-profile multiplier mapping the reference build to CALIBRATION_TARGET.
+-- 1.0 when the flavor has no reference data yet (no calibration applied).
+function Calculator:GetProfileScoreScale(profileKey)
+    self.scoreScaleCache = self.scoreScaleCache or {}
+
+    local cached = self.scoreScaleCache[profileKey]
+    if cached ~= nil then
+        return cached
+    end
+
+    local refTotal = self:GetReferenceBuildScore(profileKey)
+    local scale = 1.0
+
+    if refTotal and refTotal > 0 then
+        scale = self.CALIBRATION_TARGET / refTotal
+    end
+
+    self.scoreScaleCache[profileKey] = scale
+
+    return scale
 end
 
 -- The weighted score is a LINEAR sum: stat value contributes to throughput
@@ -431,8 +522,8 @@ function Calculator:CalculateWeaponScore(stats, profileKey, slotKey, itemLink)
 
     local dpsWeightKey, damageWeightKey = self:GetWeaponWeightKeys(slotKey, itemLink)
 
-    local dpsWeight = GSPlus.Weights:GetWeight(profileKey, dpsWeightKey)
-    local damageWeight = GSPlus.Weights:GetWeight(profileKey, damageWeightKey)
+    local dpsWeight = self:GetEffectiveWeight(profileKey, dpsWeightKey, false)
+    local damageWeight = self:GetEffectiveWeight(profileKey, damageWeightKey, false)
 
     return (weaponDps * dpsWeight) + (averageDamage * damageWeight)
 end
@@ -639,6 +730,10 @@ end
 -- can rescale a reference (GameVersion:Detect calls this).
 function Calculator:InvalidateReferenceCache()
     self.referenceCache = nil
+    -- The calibration scale derives from the (flavor-specific) reference gear,
+    -- so it is rebuilt whenever the references are.
+    self.refBuildCache = nil
+    self.scoreScaleCache = nil
 end
 
 -- Some items carry no stats we can value (a relic with only a spell-specific

@@ -8,8 +8,9 @@ GSPlus.Comms = GSPlus.Comms or {}
 local Comms = GSPlus.Comms
 
 Comms.PREFIX = "GSPlus"
--- v2: weighted scores became linear sums (different scale than v1).
-Comms.PROTOCOL_VERSION = 2
+-- v3: scores are cross-role calibrated (different scale than v2's raw linear
+-- sums), so v2 and v3 numbers must not be mixed.
+Comms.PROTOCOL_VERSION = 3
 Comms.BROADCAST_DEBOUNCE = 5
 Comms.REQUEST_REPLY_THROTTLE = 3
 Comms.REQUEST_THROTTLE = 10

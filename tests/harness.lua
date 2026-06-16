@@ -462,7 +462,11 @@ check(math.abs(scoreBefore - scoreAfter) < 0.001, "total score unchanged by play
 check(commsBefore == commsAfter, "broadcast score unchanged by player's cap state")
 
 local rows = GSPlus.Tooltip:BuildStatContributionRows(hitStats, "WARRIOR_DPS")
-check(#rows == 1 and math.abs(rows[1].roleWeight - 1.0) < 0.001,
+-- Cap-neutral: the breakdown shows the uncapped HIT weight (base 1.0) carrying
+-- the per-profile calibration scale, never the hit-capped 0.15.
+local neutralHit = GSPlus.Weights:GetWeight("WARRIOR_DPS", "HIT")
+    * GSPlus.Calculator:GetProfileScoreScale("WARRIOR_DPS")
+check(#rows == 1 and math.abs(rows[1].roleWeight - neutralHit) < 0.001,
     "breakdown shows cap-neutral weights matching the score")
 
 local cappedNames = GSPlus.StatCaps:GetCappedStatNames(hitStats, "WARRIOR_DPS")
@@ -488,7 +492,7 @@ check(GSPlus.Profiles:GetSelectedProfile() == "WARRIOR_TANK", "auto detection re
 
 -- 7. Comms roundtrip
 local message = GSPlus.Comms:BuildScoreMessage()
-check(string.match(message, "^S:2:") ~= nil, "score message built (protocol v2)")
+check(string.match(message, "^S:3:") ~= nil, "score message built (protocol v3)")
 GSPlus.Comms:OnChatMsgAddon("GSPlus", message, "PARTY", "Alice-Realm")
 local aliceEntry = GSPlus.PlayerCache:Get("Alice")
 check(aliceEntry ~= nil and aliceEntry.source == "comms", "comms score cached")
@@ -556,7 +560,7 @@ sentMessages = {}
 GSPlus.GroupFrame:Show()
 local sawRequest = false
 for _, sent in ipairs(sentMessages) do
-    if sent.message == "R:2" then sawRequest = true end
+    if sent.message == "R:3" then sawRequest = true end
 end
 check(sawRequest, "group window open requests scores automatically")
 GSPlus.GroupFrame:Hide()
@@ -958,7 +962,7 @@ local xrealmSenderKey = GSPlus.PlayerCache:NormalizeSenderKey("Zara-DistantRealm
 check(xrealmUnitKey == xrealmSenderKey,
     "cross-realm comms and inspect keys match ('" .. tostring(xrealmUnitKey) .. "')")
 
-GSPlus.Comms:OnChatMsgAddon("GSPlus", "S:2:123.0:200.0:80.0:500:MAGE_DPS", "PARTY", "Zara-DistantRealm")
+GSPlus.Comms:OnChatMsgAddon("GSPlus", "S:3:123.0:200.0:80.0:500:MAGE_DPS", "PARTY", "Zara-DistantRealm")
 local xrealmEntry = GSPlus.PlayerCache:GetByUnit("xrealm")
 check(xrealmEntry ~= nil and xrealmEntry.source == "comms",
     "cross-realm comms score is retrievable by unit lookup")
@@ -2250,7 +2254,7 @@ end)()
         end
         return t
     end
-    C:InvalidateCache(); C.referenceCache = nil
+    C:InvalidateCache(); C.referenceCache = nil; C.refBuildCache = nil; C.scoreScaleCache = nil
     local mn, mx = 1e9, 0
     for prof in pairs(GSPlus.Weights.PROFILE_WEIGHTS) do
         if not string.find(prof, "DEATHKNIGHT") then  -- not a TBC class
@@ -2259,8 +2263,10 @@ end)()
             if v > mx then mx = v end
         end
     end
-    check(mn > 0 and (mx - mn) / mn < 0.15,
-        string.format("all TBC roles within 15%% gs+ band (min=%.0f max=%.0f, %.0f%%)", mn, mx, (mx-mn)/mn*100))
+    -- Cross-role calibration (Calculator.GetProfileScoreScale) maps every role's
+    -- reference build to CALIBRATION_TARGET, so the band collapses to ~0%.
+    check(mn > 0 and (mx - mn) / mn < 0.01,
+        string.format("all TBC roles share one gs+ band (min=%.0f max=%.0f, %.1f%%)", mn, mx, (mx-mn)/mn*100))
 end)()
 
 ;(function()
