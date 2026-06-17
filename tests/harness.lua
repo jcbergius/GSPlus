@@ -70,6 +70,9 @@ function CreateFrame(frameType, name)
     function f:SetScript(k, v) f["script_" .. tostring(k)] = v end
     function f:HookScript(k, v) f["hook_" .. tostring(k)] = v end
     function f:SetOwner() end
+    function f:ClearAllPoints() end
+    function f:SetPoint() end
+    function f:GetRight() return f._right or 0 end
     function f:ClearLines() f.lines = {}; updateTooltipFontStrings(f) end
     function f:SetHyperlink(link) f.lines = fakeTooltips[link] or {}; updateTooltipFontStrings(f) end
     function f:NumLines() return #f.lines end
@@ -2822,28 +2825,42 @@ end)()
 
 ;(function()
     -- 84. Shift-hovering an inspected player's item brings up YOUR equipped item
-    -- in that slot as a comparison. Robust to clients where IsModifiedClick
+    -- in that slot, drawn in our OWN comparison frame (not ShoppingTooltip1/2,
+    -- which WoW hides every frame). Robust to clients where IsModifiedClick
     -- ("COMPAREITEMS") is unrecognized (shift accepted directly) and to inspected
-    -- items not yet cached (equip slot resolved via GetItemInfoInstant).
-    local rGT, rInst, rSW, rInv, rST1, rST2, rIMC =
-        GameTooltip, GetItemInfoInstant, GetScreenWidth, GetInventoryItemLink, ShoppingTooltip1, ShoppingTooltip2, IsModifiedClick
+    -- items not yet cached (slot resolved via GetItemInfoInstant).
+    local rGT, rInst, rSW, rInv, rIMC =
+        GameTooltip, GetItemInfoInstant, GetScreenWidth, GetInventoryItemLink, IsModifiedClick
     local myFeet = "|cffffffff|Hitem:7777::::::::70:::::|h[My Boots]|h|r"
     GetItemInfoInstant = function() return 8888, "Armor", "Cloth", "INVTYPE_FEET" end
     GetScreenWidth = function() return 1920 end
-    IsModifiedClick = function() return false end                 -- COMPAREITEMS not recognized on this client
+    IsModifiedClick = function() return false end                 -- COMPAREITEMS not recognized
     GetInventoryItemLink = function(unit) return unit == "player" and myFeet or nil end
-    local function mkShop() local t = {}
-        function t:SetOwner() end function t:ClearAllPoints() end function t:SetPoint() end
-        function t:SetHyperlink(l) t.shownLink = l end function t:Show() t.shown = true end
-        return t end
-    ShoppingTooltip1, ShoppingTooltip2 = mkShop(), mkShop()
-    GameTooltip = { GetRight = function() return 1850 end }        -- inspect tooltip near the right edge
+    GameTooltip = { GetRight = function() return 1850 end, IsShown = function() return true end }
+
+    local c1 = GSPlus.Tooltip:GetInspectCompareTooltips()
+    local captured, wasShown = nil, false
+    c1.SetHyperlink = function(_, l) captured = l end
+    c1.Show = function() wasShown = true end
+
     GSPlus.Tooltip:ShowOwnGearComparisonForInspect(GameTooltip,
         "|cffa335ee|Hitem:9993::::::::70:::::|h[Inspected Boots]|h|r")
-    check(ShoppingTooltip1.shownLink == myFeet and ShoppingTooltip1.shown == true,
-        "inspect shift-compare shows the viewer's equipped item (got " .. tostring(ShoppingTooltip1.shownLink) .. ")")
-    GameTooltip, GetItemInfoInstant, GetScreenWidth, GetInventoryItemLink, ShoppingTooltip1, ShoppingTooltip2, IsModifiedClick =
-        rGT, rInst, rSW, rInv, rST1, rST2, rIMC
+    check(captured == myFeet and wasShown,
+        "inspect shift-compare shows the viewer's equipped item in our own frame (got " .. tostring(captured) .. ")")
+
+    -- Releasing shift hides it.
+    IsModifiedClick = function() return false end
+    local hidden = false
+    c1.Hide = function() hidden = true end
+    local realShift = IsShiftKeyDown
+    IsShiftKeyDown = function() return false end
+    GSPlus.Tooltip:ShowOwnGearComparisonForInspect(GameTooltip,
+        "|cffa335ee|Hitem:9993::::::::70:::::|h[Inspected Boots]|h|r")
+    check(hidden, "comparison frame is hidden when shift is not held")
+    IsShiftKeyDown = realShift
+
+    GameTooltip, GetItemInfoInstant, GetScreenWidth, GetInventoryItemLink, IsModifiedClick =
+        rGT, rInst, rSW, rInv, rIMC
 end)()
 
 

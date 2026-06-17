@@ -487,16 +487,39 @@ end
 -- the comparable slot(s) as the compare tooltip(s). Only acts on the main game
 -- tooltip; the compare tooltips themselves are owned by it, so this never
 -- recurses (their inspect context resolves to nil).
+-- Our OWN comparison tooltip frames. We can't use ShoppingTooltip1/2: WoW's
+-- GameTooltip OnUpdate HIDES those every frame unless IsModifiedClick
+-- ("COMPAREITEMS") is true, which it isn't on every client - so the built-in
+-- comparison never stayed visible on inspected items. Frames we create are not
+-- touched by that update loop.
+function Tooltip:GetInspectCompareTooltips()
+    if not self.inspectCompare1 and CreateFrame then
+        self.inspectCompare1 = CreateFrame("GameTooltip", "GSPlusInspectCompare1", UIParent, "GameTooltipTemplate")
+        self.inspectCompare2 = CreateFrame("GameTooltip", "GSPlusInspectCompare2", UIParent, "GameTooltipTemplate")
+    end
+
+    return self.inspectCompare1, self.inspectCompare2
+end
+
+function Tooltip:HideInspectComparison()
+    if self.inspectCompare1 then self.inspectCompare1:Hide() end
+    if self.inspectCompare2 then self.inspectCompare2:Hide() end
+end
+
 function Tooltip:ShowOwnGearComparisonForInspect(tooltip, itemLink)
     if tooltip ~= GameTooltip then
         return
     end
 
-    -- Shift is the default comparison modifier; accept it directly because the
-    -- "COMPAREITEMS" modified-click type isn't recognized on every client (so
-    -- relying on IsModifiedClick alone silently disabled the comparison here).
-    local wantCompare = (IsModifiedClick and IsModifiedClick("COMPAREITEMS"))
-        or (IsShiftKeyDown and IsShiftKeyDown())
+    -- Always clear ours first so a previous item's comparison never lingers and
+    -- releasing Shift removes it.
+    self:HideInspectComparison()
+
+    -- Shift is the comparison modifier; accept it directly (the "COMPAREITEMS"
+    -- modified-click type is unrecognized on some clients, which silently
+    -- disabled this).
+    local wantCompare = (IsShiftKeyDown and IsShiftKeyDown())
+        or (IsModifiedClick and IsModifiedClick("COMPAREITEMS"))
         or (GetCVarBool and GetCVarBool("alwaysCompareItems"))
 
     if not wantCompare then
@@ -504,8 +527,7 @@ function Tooltip:ShowOwnGearComparisonForInspect(tooltip, itemLink)
     end
 
     -- GetItemInfoInstant resolves the equip slot from the item ID even when the
-    -- inspected player's item is not in our cache yet (GetItemInfo returns nil
-    -- for uncached links, which left slots == nil and showed nothing).
+    -- inspected player's item isn't cached yet (GetItemInfo would return nil).
     local equipLoc
     if GetItemInfoInstant then
         equipLoc = select(4, GetItemInfoInstant(itemLink))
@@ -515,19 +537,19 @@ function Tooltip:ShowOwnGearComparisonForInspect(tooltip, itemLink)
     end
 
     local slots = equipLoc and self.EQUIPLOC_TO_SLOTS[equipLoc]
+    local c1, c2 = self:GetInspectCompareTooltips()
 
-    if not slots then
+    if not slots or not c1 then
         return
     end
 
-    -- Place the comparison on the side with room: to the LEFT when the item
-    -- tooltip sits near the right screen edge (the usual inspect-window case),
-    -- otherwise to the right. Anchoring blindly right pushed it off-screen.
+    local frames = { c1, c2 }
+
+    -- Anchor on the side with screen room: to the LEFT when the item tooltip is
+    -- near the right edge, otherwise right (a blind right anchor went off-screen).
     local screenW = (GetScreenWidth and GetScreenWidth()) or 1024
     local tipRight = (tooltip.GetRight and tooltip:GetRight()) or screenW
     local toLeft = tipRight > screenW * 0.6
-
-    local compareTooltips = { ShoppingTooltip1, ShoppingTooltip2 }
     local shown = 0
 
     for _, slotKey in ipairs(slots) do
@@ -536,27 +558,23 @@ function Tooltip:ShowOwnGearComparisonForInspect(tooltip, itemLink)
 
         if equippedLink then
             shown = shown + 1
+            local f = frames[shown]
 
-            local shopping = compareTooltips[shown]
+            if f then
+                f:SetOwner(UIParent, "ANCHOR_NONE")
+                f:ClearAllPoints()
 
-            if shopping then
-                shopping:SetOwner(tooltip, "ANCHOR_NONE")
-                shopping:ClearAllPoints()
+                local anchorTo = (shown == 1) and tooltip or frames[1]
+                local yOff = (shown == 1) and -10 or 0
 
                 if toLeft then
-                    if shown == 1 then
-                        shopping:SetPoint("TOPRIGHT", tooltip, "TOPLEFT", -4, -10)
-                    else
-                        shopping:SetPoint("TOPRIGHT", compareTooltips[1], "TOPLEFT", -4, 0)
-                    end
-                elseif shown == 1 then
-                    shopping:SetPoint("TOPLEFT", tooltip, "TOPRIGHT", 4, -10)
+                    f:SetPoint("TOPRIGHT", anchorTo, "TOPLEFT", -4, yOff)
                 else
-                    shopping:SetPoint("TOPLEFT", compareTooltips[1], "TOPRIGHT", 4, 0)
+                    f:SetPoint("TOPLEFT", anchorTo, "TOPRIGHT", 4, yOff)
                 end
 
-                shopping:SetHyperlink(equippedLink)
-                shopping:Show()
+                f:SetHyperlink(equippedLink)
+                f:Show()
             end
         end
     end
@@ -701,6 +719,10 @@ function Tooltip:HookTooltip(tooltipFrame)
 
     tooltipFrame:HookScript("OnTooltipCleared", function(tooltip)
         tooltip.bgsScoreAdded = nil
+
+        if tooltip == GameTooltip then
+            GSPlus.Tooltip:HideInspectComparison()
+        end
     end)
 end
 
@@ -713,6 +735,31 @@ function Tooltip:HookTooltips()
     self:HookTooltip(ItemRefTooltip)
     self:HookTooltip(ShoppingTooltip1)
     self:HookTooltip(ShoppingTooltip2)
+
+    -- Pressing/releasing Shift while already hovering an inspected item does NOT
+    -- re-fire OnTooltipSetItem, so refresh the comparison on the modifier change.
+    if CreateFrame then
+        local mf = CreateFrame("Frame")
+        mf:RegisterEvent("MODIFIER_STATE_CHANGED")
+        mf:SetScript("OnEvent", function(_, _, key)
+            if key ~= "LSHIFT" and key ~= "RSHIFT" then
+                return
+            end
+
+            if not (GameTooltip and GameTooltip.IsShown and GameTooltip:IsShown()) then
+                GSPlus.Tooltip:HideInspectComparison()
+                return
+            end
+
+            local link = GetTooltipItemLink(GameTooltip)
+            local inspectUnit = link and GSPlus.Tooltip:GetInspectContext(GameTooltip)
+
+            if inspectUnit then
+                GSPlus.Tooltip:ShowOwnGearComparisonForInspect(GameTooltip, link)
+            end
+        end)
+        self.modifierFrame = mf
+    end
 
     self.hooked = true
 end
