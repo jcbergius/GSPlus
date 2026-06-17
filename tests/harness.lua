@@ -2712,6 +2712,50 @@ end)()
         "selecting Automatic clears the manual profile override")
 end)()
 
+;(function()
+    -- 78. Dual-spec: detection reads the ACTIVE talent group, not always group 1.
+    -- A druid whose primary (group 1) is Resto but who has activated a Feral
+    -- secondary (group 2) must detect as Feral, and flip back when group 1 is
+    -- active again - the cause of "I switched to Feral but it still says Resto".
+    local rClass = playerClass
+    local rGATG, rGTI, rGNT, rGTTI, rGNTT =
+        GetActiveTalentGroup, GetTalentInfo, GetNumTalents, GetTalentTabInfo, GetNumTalentTabs
+    playerClass = "DRUID"
+    for _, k in ipairs(allSlotKeys) do equipped[k] = nil end  -- no tank gear -> feral cat
+    local activeGroup = 1
+    local treeNames = { "Balance", "Feral Combat", "Restoration" }
+    local pts = { [1] = { 0, 0, 45 }, [2] = { 0, 45, 0 } }    -- g1 Resto, g2 Feral
+    GetActiveTalentGroup = function() return activeGroup end
+    GetNumTalentTabs = function() return 3 end
+    GetNumTalents = function() return 45 end
+    GetTalentTabInfo = function(tab, isInspect, isPet, group)
+        return treeNames[tab], "tex", pts[group or 1][tab], "file"
+    end
+    GetTalentInfo = function(tab, idx, isInspect, isPet, group)
+        return "T", "tex", 0, false, (idx <= pts[group or 1][tab]) and 1 or 0
+    end
+
+    activeGroup = 1
+    GSPlus.TalentDetector.roleCache = {}; GSPlus:InvalidateCaches()
+    local p1 = GSPlus.TalentDetector:GetDetectedProfile()
+    activeGroup = 2
+    GSPlus.TalentDetector.roleCache = {}; GSPlus:InvalidateCaches()
+    local p2 = GSPlus.TalentDetector:GetDetectedProfile()
+    activeGroup = 1
+    GSPlus.TalentDetector.roleCache = {}; GSPlus:InvalidateCaches()
+    local p3 = GSPlus.TalentDetector:GetDetectedProfile()
+
+    check(p1 == "DRUID_RESTO", "active primary group detected as Resto (got "..tostring(p1)..")")
+    check(p2 == "DRUID_FERAL" or p2 == "DRUID_TANK",
+        "activating Feral secondary group flips detection to feral (got "..tostring(p2)..")")
+    check(p3 == "DRUID_RESTO", "switching back to primary group returns to Resto (got "..tostring(p3)..")")
+
+    GetActiveTalentGroup, GetTalentInfo, GetNumTalents, GetTalentTabInfo, GetNumTalentTabs =
+        rGATG, rGTI, rGNT, rGTTI, rGNTT
+    playerClass = rClass
+    GSPlus.TalentDetector.roleCache = {}; GSPlus:InvalidateCaches()
+end)()
+
 
 realPrint(failures == 0 and "ALL TESTS PASSED" or (failures .. " TEST(S) FAILED"))
 os.exit(failures == 0 and 0 or 1)

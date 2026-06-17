@@ -2,7 +2,7 @@
 
 GSPlus = GSPlus or {}
 
-GSPlus.VERSION = "2.5.3"
+GSPlus.VERSION = "2.5.4"
 GSPlus.ItemParser = GSPlus.ItemParser or {}
 GSPlus.Calculator = GSPlus.Calculator or {}
 GSPlus.Weights = GSPlus.Weights or {}
@@ -96,6 +96,9 @@ function GSPlus:RegisterEvents()
     self.frame:RegisterEvent("PLAYER_EQUIPMENT_CHANGED")
     self.frame:RegisterEvent("CHARACTER_POINTS_CHANGED")
     self.frame:RegisterEvent("PLAYER_TALENT_UPDATE")
+    -- Dual-spec / talent-group swap (custom servers and Wrath+). Not present on
+    -- every client, so register defensively - an unknown event would error.
+    pcall(function() self.frame:RegisterEvent("ACTIVE_TALENT_GROUP_CHANGED") end)
     self.frame:RegisterEvent("GET_ITEM_INFO_RECEIVED")
 
     self.frame:SetScript("OnEvent", function(_, event, ...)
@@ -128,16 +131,18 @@ function GSPlus:OnEvent(event, ...)
         self:ConvergePlayerScore()
     elseif event == "PLAYER_EQUIPMENT_CHANGED"
         or event == "CHARACTER_POINTS_CHANGED"
-        or event == "PLAYER_TALENT_UPDATE" then
+        or event == "PLAYER_TALENT_UPDATE"
+        or event == "ACTIVE_TALENT_GROUP_CHANGED" then
         self:InvalidateCaches()
         self:RequestRefresh()
 
-        -- A respec changes the detected role, but the talent API can lag the
-        -- event by a moment, so an immediate re-read may still see the OLD spec.
-        -- Re-evaluate once more shortly after so the new spec's role and score
-        -- appear without a /reload. Guarded so the burst of talent/equipment
+        -- A respec or spec swap changes the detected role, but the talent API can
+        -- lag the event by a moment, so an immediate re-read may still see the OLD
+        -- spec. Re-evaluate once more shortly after so the new spec's role and
+        -- score appear without a /reload. Guarded so the burst of talent/equipment
         -- events can't stack timers.
-        if (event == "CHARACTER_POINTS_CHANGED" or event == "PLAYER_TALENT_UPDATE")
+        if (event == "CHARACTER_POINTS_CHANGED" or event == "PLAYER_TALENT_UPDATE"
+            or event == "ACTIVE_TALENT_GROUP_CHANGED")
             and C_Timer and C_Timer.After and not self.talentRecheckPending then
             self.talentRecheckPending = true
 

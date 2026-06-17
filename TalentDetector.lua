@@ -125,12 +125,12 @@ function TalentDetector:IsPlausiblePoints(value)
         and value == math.floor(value)
 end
 
-function TalentDetector:GetTalentTabNameAndPoints(tabIndex, isInspect)
+function TalentDetector:GetTalentTabNameAndPoints(tabIndex, isInspect, talentGroup)
     if not GetTalentTabInfo then
         return nil, 0
     end
 
-    local r1, r2, r3, r4, r5 = GetTalentTabInfo(tabIndex, isInspect)
+    local r1, r2, r3, r4, r5 = GetTalentTabInfo(tabIndex, isInspect, false, talentGroup)
     local name, points
 
     if type(r1) == "string" then
@@ -152,6 +152,24 @@ function TalentDetector:GetTalentTabNameAndPoints(tabIndex, isInspect)
     return name, points
 end
 
+-- Which talent group (spec) is currently ACTIVE. Dual-spec servers (and Wrath+)
+-- let a character keep two specs; reading a fixed group 1 would always report
+-- the PRIMARY spec even while the secondary is active. Defaults to 1 where the
+-- API is absent (single-spec clients).
+function TalentDetector:GetActiveTalentGroupIndex(isInspect)
+    local fn = GetActiveTalentGroup or GetActiveSpecGroup
+
+    if fn then
+        local ok, g = pcall(fn, isInspect)
+
+        if ok and type(g) == "number" and g > 0 then
+            return g
+        end
+    end
+
+    return 1
+end
+
 -- Sums each talent tab's spent points for the player (isInspect=false) or the
 -- last-inspected unit (isInspect=true). Per-talent ranks via GetTalentInfo are
 -- the most reliable source - GetTalentTabInfo's pointsSpent is unreliable on
@@ -162,13 +180,14 @@ end
 -- inspected unit, so an inspect read must happen right after its INSPECT_READY.
 -- Returns bestIndex, totalPoints, bestName, and the per-tab points table.
 function TalentDetector:GetDominantTree(isInspect)
+    local group = self:GetActiveTalentGroupIndex(isInspect)
     local numTabs = (GetNumTalentTabs and GetNumTalentTabs(isInspect)) or 3
     local haveRankApi = GetTalentInfo and GetNumTalents
     local names, rankPoints, tabInfoPoints = {}, {}, {}
     local rankTotal = 0
 
     for tabIndex = 1, numTabs do
-        local name, tabPts = self:GetTalentTabNameAndPoints(tabIndex, isInspect)
+        local name, tabPts = self:GetTalentTabNameAndPoints(tabIndex, isInspect, group)
         names[tabIndex] = name
         tabInfoPoints[tabIndex] = tabPts or 0
 
@@ -178,7 +197,7 @@ function TalentDetector:GetDominantTree(isInspect)
             local count = GetNumTalents(tabIndex, isInspect, false) or 0
 
             for talentIndex = 1, count do
-                local rank = select(5, GetTalentInfo(tabIndex, talentIndex, isInspect, false, 1))
+                local rank = select(5, GetTalentInfo(tabIndex, talentIndex, isInspect, false, group))
                 ranks = ranks + (tonumber(rank) or 0)
             end
         end
