@@ -152,46 +152,75 @@ function TalentDetector:GetTalentTabNameAndPoints(tabIndex, isInspect)
     return name, points
 end
 
--- Reads the inspected unit's dominant talent tree. On TBC/Classic the inspect
--- points from GetTalentTabInfo(tab, true) are unreliable (they can echo the
--- VIEWER's own talents), so - like LibClassicInspector - we sum each tab's
--- talent ranks via GetTalentInfo(tab, talent, true). The inspect APIs take no
--- unit argument: they read the LAST inspected unit, so the caller must invoke
--- this only right after that unit's INSPECT_READY. Falls back to the tab-info
--- points when the per-talent API is unavailable (older clients / tests).
-function TalentDetector:GetInspectDominantTree()
-    local numTabs = (GetNumTalentTabs and GetNumTalentTabs(true)) or 3
+-- Sums each talent tab's spent points for the player (isInspect=false) or the
+-- last-inspected unit (isInspect=true). Per-talent ranks via GetTalentInfo are
+-- the most reliable source - GetTalentTabInfo's pointsSpent is unreliable on
+-- some clients (it can read zero, or echo the viewer's own talents on inspect)
+-- and the tab ORDER can differ - but we fall back to the tab-info points for
+-- any tab whose ranks come back empty, so a quirk in either API alone can't
+-- blank out a spec. The inspect APIs take no unit argument: they read the LAST
+-- inspected unit, so an inspect read must happen right after its INSPECT_READY.
+-- Returns bestIndex, totalPoints, bestName, and the per-tab points table.
+function TalentDetector:GetDominantTree(isInspect)
+    local numTabs = (GetNumTalentTabs and GetNumTalentTabs(isInspect)) or 3
     local haveRankApi = GetTalentInfo and GetNumTalents
-    local bestIndex, bestPoints, totalPoints = nil, -1, 0
+    local names, rankPoints, tabInfoPoints = {}, {}, {}
+    local rankTotal = 0
 
     for tabIndex = 1, numTabs do
-        local tabPoints = 0
+        local name, tabPts = self:GetTalentTabNameAndPoints(tabIndex, isInspect)
+        names[tabIndex] = name
+        tabInfoPoints[tabIndex] = tabPts or 0
+
+        local ranks = 0
 
         if haveRankApi then
-            local count = GetNumTalents(tabIndex, true, false) or 0
+            local count = GetNumTalents(tabIndex, isInspect, false) or 0
 
             for talentIndex = 1, count do
-                local rank = select(5, GetTalentInfo(tabIndex, talentIndex, true, false, 1))
-                tabPoints = tabPoints + (tonumber(rank) or 0)
+                local rank = select(5, GetTalentInfo(tabIndex, talentIndex, isInspect, false, 1))
+                ranks = ranks + (tonumber(rank) or 0)
             end
-        else
-            local _, points = self:GetTalentTabNameAndPoints(tabIndex, true)
-            tabPoints = points or 0
         end
 
-        totalPoints = totalPoints + tabPoints
+        rankPoints[tabIndex] = ranks
+        rankTotal = rankTotal + ranks
+    end
 
-        if tabPoints > bestPoints then
-            bestPoints = tabPoints
+    -- Per-talent ranks are the most reliable source, but on some clients they
+    -- come back empty while GetTalentTabInfo still reports the spent points (and
+    -- on others the reverse). Use the rank totals when they sum above zero,
+    -- otherwise the tab-info points - so a quirk in either API alone can't blank
+    -- out a spec (which is what made a 41-point Holy priest fall through to
+    -- ambiguous gear detection and read as Shadow/DPS).
+    local chosen = (haveRankApi and rankTotal > 0) and rankPoints or tabInfoPoints
+
+    local bestIndex, bestPoints, totalPoints = nil, -1, 0
+    local points = {}
+
+    for tabIndex = 1, numTabs do
+        local p = chosen[tabIndex] or 0
+        points[tabIndex] = { name = names[tabIndex], points = p }
+        totalPoints = totalPoints + p
+
+        if p > bestPoints then
+            bestPoints = p
             bestIndex = tabIndex
         end
     end
 
     if not bestIndex or totalPoints == 0 then
-        return nil, 0
+        return nil, 0, nil, points
     end
 
-    local bestName = (self:GetTalentTabNameAndPoints(bestIndex, true))
+    local best = points[bestIndex]
+
+    return bestIndex, totalPoints, best and best.name, points
+end
+
+-- Dominant tree of the last-inspected unit (see GetDominantTree).
+function TalentDetector:GetInspectDominantTree()
+    local bestIndex, totalPoints, bestName = self:GetDominantTree(true)
 
     return bestIndex, totalPoints, bestName
 end
@@ -373,13 +402,21 @@ end
 
 function TalentDetector:GetDetectedProfile()
     local className = GSPlus.Calculator:GetPlayerClass()
-    local bestTreeIndex, points, totalPoints = self:GetDominantTreeIndex()
+    -- Same robust read as inspected units: sum per-talent ranks (with a
+    -- GetTalentTabInfo points fallback) and map by the dominant tree's NAME,
+    -- so a client where GetTalentTabInfo's pointsSpent is unreliable - or that
+    -- returns tabs out of order - still resolves the right spec instead of
+    -- falling through to ambiguous gear detection (e.g. a Holy priest in
+    -- generic +spell-damage gear that reads like Shadow).
+    local bestTreeIndex, totalPoints, bestName, points = self:GetDominantTree(false)
     local defaultProfile = GSPlus.Profiles:GetDefaultProfileForClass(className)
     local profileKey
 
     if bestTreeIndex and (totalPoints or 0) > 0 then
         local classProfiles = self.CLASS_TREE_PROFILES[className]
-        profileKey = (classProfiles and classProfiles[bestTreeIndex]) or defaultProfile
+        profileKey = self:ProfileForTreeName(className, bestName)
+            or (classProfiles and classProfiles[bestTreeIndex])
+            or defaultProfile
 
         if profileKey == "DRUID_FERAL" then
             profileKey = self:ResolveFeralProfile()

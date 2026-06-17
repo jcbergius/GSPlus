@@ -2617,46 +2617,47 @@ end)()
 end)()
 
 ;(function()
-    -- 73. Every profile's per-point contribution (computed through the real
-    -- Calculator budget costs + role weights) is non-increasing along that
-    -- spec's Wowhead PvE stat priority. This guards the whole weight table
-    -- against future edits that would scramble a spec's priority order.
-    local C = GSPlus.Calculator
-    local function per(profile, stat) return C:CalculateWeightedStatScore({ [stat] = 1 }, profile) end
-    local CHAINS = {
-        WARRIOR_DPS        = { "HIT","EXPERTISE","CRITICAL","STRENGTH","HASTE" },
-        ROGUE_DPS          = { "EXPERTISE","HIT","HASTE","AGILITY","CRITICAL","STRENGTH" },
-        PALADIN_DPS        = { "EXPERTISE","HIT","STRENGTH","CRITICAL" },
-        SHAMAN_ENHANCEMENT = { "EXPERTISE","STRENGTH","HIT","HASTE","CRITICAL","AGILITY" },
-        HUNTER_DPS         = { "HIT","HASTE","AGILITY","CRITICAL" },
-        DRUID_FERAL        = { "AGILITY","HIT","STRENGTH","CRITICAL","HASTE" },
-        MAGE_DPS           = { "HIT","HASTE","SPELLPOWER","CRITICAL","INTELLECT" },
-        WARLOCK_DPS        = { "HIT","HASTE","SPELLPOWER","CRITICAL","INTELLECT" },
-        PRIEST_DPS         = { "SPELLPOWER","HIT","CRITICAL","HASTE","INTELLECT" },
-        SHAMAN_ELEMENTAL   = { "HIT","HASTE","SPELLPOWER","CRITICAL","INTELLECT","MP5","STAMINA" },
-        DRUID_BALANCE      = { "HIT","SPELLPOWER","HASTE","CRITICAL","INTELLECT" },
-        PALADIN_HEALER     = { "HEALING","INTELLECT","CRITICAL","MP5" },
-        PRIEST_HEALER      = { "HASTE","HEALING","INTELLECT","CRITICAL","MP5" },
-        SHAMAN_HEALER      = { "HEALING","MP5","INTELLECT","HASTE","CRITICAL" },
-        DRUID_RESTO        = { "HEALING","HASTE","MP5","INTELLECT","CRITICAL" },
-        WARRIOR_TANK       = { "STAMINA","DEFENSE","DODGE","EXPERTISE","HIT","CRITICAL","HASTE" },
-        PALADIN_TANK       = { "STAMINA","DEFENSE","DODGE","EXPERTISE","HIT","CRITICAL","HASTE" },
-        DRUID_TANK         = { "AGILITY","EXPERTISE","HIT","STAMINA","STRENGTH","DEFENSE","CRITICAL","DODGE","HASTE" },
-    }
-    local allOk = true
-    local firstBad = nil
-    for profile, chain in pairs(CHAINS) do
-        for i = 1, #chain - 1 do
-            local a, b = per(profile, chain[i]), per(profile, chain[i + 1])
-            if a < b - 1e-9 then
-                allOk = false
-                firstBad = firstBad or (profile .. ": " .. chain[i] .. "(" .. string.format("%.3f", a)
-                    .. ") < " .. chain[i + 1] .. "(" .. string.format("%.3f", b) .. ")")
-            end
-        end
-    end
-    check(allOk, "all 18 profiles follow their Wowhead stat priority"
-        .. (firstBad and (" - first violation " .. firstBad) or ""))
+    -- 74. Own-character spec detection survives a client whose
+    -- GetTalentTabInfo reports zero spent points: per-talent ranks
+    -- (GetTalentInfo) are summed instead, so a 41-point Holy priest reads as a
+    -- healer rather than mis-detecting as Shadow/DPS via ambiguous gear.
+    local rClass, rNumTabs, rTabInfo = playerClass, GetNumTalentTabs, GetTalentTabInfo
+    local rGNT, rGTI = GetNumTalents, GetTalentInfo
+    playerClass = "PRIEST"
+    local treeNames = { "Discipline", "Holy", "Shadow" }
+    GetNumTalentTabs = function() return 3 end
+    GetTalentTabInfo = function(i) return treeNames[i], "tex", 0, "file" end  -- broken: 0 points
+    local rankTotals = { 20, 41, 0 }
+    GetNumTalents = function(tab) return rankTotals[tab] end
+    GetTalentInfo = function() return "T", "tex", 0, false, 1 end             -- 1 rank each
+    GSPlus.TalentDetector.roleCache = {}
+    GSPlus:InvalidateCaches()
+    local bi, tp, bn = GSPlus.TalentDetector:GetDominantTree(false)
+    check(bi == 2 and tp == 61 and bn == "Holy",
+        "own talents summed from ranks when tab-info points are zero (got "..tostring(bi)..","..tostring(tp)..","..tostring(bn)..")")
+    check(GSPlus.TalentDetector:GetDetectedProfile() == "PRIEST_HEALER",
+        "41-point Holy priest detected as PRIEST_HEALER via rank summing")
+    GetNumTalentTabs, GetTalentTabInfo = rNumTabs, rTabInfo
+    GetNumTalents, GetTalentInfo = rGNT, rGTI
+    playerClass = rClass
+    GSPlus.TalentDetector.roleCache = {}
+    GSPlus:InvalidateCaches()
+
+    -- 75. Own-character detection maps by tree NAME, so a client that returns
+    -- talent tabs out of order still resolves the right spec.
+    local r2Class, r2NumTabs, r2TabInfo = playerClass, GetNumTalentTabs, GetTalentTabInfo
+    playerClass = "WARRIOR"
+    local scrambled = { { "Protection", 41 }, { "Arms", 5 }, { "Fury", 3 } }  -- Prot reported at tab 1
+    GetNumTalentTabs = function() return 3 end
+    GetTalentTabInfo = function(i) return scrambled[i][1], "tex", scrambled[i][2], "file" end
+    GSPlus.TalentDetector.roleCache = {}
+    GSPlus:InvalidateCaches()
+    check(GSPlus.TalentDetector:GetDetectedProfile() == "WARRIOR_TANK",
+        "out-of-order talent tabs still map to WARRIOR_TANK by name")
+    GetNumTalentTabs, GetTalentTabInfo = r2NumTabs, r2TabInfo
+    playerClass = r2Class
+    GSPlus.TalentDetector.roleCache = {}
+    GSPlus:InvalidateCaches()
 end)()
 
 

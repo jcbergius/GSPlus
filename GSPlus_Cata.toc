@@ -2,7 +2,7 @@
 # NOTE: verify/bump this Interface number when the Cata Classic client ships.
 ## Title: gs+
 ## Author: Jonathan Bergius
-## Version: 2.5.0
+## Version: 2.5.1
 ## Notes: Role-aware gear scores for you, your group, and everyone you mouse over - zero configuration
 ## SavedVariables: GSPlusSavedVars
 ## X-Category: Inventory
