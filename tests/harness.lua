@@ -2820,6 +2820,32 @@ end)()
         "weapon DPS breakdown contribution includes the cost (got "..string.format("%.1f", dpsRow and dpsRow.finalContribution or -1)..")")
 end)()
 
+;(function()
+    -- 84. Shift-hovering an inspected player's item brings up YOUR equipped item
+    -- in that slot as a comparison. Robust to clients where IsModifiedClick
+    -- ("COMPAREITEMS") is unrecognized (shift accepted directly) and to inspected
+    -- items not yet cached (equip slot resolved via GetItemInfoInstant).
+    local rGT, rInst, rSW, rInv, rST1, rST2, rIMC =
+        GameTooltip, GetItemInfoInstant, GetScreenWidth, GetInventoryItemLink, ShoppingTooltip1, ShoppingTooltip2, IsModifiedClick
+    local myFeet = "|cffffffff|Hitem:7777::::::::70:::::|h[My Boots]|h|r"
+    GetItemInfoInstant = function() return 8888, "Armor", "Cloth", "INVTYPE_FEET" end
+    GetScreenWidth = function() return 1920 end
+    IsModifiedClick = function() return false end                 -- COMPAREITEMS not recognized on this client
+    GetInventoryItemLink = function(unit) return unit == "player" and myFeet or nil end
+    local function mkShop() local t = {}
+        function t:SetOwner() end function t:ClearAllPoints() end function t:SetPoint() end
+        function t:SetHyperlink(l) t.shownLink = l end function t:Show() t.shown = true end
+        return t end
+    ShoppingTooltip1, ShoppingTooltip2 = mkShop(), mkShop()
+    GameTooltip = { GetRight = function() return 1850 end }        -- inspect tooltip near the right edge
+    GSPlus.Tooltip:ShowOwnGearComparisonForInspect(GameTooltip,
+        "|cffa335ee|Hitem:9993::::::::70:::::|h[Inspected Boots]|h|r")
+    check(ShoppingTooltip1.shownLink == myFeet and ShoppingTooltip1.shown == true,
+        "inspect shift-compare shows the viewer's equipped item (got " .. tostring(ShoppingTooltip1.shownLink) .. ")")
+    GameTooltip, GetItemInfoInstant, GetScreenWidth, GetInventoryItemLink, ShoppingTooltip1, ShoppingTooltip2, IsModifiedClick =
+        rGT, rInst, rSW, rInv, rST1, rST2, rIMC
+end)()
+
 
 realPrint(failures == 0 and "ALL TESTS PASSED" or (failures .. " TEST(S) FAILED"))
 os.exit(failures == 0 and 0 or 1)

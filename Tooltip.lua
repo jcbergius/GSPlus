@@ -492,19 +492,40 @@ function Tooltip:ShowOwnGearComparisonForInspect(tooltip, itemLink)
         return
     end
 
+    -- Shift is the default comparison modifier; accept it directly because the
+    -- "COMPAREITEMS" modified-click type isn't recognized on every client (so
+    -- relying on IsModifiedClick alone silently disabled the comparison here).
     local wantCompare = (IsModifiedClick and IsModifiedClick("COMPAREITEMS"))
+        or (IsShiftKeyDown and IsShiftKeyDown())
         or (GetCVarBool and GetCVarBool("alwaysCompareItems"))
 
     if not wantCompare then
         return
     end
 
-    local equipLoc = itemLink and select(9, GetItemInfo(itemLink))
+    -- GetItemInfoInstant resolves the equip slot from the item ID even when the
+    -- inspected player's item is not in our cache yet (GetItemInfo returns nil
+    -- for uncached links, which left slots == nil and showed nothing).
+    local equipLoc
+    if GetItemInfoInstant then
+        equipLoc = select(4, GetItemInfoInstant(itemLink))
+    end
+    if not equipLoc or equipLoc == "" then
+        equipLoc = itemLink and select(9, GetItemInfo(itemLink))
+    end
+
     local slots = equipLoc and self.EQUIPLOC_TO_SLOTS[equipLoc]
 
     if not slots then
         return
     end
+
+    -- Place the comparison on the side with room: to the LEFT when the item
+    -- tooltip sits near the right screen edge (the usual inspect-window case),
+    -- otherwise to the right. Anchoring blindly right pushed it off-screen.
+    local screenW = (GetScreenWidth and GetScreenWidth()) or 1024
+    local tipRight = (tooltip.GetRight and tooltip:GetRight()) or screenW
+    local toLeft = tipRight > screenW * 0.6
 
     local compareTooltips = { ShoppingTooltip1, ShoppingTooltip2 }
     local shown = 0
@@ -522,7 +543,13 @@ function Tooltip:ShowOwnGearComparisonForInspect(tooltip, itemLink)
                 shopping:SetOwner(tooltip, "ANCHOR_NONE")
                 shopping:ClearAllPoints()
 
-                if shown == 1 then
+                if toLeft then
+                    if shown == 1 then
+                        shopping:SetPoint("TOPRIGHT", tooltip, "TOPLEFT", -4, -10)
+                    else
+                        shopping:SetPoint("TOPRIGHT", compareTooltips[1], "TOPLEFT", -4, 0)
+                    end
+                elseif shown == 1 then
                     shopping:SetPoint("TOPLEFT", tooltip, "TOPRIGHT", 4, -10)
                 else
                     shopping:SetPoint("TOPLEFT", compareTooltips[1], "TOPRIGHT", 4, 0)
