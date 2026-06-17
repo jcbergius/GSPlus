@@ -2772,6 +2772,18 @@ end)()
         string.format("a mid-tier feral 2H is no longer capped at red (ratio %.2f)", colorRef > 0 and midFeral/colorRef or -1))
 end)()
 
+;(function()
+    -- 80. Weapon DPS carries a budget-cost multiplier so weapon-centric specs
+    -- (melee, hunters) get proper credit. Previously 1 DPS = 1 point with a
+    -- weight capped at 1.0, badly under-scoring a hunter's bow.
+    local C = GSPlus.Calculator
+    check((C.WEAPON_DPS_BUDGET_COST or 1) > 1, "weapon DPS has a budget-cost multiplier > 1")
+    local dpsW = C:GetEffectiveWeight("HUNTER_DPS", "RANGED_WEAPON_DPS", false)
+    local bowScore = C:CalculateWeaponScore({ WEAPON_DPS = 200 }, "HUNTER_DPS", "RangedSlot", nil)
+    check(math.abs(bowScore - 200 * C.WEAPON_DPS_BUDGET_COST * dpsW) < 0.01,
+        "weapon score applies the DPS budget cost (got " .. string.format("%.1f", bowScore) .. ")")
+end)()
+
 
 realPrint(failures == 0 and "ALL TESTS PASSED" or (failures .. " TEST(S) FAILED"))
 os.exit(failures == 0 and 0 or 1)

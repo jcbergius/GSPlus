@@ -60,7 +60,6 @@ Weights.PROFILE_WEIGHTS = {
         EXPERTISE = 0.95,
         ARMOR_PENETRATION = 0.9,
         MELEE_WEAPON_DPS = 1,
-        MELEE_WEAPON_DAMAGE = 0.45,
     },
 
     -- Survival: Stamina/Defense/avoidance (uncrittable); Threat: Expertise > Hit > Str/Crit
@@ -82,7 +81,6 @@ Weights.PROFILE_WEIGHTS = {
         RESILIENCE = 0.55,
         ARMOR_PENETRATION = 0.1,
         MELEE_WEAPON_DPS = 0.4,
-        MELEE_WEAPON_DAMAGE = 0.2,
     },
 
     -- Expertise > Hit > Strength/AP > Crit/Agility
@@ -98,7 +96,6 @@ Weights.PROFILE_WEIGHTS = {
         EXPERTISE = 1,
         ARMOR_PENETRATION = 0.3,
         MELEE_WEAPON_DPS = 1,
-        MELEE_WEAPON_DAMAGE = 0.45,
     },
 
     -- Survival: Stamina/Defense/avoidance; Threat: Spell Power/Expertise/Hit
@@ -121,7 +118,6 @@ Weights.PROFILE_WEIGHTS = {
         RESILIENCE = 0.55,
         MP5 = 0.1,
         MELEE_WEAPON_DPS = 0.3,
-        MELEE_WEAPON_DAMAGE = 0.15,
     },
 
     -- Healing > Intellect > Spell Crit > MP5 > Stamina
@@ -149,7 +145,6 @@ Weights.PROFILE_WEIGHTS = {
         HASTE = 0.85,
         ARMOR_PENETRATION = 0.95,
         RANGED_WEAPON_DPS = 1,
-        RANGED_WEAPON_DAMAGE = 0.5,
     },
 
     -- Expertise > Hit > Haste > Agility > Crit > Str/AP > ArmorPen
@@ -165,7 +160,6 @@ Weights.PROFILE_WEIGHTS = {
         EXPERTISE = 1,
         ARMOR_PENETRATION = 0.85,
         MELEE_WEAPON_DPS = 1,
-        MELEE_WEAPON_DAMAGE = 0.45,
     },
 
     -- Spell Haste > Healing > Int/Spirit > Crit > MP5
@@ -215,7 +209,6 @@ Weights.PROFILE_WEIGHTS = {
         EXPERTISE = 1,
         ARMOR_PENETRATION = 0.3,
         MELEE_WEAPON_DPS = 1,
-        MELEE_WEAPON_DAMAGE = 0.45,
     },
 
     -- Healing > MP5 > Int > Spell Haste > Crit > Stamina
@@ -317,7 +310,6 @@ Weights.PROFILE_WEIGHTS = {
         RESILIENCE = 0.35,
         WEAPON_SKILL = 0.5,
         MELEE_WEAPON_DPS = 1,
-        MELEE_WEAPON_DAMAGE = 0.45,
     },
 
     DEATHKNIGHT_TANK = {
@@ -336,7 +328,6 @@ Weights.PROFILE_WEIGHTS = {
         RESILIENCE = 0.65,
         HP5 = 0.15,
         MELEE_WEAPON_DPS = 0.35,
-        MELEE_WEAPON_DAMAGE = 0.15,
     },
 
 }

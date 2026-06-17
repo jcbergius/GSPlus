@@ -11,6 +11,13 @@ Calculator.ITEMIZATION_MODE = "TBC"
 -- sum - see CalculateWeightedStatScore - so this only shapes the Budget Score.)
 Calculator.ITEM_BUDGET_EXPONENT = 1.5
 
+-- Weapon DPS is the dominant source of a melee/hunter's power but, unlike every
+-- other stat, was scored at face value (1 DPS = 1 point) with a role weight
+-- capped at 1.0 - under-crediting the weapon for specs built around it (a
+-- hunter's bow most of all). This StatMod scales raw weapon DPS up to a
+-- stat-equivalent magnitude, exactly as STAT_BUDGET_COST does for other stats.
+Calculator.WEAPON_DPS_BUDGET_COST = 2.0
+
 -- Headroom applied to every color reference so RED means true best-in-slot,
 -- not merely "as good as a representative endgame piece". The reference items
 -- (ReferenceGear.lua / the static fallback caps) approximate strong raid gear
@@ -525,7 +532,7 @@ function Calculator:CalculateWeaponScore(stats, profileKey, slotKey, itemLink)
     local dpsWeight = self:GetEffectiveWeight(profileKey, dpsWeightKey, false)
     local damageWeight = self:GetEffectiveWeight(profileKey, damageWeightKey, false)
 
-    return (weaponDps * dpsWeight) + (averageDamage * damageWeight)
+    return (weaponDps * self.WEAPON_DPS_BUDGET_COST * dpsWeight) + (averageDamage * damageWeight)
 end
 
 function Calculator:CalculateWeightedScore(stats, profileKey, slotKey, itemLink, applyCaps)
