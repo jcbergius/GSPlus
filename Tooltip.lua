@@ -496,6 +496,13 @@ function Tooltip:GetInspectCompareTooltips()
     if not self.inspectCompare1 and CreateFrame then
         self.inspectCompare1 = CreateFrame("GameTooltip", "GSPlusInspectCompare1", UIParent, "GameTooltipTemplate")
         self.inspectCompare2 = CreateFrame("GameTooltip", "GSPlusInspectCompare2", UIParent, "GameTooltipTemplate")
+
+        -- Hook them like any item tooltip so the viewer's own equipped item gets
+        -- a gs+ line too. SetHyperlink fires OnTooltipSetItem; their owner is
+        -- UIParent (not an "Inspect" slot), so GetInspectContext returns nil and
+        -- the item scores under the VIEWER's profile - "my item's score".
+        self:HookTooltip(self.inspectCompare1)
+        self:HookTooltip(self.inspectCompare2)
     end
 
     return self.inspectCompare1, self.inspectCompare2

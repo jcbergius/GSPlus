@@ -2863,6 +2863,43 @@ end)()
         rGT, rInst, rSW, rInv, rIMC
 end)()
 
+;(function()
+    -- 85. The viewer's own item, shown as the inspect shift-comparison, gets its
+    -- own gs+ line - scored under the VIEWER's profile (its owner is UIParent,
+    -- not an Inspect slot, so it is NOT treated as an inspected item).
+    local c1 = GSPlus.Tooltip:GetInspectCompareTooltips()
+    check(c1 and c1.hook_OnTooltipSetItem ~= nil, "inspect comparison frames are hooked for scoring")
+
+    local realClass = playerClass
+    playerClass = "WARRIOR"
+    GSPlus:InvalidateCaches()
+    local savedShow = GSPlus.Options:Get("showItemTooltip")
+    GSPlus.Options:Set("showItemTooltip", true)
+    InspectFrame.unit = "paltank"; InspectFrame:Show()        -- inspecting a paladin
+
+    c1.addedLines = {}
+    c1.bgsScoreAdded = nil
+    c1.GetItem = function() return "Test Healer Robe", chestLink end
+    c1.GetOwner = function() return { GetName = function() return "UIParent" end } end
+    c1.AddLine = function(self, t) self.addedLines[#self.addedLines+1] = t or "" end
+    c1.AddDoubleLine = function(self, l, r) self.addedLines[#self.addedLines+1] = (l or "") .. " | " .. (r or "") end
+    c1.Show = function() end
+
+    GSPlus.Tooltip:AddGearScoreToTooltip(c1)
+    local sawWarrior, sawPaladin = false, false
+    for _, line in ipairs(c1.addedLines) do
+        if string.find(line, "Warrior", 1, true) then sawWarrior = true end
+        if string.find(line, "Paladin", 1, true) then sawPaladin = true end
+    end
+    check(sawWarrior and not sawPaladin,
+        "comparison item gets a gs+ line under the viewer's profile, not the inspected player's")
+
+    InspectFrame:Hide()
+    GSPlus.Options:Set("showItemTooltip", savedShow)
+    playerClass = realClass
+    GSPlus:InvalidateCaches()
+end)()
+
 
 realPrint(failures == 0 and "ALL TESTS PASSED" or (failures .. " TEST(S) FAILED"))
 os.exit(failures == 0 and 0 or 1)
