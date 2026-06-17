@@ -35,8 +35,21 @@ local function updateTooltipFontStrings(frame)
     if not frame.name then return end
     for i = 1, 40 do
         local line = frame.lines[i]
-        _G[frame.name .. "TextLeft" .. i] = { GetText = function() return line end }
-        _G[frame.name .. "TextRight" .. i] = { GetText = function() return nil end }
+        local text, r, g, b
+        if type(line) == "table" then
+            text, r, g, b = line.text, line.r, line.g, line.b
+        else
+            text = line
+        end
+        r, g, b = r or 1, g or 1, b or 1
+        _G[frame.name .. "TextLeft" .. i] = {
+            GetText = function() return text end,
+            GetTextColor = function() return r, g, b end,
+        }
+        _G[frame.name .. "TextRight" .. i] = {
+            GetText = function() return nil end,
+            GetTextColor = function() return 1, 1, 1 end,
+        }
     end
 end
 
@@ -2658,6 +2671,31 @@ end)()
     playerClass = r2Class
     GSPlus.TalentDetector.roleCache = {}
     GSPlus:InvalidateCaches()
+end)()
+
+;(function()
+    -- 76. Socket bonus is scored only when ACTIVE. WoW greys the "Socket Bonus"
+    -- line when the socketed gems don't match the socket colours; a grey
+    -- (unmet) bonus must not be counted, while the gems themselves always are.
+    local function beltLines(active)
+        local sb = active and { text = "Socket Bonus: +3 Agility", r = 0.1, g = 1.0, b = 0.1 }
+                          or  { text = "Socket Bonus: +3 Agility", r = 0.5, g = 0.5, b = 0.5 }
+        return { "Belt", "Waist", "Mail", "+21 Stamina", "+8 Strength", "+8 Strength", sb }
+    end
+    local actLink = "|cffa335ee|Hitem:5101::::::::70:::::|h[Active Socket Belt]|h|r"
+    local inactLink = "|cffa335ee|Hitem:5102::::::::70:::::|h[Inactive Socket Belt]|h|r"
+    fakeItems[actLink] = { name = "Active Socket Belt", equipLoc = "INVTYPE_WAIST", ilvl = 120 }
+    fakeItems[inactLink] = { name = "Inactive Socket Belt", equipLoc = "INVTYPE_WAIST", ilvl = 120 }
+    fakeTooltips[actLink] = beltLines(true)
+    fakeTooltips[inactLink] = beltLines(false)
+    GSPlus.ItemParser:InvalidateStatsCache()
+    local act = GSPlus.ItemParser:ParseItemStats(actLink)
+    GSPlus.ItemParser:InvalidateStatsCache()
+    local inact = GSPlus.ItemParser:ParseItemStats(inactLink)
+    check(act.AGILITY == 3, "active (green) socket bonus is scored (got "..tostring(act.AGILITY)..")")
+    check((inact.AGILITY or 0) == 0, "inactive (grey) socket bonus is NOT scored (got "..tostring(inact.AGILITY)..")")
+    check(act.STRENGTH == 16 and inact.STRENGTH == 16, "socketed gems counted regardless of socket-bonus state")
+    GSPlus.ItemParser:InvalidateStatsCache()
 end)()
 
 

@@ -482,11 +482,15 @@ function ItemParser:ScanTooltipStats(itemLink, stats)
         local rightText = rightLine and rightLine:GetText()
 
         if leftText then
-            self:ParseTooltipLine(leftText, stats)
+            local r, g, b
+            if leftLine.GetTextColor then r, g, b = leftLine:GetTextColor() end
+            self:ParseTooltipLine(leftText, stats, r, g, b)
         end
 
         if rightText then
-            self:ParseTooltipLine(rightText, stats)
+            local r, g, b
+            if rightLine.GetTextColor then r, g, b = rightLine:GetTextColor() end
+            self:ParseTooltipLine(rightText, stats, r, g, b)
         end
     end
 
@@ -674,7 +678,7 @@ function ItemParser:GetDefenseRatingTotal(unit)
     return total
 end
 
-function ItemParser:ParseTooltipLine(text, stats)
+function ItemParser:ParseTooltipLine(text, stats, r, g, b)
     text = self:CleanTooltipText(text)
 
     if not text or text == "" then
@@ -698,7 +702,7 @@ function ItemParser:ParseTooltipLine(text, stats)
         return
     end
 
-    if self:ParseSocketBonusTooltipLine(text, stats) then
+    if self:ParseSocketBonusTooltipLine(text, stats, r, g, b) then
         return
     end
 
@@ -1001,11 +1005,21 @@ function ItemParser:CountPlusSigns(text)
     return count
 end
 
-function ItemParser:ParseSocketBonusTooltipLine(text, stats)
+function ItemParser:ParseSocketBonusTooltipLine(text, stats, r, g, b)
     local socketBonusText = string.match(text, "^Socket Bonus:%s*(.+)$")
 
     if not socketBonusText then
         return false
+    end
+
+    -- WoW greys out the "Socket Bonus" line when the socketed gems don't match
+    -- the socket colours, so the bonus is NOT active in-game. Only score it when
+    -- active (the line is green; an unmet bonus is grey ~ 0.5/0.5/0.5). When the
+    -- colour is unavailable (older path / tests without colour) default to
+    -- counting it, preserving prior behaviour. The gems themselves are scored
+    -- from their own lines either way.
+    if r and g and b and r < 0.6 and g < 0.6 and b < 0.6 then
+        return true
     end
 
     if self:ParseRegenEffect(socketBonusText, stats, true) then
