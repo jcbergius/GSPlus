@@ -2795,6 +2795,31 @@ end)()
     check(r and (r.WEAPON_DPS or 0) > 0, "the hunter reference's ranged slot is a weapon (bow) with DPS")
 end)()
 
+;(function()
+    -- 82. Ranged-weapon scopes are scored: "Scope (+28 Critical Strike Rating)"
+    -- is unwrapped so the crit counts (it's a permanent part of the weapon).
+    local lk = "|cffa335ee|Hitem:9992::::::::70:::::|h[ScopedXbow]|h|r"
+    fakeItems[lk] = { name="ScopedXbow", equipLoc="INVTYPE_RANGEDRIGHT", ilvl=120 }
+    fakeTooltips[lk] = { "ScopedXbow","Ranged","Crossbow","155 - 288 Damage","Speed 2.80",
+        "Scope (+28 Critical Strike Rating)", "Equip: Increases attack power by 30." }
+    GSPlus.ItemParser:InvalidateStatsCache()
+    local sc = GSPlus.ItemParser:ParseItemStats(lk)
+    check(sc.CRITICAL == 28, "scope crit is scored (got "..tostring(sc.CRITICAL)..")")
+    check(sc.ATTACKPOWER == 30, "weapon equip stats still parse alongside the scope")
+    GSPlus.ItemParser:InvalidateStatsCache()
+
+    -- 83. The breakdown's weapon-DPS row applies WEAPON_DPS_BUDGET_COST, matching
+    -- the real score instead of under-displaying the weapon.
+    local rows = GSPlus.Tooltip:BuildWeaponContributionRows({ WEAPON_DPS = 79.1 }, "HUNTER_DPS", "RangedSlot", nil)
+    local dpsRow
+    for _, r in ipairs(rows) do if (r.statName or ""):find("Weapon DPS") then dpsRow = r end end
+    local cost = GSPlus.Calculator.WEAPON_DPS_BUDGET_COST
+    local w = GSPlus.Weights:GetWeight("HUNTER_DPS","RANGED_WEAPON_DPS")
+    check(dpsRow and math.abs(dpsRow.budgetCost - cost) < 1e-9, "weapon DPS breakdown row shows the budget cost")
+    check(dpsRow and math.abs(dpsRow.finalContribution - 79.1*cost*w) < 0.01,
+        "weapon DPS breakdown contribution includes the cost (got "..string.format("%.1f", dpsRow and dpsRow.finalContribution or -1)..")")
+end)()
+
 
 realPrint(failures == 0 and "ALL TESTS PASSED" or (failures .. " TEST(S) FAILED"))
 os.exit(failures == 0 and 0 or 1)

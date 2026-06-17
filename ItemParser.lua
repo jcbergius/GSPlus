@@ -681,6 +681,15 @@ end
 function ItemParser:ParseTooltipLine(text, stats, r, g, b)
     text = self:CleanTooltipText(text)
 
+    -- Ranged-weapon scopes show their bonus wrapped, e.g.
+    -- "Scope (+28 Critical Strike Rating)". Unwrap so the inner stat is scored
+    -- like any other "+N Stat" line (it's a permanent part of the weapon).
+    local scopeInner = string.match(text, "^Scope%s*%((.+)%)$")
+        or string.match(text, "^Scope:%s*(.+)$")
+    if scopeInner then
+        text = scopeInner
+    end
+
     if not text or text == "" then
         return
     end

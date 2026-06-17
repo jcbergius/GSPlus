@@ -147,14 +147,15 @@ function Tooltip:BuildWeaponContributionRows(stats, profileKey, slotKey, itemLin
     local dpsWeight = GSPlus.Weights:GetWeight(profileKey, dpsWeightKey)
     local damageWeight = GSPlus.Weights:GetWeight(profileKey, damageWeightKey)
 
-    local dpsContribution = weaponDps * dpsWeight
+    local dpsCost = GSPlus.Calculator.WEAPON_DPS_BUDGET_COST or 1.0
+    local dpsContribution = weaponDps * dpsCost * dpsWeight
     local damageContribution = averageDamage * damageWeight
 
     if dpsContribution > 0 then
         rows[#rows + 1] = {
             statName = dpsWeightKey == "RANGED_WEAPON_DPS" and "Ranged Weapon DPS" or "Melee Weapon DPS",
             rawValue = weaponDps,
-            budgetCost = 1.0,
+            budgetCost = dpsCost,
             roleWeight = dpsWeight,
             finalContribution = dpsContribution,
         }
