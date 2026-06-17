@@ -2,7 +2,7 @@
 
 GSPlus = GSPlus or {}
 
-GSPlus.VERSION = "2.5.4"
+GSPlus.VERSION = "2.5.5"
 GSPlus.ItemParser = GSPlus.ItemParser or {}
 GSPlus.Calculator = GSPlus.Calculator or {}
 GSPlus.Weights = GSPlus.Weights or {}

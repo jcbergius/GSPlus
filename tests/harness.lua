@@ -2756,6 +2756,22 @@ end)()
     GSPlus.TalentDetector.roleCache = {}; GSPlus:InvalidateCaches()
 end)()
 
+;(function()
+    -- 79. Feral druid weapons are coloured against a reference that now carries
+    -- feral attack power. Previously the 2H reference had none, so every feral
+    -- weapon (Karazhan or Sunwell) saturated at red. A mid-tier feral 2H must now
+    -- sit below the red cap.
+    local C = GSPlus.Calculator
+    local RG = GSPlus.ReferenceGear.REFERENCE_GEAR_BY_FLAVOR.TBC
+    check((RG.TANK.INVTYPE_2HWEAPON.FERAL_ATTACKPOWER or 0) > 0
+        and (RG.PHYSICAL_DPS.INVTYPE_2HWEAPON.FERAL_ATTACKPOWER or 0) > 0,
+        "2H weapon reference carries feral attack power for druid groups")
+    local colorRef = C:CalculateWeightedScore(RG.TANK.INVTYPE_2HWEAPON, "DRUID_TANK", "MainHandSlot", nil) * C.COLOR_REFERENCE_HEADROOM
+    local midFeral = C:CalculateWeightedStatScore({ STRENGTH=30, AGILITY=55, STAMINA=45, FERAL_ATTACKPOWER=620, HIT=20 }, "DRUID_TANK")
+    check(colorRef > 0 and (midFeral / colorRef) < 1.0,
+        string.format("a mid-tier feral 2H is no longer capped at red (ratio %.2f)", colorRef > 0 and midFeral/colorRef or -1))
+end)()
+
 
 realPrint(failures == 0 and "ALL TESTS PASSED" or (failures .. " TEST(S) FAILED"))
 os.exit(failures == 0 and 0 or 1)
