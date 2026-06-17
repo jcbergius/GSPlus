@@ -199,6 +199,13 @@ function Profiles:UseAutomaticProfileDetection()
     GSPlusSavedVars.useManualProfile = nil
     GSPlusSavedVars.selectedProfile = nil
 
+    -- Drop cached detection/scores so switching to Automatic re-evaluates from
+    -- scratch (talents + gear). Without this, a role cached before a respec is
+    -- simply re-displayed and "Auto" appears to do nothing.
+    if GSPlus.InvalidateCaches then
+        GSPlus:InvalidateCaches()
+    end
+
     GSPlus:RefreshUI()
 end
 

@@ -2698,6 +2698,20 @@ end)()
     GSPlus.ItemParser:InvalidateStatsCache()
 end)()
 
+;(function()
+    -- 77. Selecting "Automatic" forces a fresh re-evaluation: it clears the
+    -- detection caches so a role cached before a respec isn't just re-displayed
+    -- (the cause of "I respecced but Auto still shows the old spec").
+    GSPlus.TalentDetector.roleCache = { ["CLASS_FALLBACK:DRUID"] = "DRUID_RESTO" }
+    GSPlusSavedVars = GSPlusSavedVars or {}
+    GSPlusSavedVars.manualProfileByChar = { [GSPlus.Profiles:GetCharacterKey()] = "DRUID_RESTO" }
+    GSPlus.Profiles:UseAutomaticProfileDetection()
+    check(GSPlus.TalentDetector.roleCache == nil,
+        "selecting Automatic clears the detection role cache (forces re-evaluation)")
+    check(GSPlusSavedVars.manualProfileByChar[GSPlus.Profiles:GetCharacterKey()] == nil,
+        "selecting Automatic clears the manual profile override")
+end)()
+
 
 realPrint(failures == 0 and "ALL TESTS PASSED" or (failures .. " TEST(S) FAILED"))
 os.exit(failures == 0 and 0 or 1)

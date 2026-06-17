@@ -2,7 +2,7 @@
 
 GSPlus = GSPlus or {}
 
-GSPlus.VERSION = "2.5.2"
+GSPlus.VERSION = "2.5.3"
 GSPlus.ItemParser = GSPlus.ItemParser or {}
 GSPlus.Calculator = GSPlus.Calculator or {}
 GSPlus.Weights = GSPlus.Weights or {}
@@ -131,6 +131,22 @@ function GSPlus:OnEvent(event, ...)
         or event == "PLAYER_TALENT_UPDATE" then
         self:InvalidateCaches()
         self:RequestRefresh()
+
+        -- A respec changes the detected role, but the talent API can lag the
+        -- event by a moment, so an immediate re-read may still see the OLD spec.
+        -- Re-evaluate once more shortly after so the new spec's role and score
+        -- appear without a /reload. Guarded so the burst of talent/equipment
+        -- events can't stack timers.
+        if (event == "CHARACTER_POINTS_CHANGED" or event == "PLAYER_TALENT_UPDATE")
+            and C_Timer and C_Timer.After and not self.talentRecheckPending then
+            self.talentRecheckPending = true
+
+            C_Timer.After(1.5, function()
+                GSPlus.talentRecheckPending = false
+                GSPlus:InvalidateCaches()
+                GSPlus:RequestRefresh()
+            end)
+        end
     elseif event == "GET_ITEM_INFO_RECEIVED" then
         -- Only react if we previously failed to parse an item because the
         -- server had not sent its data yet - and batch the reaction: this
