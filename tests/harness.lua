@@ -2784,6 +2784,17 @@ end)()
         "weapon score applies the DPS budget cost (got " .. string.format("%.1f", bowScore) .. ")")
 end)()
 
+;(function()
+    -- 81. Hunters use a dedicated RANGED reference (hunter-sized attack power) so
+    -- generic Attack Power - which raises ranged AP - is credited without being
+    -- measured against melee-sized flat AP (which made hunters score far too low).
+    local C = GSPlus.Calculator
+    check(C:GetProfileColorCapGroup("HUNTER_DPS") == "RANGED", "hunters use the RANGED color/reference group")
+    check(GSPlus.Weights:GetWeight("HUNTER_DPS","ATTACKPOWER") > 0, "hunters value generic Attack Power (raises ranged AP)")
+    local r = GSPlus.ReferenceGear:GetStats("RANGED","INVTYPE_RANGED")
+    check(r and (r.WEAPON_DPS or 0) > 0, "the hunter reference's ranged slot is a weapon (bow) with DPS")
+end)()
+
 
 realPrint(failures == 0 and "ALL TESTS PASSED" or (failures .. " TEST(S) FAILED"))
 os.exit(failures == 0 and 0 or 1)

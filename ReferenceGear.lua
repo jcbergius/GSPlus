@@ -99,6 +99,38 @@ ReferenceGear.REFERENCE_GEAR_BY_FLAVOR = {
             INVTYPE_RELIC = { ATTACKPOWER = 59, RANGED_ATTACKPOWER = 29, WEAPON_DPS = 110, WEAPON_AVERAGE_DAMAGE = 200 },
         },
 
+        -- Hunters: agility-led, attack power at HUNTER levels (not the higher melee
+        -- AP), and the ranged weapon (bow/gun) as their primary weapon. Kept
+        -- separate from PHYSICAL_DPS so a hunter is measured against hunter-sized
+        -- AP - generic Attack Power (which raises ranged AP) is credited without
+        -- being held to a melee's flat-AP totals. AP is a single stat here so a
+        -- hunter weighting both ATTACKPOWER and RANGED_ATTACKPOWER can't double-count.
+        RANGED = {
+            INVTYPE_HEAD = { AGILITY = 45, STAMINA = 40, ATTACKPOWER = 60, CRITICAL = 35, HIT = 20 },
+            INVTYPE_NECK = { AGILITY = 25, STAMINA = 22, ATTACKPOWER = 36, CRITICAL = 20 },
+            INVTYPE_SHOULDER = { AGILITY = 33, STAMINA = 30, ATTACKPOWER = 46, CRITICAL = 25 },
+            INVTYPE_CLOAK = { AGILITY = 24, STAMINA = 20, ATTACKPOWER = 36, HIT = 15 },
+            INVTYPE_CHEST = { AGILITY = 45, STAMINA = 42, ATTACKPOWER = 62, CRITICAL = 35, HIT = 18 },
+            INVTYPE_ROBE = { AGILITY = 45, STAMINA = 42, ATTACKPOWER = 62, CRITICAL = 35, HIT = 18 },
+            INVTYPE_WRIST = { AGILITY = 20, STAMINA = 18, ATTACKPOWER = 30, CRITICAL = 16 },
+            INVTYPE_HAND = { AGILITY = 32, STAMINA = 30, ATTACKPOWER = 46, CRITICAL = 26 },
+            INVTYPE_WAIST = { AGILITY = 32, STAMINA = 30, ATTACKPOWER = 46, CRITICAL = 25, HIT = 16 },
+            INVTYPE_LEGS = { AGILITY = 44, STAMINA = 42, ATTACKPOWER = 62, CRITICAL = 38 },
+            INVTYPE_FEET = { AGILITY = 32, STAMINA = 30, ATTACKPOWER = 44, CRITICAL = 25 },
+            INVTYPE_FINGER = { AGILITY = 22, STAMINA = 18, ATTACKPOWER = 34, CRITICAL = 18 },
+            INVTYPE_TRINKET = { ATTACKPOWER = 80, CRITICAL = 40 },
+            INVTYPE_WEAPON = { AGILITY = 20, STAMINA = 18, ATTACKPOWER = 32, CRITICAL = 18 },
+            INVTYPE_WEAPONMAINHAND = { AGILITY = 20, STAMINA = 18, ATTACKPOWER = 32, CRITICAL = 18 },
+            INVTYPE_WEAPONOFFHAND = { AGILITY = 20, STAMINA = 18, ATTACKPOWER = 32, CRITICAL = 18 },
+            INVTYPE_HOLDABLE = { AGILITY = 15, STAMINA = 18, ATTACKPOWER = 25 },
+            INVTYPE_SHIELD = { AGILITY = 15, STAMINA = 25, ATTACKPOWER = 25 },
+            INVTYPE_2HWEAPON = { AGILITY = 35, STAMINA = 45, ATTACKPOWER = 70, CRITICAL = 40 },
+            INVTYPE_RANGED = { AGILITY = 18, STAMINA = 15, ATTACKPOWER = 26, CRITICAL = 16, WEAPON_DPS = 200, WEAPON_AVERAGE_DAMAGE = 350 },
+            INVTYPE_RANGEDRIGHT = { AGILITY = 18, STAMINA = 15, ATTACKPOWER = 26, CRITICAL = 16, WEAPON_DPS = 200, WEAPON_AVERAGE_DAMAGE = 350 },
+            INVTYPE_THROWN = { AGILITY = 18, STAMINA = 15, ATTACKPOWER = 26, CRITICAL = 16, WEAPON_DPS = 200, WEAPON_AVERAGE_DAMAGE = 350 },
+            INVTYPE_RELIC = { AGILITY = 18, ATTACKPOWER = 26, WEAPON_DPS = 200, WEAPON_AVERAGE_DAMAGE = 350 },
+        },
+
         TANK = {
             INVTYPE_HEAD = { STAMINA = 65, DEFENSE = 35, DODGE = 30, AGILITY = 20, ARMOR = 1200, PARRY = 14, HIT = 7, EXPERTISE = 6, BLOCK = 10 },
             INVTYPE_NECK = { STAMINA = 38, DEFENSE = 22, DODGE = 18, PARRY = 14, HIT = 7, EXPERTISE = 6 },
